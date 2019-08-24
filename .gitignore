@@ -1,0 +1,4 @@
+py_sc_fermi.egg-info
+**/__pycache__
+**/.ipynb_checkpoints
+**/.nbgrader.log
