@@ -26,6 +26,18 @@ class TestDefectChargeState(unittest.TestCase):
         self.defect_charge_state = DefectChargeState(charge=charge, 
                                                      energy=energy, 
                                                      degeneracy=degeneracy)
+
+    def test_charge_property(self):
+        self.assertEqual( self.defect_charge_state.charge, self.defect_charge_state._charge )
+   
+    def test_energy_property(self):
+        self.assertEqual( self.defect_charge_state.energy, self.defect_charge_state._energy )
+   
+    def test_degeneracy_property(self):
+        self.assertEqual( self.defect_charge_state.degeneracy, self.defect_charge_state._degeneracy )
+   
+    def test_concentration_is_fixed_property(self):
+        self.assertEqual( self.defect_charge_state.concentration_is_fixed, self.defect_charge_state._fixed_concentration )
    
     def test_get_formation_energy(self):
         e_fermi = 1.2

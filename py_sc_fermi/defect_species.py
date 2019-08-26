@@ -1,13 +1,57 @@
 import numpy as np
 
 class DefectSpecies(object):
+    """Class for individual defect species.
+
+    Attribute:
+        name (str): An identifying string for this defect species, e.g. `V_O`.
+        nsites (int): The number of sites in the unit cell where this defect may reside.
+        charge_states (dict): A dictionary of charge states. Each key-value pair 
+            is charge (int): charge-state (`DefectChargeState` or 
+            `FrozenDefectChargeState`).
+        fixed_concentration (optional, :obj:`float`): If set, this fixes the net
+            concentration of this defect species per unit cell. If not set, the
+            concentration of this defect species will depend on the system conditions.
+
+    """
     
     def __init__(self, name, nsites, charge_states):
-        self.name = name
-        self.nsites = nsites
-        self.charge_states = {cs.charge: cs for cs in charge_states}
-        self.fixed_concentration = None
-        
+        """Instantiate a DefectSpecies object.
+
+        Args:
+            name (str): An identifying string for this defect species, e.g. `V_O`.
+            nsites (int): Number of sites in the unit cell where this defect may exist.
+            charge_states (list of :obj:`DefectChargeState`
+                                or :obj:`FrozenDefectChargeState` objects): A list of
+                          defect charge state objects (these may be fixed-concentration
+                          charge states)
+
+        Returns:
+            None
+
+        """
+
+        self._name = name
+        self._nsites = nsites
+        self._charge_states = {cs.charge: cs for cs in charge_states}
+        self._fixed_concentration = None
+    
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def nsites(self):
+        return self._nsites
+
+    @property
+    def charge_states(self):
+        return self._charge_states
+
+    @property
+    def fixed_concentration(self):
+        return self._fixed_concentration
+ 
     def __repr__(self):
         to_return =  f'\n{self.name}, nsites={self.nsites}' 
         if self.fixed_concentration:
