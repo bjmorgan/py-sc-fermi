@@ -50,7 +50,7 @@ def read_input_data(filename, verbose=True, frozen=False):
         l = pure_readin.pop(0).split()
         name = l[0] 
         ncharge = int(l[1])
-        nsite = int(l[2])
+        nsites = int(l[2])
         if verbose:
             if ncharge <= 0:
                 print(f"ERROR: defect {len[ndefects]+1} has idiotic number of charge states!!")
@@ -63,7 +63,7 @@ def read_input_data(filename, verbose=True, frozen=False):
             energies.append(float(l[1]))
             degs.append(int(l[2]))
         charge_states  = [ DefectChargeState(c, e, d) for c, e, d in zip( charges, energies, degs ) ]
-        defect_species.append( DefectSpecies(name, nsite, charge_states) )
+        defect_species.append( DefectSpecies(name, nsites, charge_states) )
     return { 'defect_species': defect_species,
              'egap': egap,
              'temperature': temperature,

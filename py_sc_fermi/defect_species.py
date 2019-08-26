@@ -83,7 +83,6 @@ class DefectSpecies(object):
         energy = q1 * trans_level + form_eners[q1]
         return (trans_level, energy)
 
-    
     @property
     def charges(self):
         """
@@ -108,8 +107,9 @@ class DefectSpecies(object):
         return { q: cs for q, cs in self.charge_states.items() if not cs.fixed_concentration }
 
     def charge_state_concentrations(self, e_fermi, temperature):
-        cs_concentrations = { cs.charge: cs.get_concentration(e_fermi, temperature, self.nsites) 
-                     for cs in self.charge_states.values() }
+        cs_concentrations = {}
+        for cs in self.charge_states.values():
+            cs_concentrations[cs.charge] = cs.get_concentration(e_fermi, temperature) * self.nsites
         if self.fixed_concentration:
             fixed_conc = sum( [ c for q, c in cs_concentrations.items() 
                                 if q in self.fixed_conc_charge_states() ] )
