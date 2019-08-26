@@ -1,5 +1,6 @@
 import numpy as np
 from .defect_species import DefectSpecies
+from .defect_charge_state import DefectChargeState
 
 def read_unitcell_data(filename, verbose=True):
     with open(filename, 'r') as f:
@@ -14,7 +15,7 @@ def read_unitcell_data(filename, verbose=True):
         print(f"Volume of cell: {volume} A^3")
     return volume
 
-def read_input_data(filename, verbose=True):
+def read_input_data(filename, verbose=True, frozen=False):
     with open(filename, 'r') as f:
         readin = f.readlines()
         pure_readin = [ l for l in readin if l[0] != '#']
@@ -61,7 +62,8 @@ def read_input_data(filename, verbose=True):
             charges.append(float(l[0]))
             energies.append(float(l[1]))
             degs.append(int(l[2]))
-        defect_species.append(DefectSpecies(name, ncharge, nsite, charges, energies, degs))
+        charge_states  = [ DefectChargeState(c, e, d) for c, e, d in zip( charges, energies, degs ) ]
+        defect_species.append( DefectSpecies(name, nsite, charge_states) )
     return { 'defect_species': defect_species,
              'egap': egap,
              'temperature': temperature,

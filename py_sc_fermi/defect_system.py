@@ -14,7 +14,25 @@ class DefectSystem(object):
         self.temperature = temperature
         self.kT = kboltz * temperature
         self.normalise_dos()
-        
+
+    def __repr__(self):
+        to_return = [f'DefectSystem\n',
+                     f'  nelect: {self.nelect} e\n',
+                     f'  egap:   {self.egap} eV\n',
+                     f'  volume: {self.volume} A^3\n',
+                     f'  temperature: {self.temperature} K\n',
+                     f'\nContains defect species:\n']
+        for ds in self.defect_species:
+            to_return.append(str(ds))
+        return ''.join(to_return)
+
+    def defect_species_by_name(self, name):
+        return [ ds for ds in self.defect_species if ds.name == name ][0]
+
+    @property
+    def defect_species_names(self):
+        return [ ds.name for ds in self.defect_species ]
+    
     def normalise_dos(self):
         vbm_index = np.where(self.edos <= 0)[0][-1]
         sum1 = np.trapz(self.dos[:vbm_index+2], self.edos[:vbm_index+2]) # BJM: possible off-by-one error?
@@ -37,23 +55,27 @@ class DefectSystem(object):
         print(f'SC Fermi level :      {e_fermi}  (eV)\n')
         p0, n0 = self.carrier_concentrations(e_fermi)
         print( 'Concentrations:')
-        print( f'n (electrons)  : {n0* 1e24 / self.volume} cm^-3')
+        print( f'n (electrons)  : {n0 * 1e24 / self.volume} cm^-3')
         print( f'p (holes)      : {p0 * 1e24 / self.volume} cm^-3')
-        concall = []
         for ds in self.defect_species:
-            concall.append( ds.get_concentration(e_fermi, self.temperature))
-            print( f'{ds.name}      : {concall[-1] * 1e24 / self.volume} cm^-3')
+            concall = ds.get_concentration(e_fermi, self.temperature)
+            print( f'{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3')
         print()
         print('Breakdown of concentrations for each defect charge state:')
-        for i, ds in enumerate(self.defect_species):
+        for ds in self.defect_species:
+            charge_state_concentrations = ds.charge_state_concentrations(e_fermi, self.temperature)
+            concall = ds.get_concentration(e_fermi, self.temperature)
             print('---------------------------------------------------------')
-            if concall[i] == 0:
-                print( f'{ds.name}      : Zero total - cannot give breakdown')
+            if concall == 0.0:
+                print( f'{ds.name:11}: Zero total - cannot give breakdown')
                 continue
-            print(f'{ds.name}      : Charge Concentration(cm^-3) Total')
-            for j, (q, cs) in enumerate(ds.charge_states.items()): 
-                conc = cs.get_concentration(e_fermi,self.temperature, ds.nsite)
-                print(f'           : {q} {conc * 1e24 / self.volume} {(conc*100 / concall[i]):.2f}')
+            print(f'{ds.name:11}: Charge Concentration(cm^-3) Total')
+            for q, conc in charge_state_concentrations.items():
+                if ds.charge_states[q].fixed_concentration:
+                    fix_str = ' [fixed]'
+                else:
+                    fix_str = ''
+                print(f'           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}')
 
 
     def carrier_concentrations(self, e_fermi):
@@ -71,13 +93,11 @@ class DefectSystem(object):
         rhs = 0.0
         # get defect concentrations at E_F
         for ds in self.defect_species:
-            for q, cs in ds.charge_states.items():
-                if q != 0:
-                    concd = cs.get_concentration( e_fermi, self.temperature, ds.nsite)
-                    if q < 0:
-                        rhs += concd * abs(cs.charge)
-                    else:
-                        lhs += concd * abs(cs.charge)
+            for q, concd in ds.charge_state_concentrations( e_fermi, self.temperature ).items():
+                if q < 0:
+                    rhs += concd * abs(q)
+                elif q > 0:
+                    lhs += concd * abs(q)
         return lhs, rhs
     
     def q_tot(self, e_fermi):
@@ -91,6 +111,21 @@ class DefectSystem(object):
     def abs_q_tot(self, e_fermi):
         return abs( self.q_tot(e_fermi) )
 
+    def check_concentrations(self):
+        for ds in self.defect_species:
+            if not ds.fixed_concentration:
+                continue
+            fixed_concentrations = [ cs.concentration for cs in ds.charge_states.values() 
+                                         if cs.fixed_concentration ]
+            if sum(fixed_concentrations) > ds.fixed_concentration:
+                raise ValueError(f'ERROR: defect {ds.name} has a fixed'
+                                 +'total concentration less than'
+                                 +'the sum of its fixed concentration charge states.')
+            if len(fixed_concentrations) == len(ds.charge_states):
+                if sum(fixed_concentrations) != ds.fixed_concentration:
+                    raise ValueError(f'ERROR: defect {ds.name} has fixed concentrations'
+                                     +'for all charge states, but the sum of these concentrations'
+                                     +'does not equal the fixed total concentration.')
 # Possibly better as class methods that integrate over a certain energy range.
 def p_func(e_fermi, dos, edos, kT):
     return dos / (1.0 + np.exp((e_fermi - edos)/kT))

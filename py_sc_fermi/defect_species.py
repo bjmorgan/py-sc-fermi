@@ -1,16 +1,20 @@
 import numpy as np
-from .defect_charge_state import DefectChargeState
 
 class DefectSpecies(object):
     
-    def __init__(self, name, ncharge, nsite, charges, energies, degs):
+    def __init__(self, name, nsites, charge_states):
         self.name = name
-        self.ncharge = ncharge
-        self.nsite = nsite
-        self.charge_states = {c: DefectChargeState(c, e, d) for c, e, d in zip( charges, energies, degs) }
+        self.nsites = nsites
+        self.charge_states = {cs.charge: cs for cs in charge_states}
+        self.fixed_concentration = None
         
     def __repr__(self):
-        return '\n'.join([ f'{self.name}, site={self.nsite}' ] + [ cs.__repr__() for cs in self.charge_states ])
+        to_return =  f'\n{self.name}, nsites={self.nsites}' 
+        if self.fixed_concentration:
+            to_return += f'\nfixed [c] = {self.fixed_concentration} cm^-3'
+        to_return += '\n'+''.join([ f'  {cs.__repr__()}\n' 
+            for cs in self.charge_states.values() ])
+        return to_return
     
     def charge_states_by_energy( self, delphi ):
         return sorted( defect_species[0].charge_states, key=lambda x: x.energy(delphi) )
@@ -92,6 +96,28 @@ class DefectSpecies(object):
         return self.charge_states.keys()
     
     def get_concentration(self, e_fermi, temperature):
-        return sum( [ cs.get_concentration(e_fermi, temperature, self.nsite) for cs in self.charge_states.values() ] )
+        if self.fixed_concentration:
+            return self.fixed_concentration
+        else:
+            return sum( self.charge_state_concentrations( e_fermi, temperature ).values() )
 
+    def fixed_conc_charge_states(self):
+        return { q: cs for q, cs in self.charge_states.items() if cs.fixed_concentration }
 
+    def variable_conc_charge_states(self):
+        return { q: cs for q, cs in self.charge_states.items() if not cs.fixed_concentration }
+
+    def charge_state_concentrations(self, e_fermi, temperature):
+        cs_concentrations = { cs.charge: cs.get_concentration(e_fermi, temperature, self.nsites) 
+                     for cs in self.charge_states.values() }
+        if self.fixed_concentration:
+            fixed_conc = sum( [ c for q, c in cs_concentrations.items() 
+                                if q in self.fixed_conc_charge_states() ] )
+            variable_conc = sum( [ c for q, c in cs_concentrations.items() 
+                                   if q in self.variable_conc_charge_states() ] )
+            constrained_conc = self.fixed_concentration - fixed_conc
+            scaling = constrained_conc / variable_conc
+            for q in cs_concentrations:
+                if q in self.variable_conc_charge_states():
+                    cs_concentrations[q] *= scaling
+        return cs_concentrations    
