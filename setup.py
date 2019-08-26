@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from site_analysis import __version__ as VERSION
+from py_sc_fermi import __version__ as VERSION
 
 readme = 'README.md'
 long_description = open( readme ).read()
