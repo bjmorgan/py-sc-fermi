@@ -2,7 +2,22 @@ import numpy as np
 
 from .constants import kboltz
 
-class DefectChargeState(object):
+class TemplateChargeState(object):
+
+    @property
+    def concentration_is_fixed(self):
+        """Return True|False if the concentration of this charge state is fixed."""
+        return self._fixed_concentration
+ 
+    @property
+    def charge(self):
+        """Get the charge of this charge state."""
+        return self._charge
+
+    def get_concentration(self, e_fermi):
+        raise NotImplementedError('get_concentration() should be implemented in the inhereting class')
+ 
+class DefectChargeState(TemplateChargeState):
     """Class for individual defect charge states"""
     
     def __init__(self, charge, energy, degeneracy):
@@ -25,21 +40,15 @@ class DefectChargeState(object):
         self._fixed_concentration = False
        
     @property
-    def charge(self):
-        return self._charge
-
-    @property
     def energy(self):
+        """Get the energy of this charge state at E_Fermi = E(VBM)."""
         return self._energy
 
     @property
     def degeneracy(self):
+        """Get the degeneracy of this charge state."""
         return self._degeneracy
 
-    @property
-    def concentration_is_fixed(self):
-        return self._fixed_concentration
- 
     def get_formation_energy(self, e_fermi):
         """Calculate the formation energy of this charge state at a 
         specified Fermi energy.
@@ -72,7 +81,7 @@ class DefectChargeState(object):
     def __repr__(self):
         return f'q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}'
 
-class FrozenDefectChargeState(object):
+class FrozenDefectChargeState(TemplateChargeState):
     """Class for individual defect charge states with fixed concentrations"""
 
     def __init__(self, charge, concentration):
@@ -92,16 +101,14 @@ class FrozenDefectChargeState(object):
 
     @property
     def charge(self):
+        """Get the charge of this charge state."""
         return self._charge
 
     @property
     def concentration(self):
+        """Get the fixed concentration of this charge state."""
         return self._concentration
 
-    @property
-    def concentration_is_fixed(self):
-        return self._fixed_concentration
- 
     def get_concentration(self, e_fermi, temperature):
         """Convenience method to return the concentration of this charge state,
         per site in the unit cell.
