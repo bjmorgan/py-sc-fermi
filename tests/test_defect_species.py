@@ -15,11 +15,11 @@ class TestDefectSpeciesInit(unittest.TestCase):
         defect_species = DefectSpecies( name=name,
                                         nsites=nsites,
                                         charge_states=mock_charge_states )
-        self.assertEqual( defect_species.name, name )
-        self.assertEqual( defect_species.nsites, nsites )
-        self.assertEqual( defect_species.charge_states[0], mock_charge_states[0] )
-        self.assertEqual( defect_species.charge_states[1], mock_charge_states[1] )
-        self.assertEqual( defect_species.fixed_concentration, None )
+        self.assertEqual( defect_species._name, name )
+        self.assertEqual( defect_species._nsites, nsites )
+        self.assertEqual( defect_species._charge_states[0], mock_charge_states[0] )
+        self.assertEqual( defect_species._charge_states[1], mock_charge_states[1] )
+        self.assertEqual( defect_species._fixed_concentration, None )
 
 if __name__ == '__main__':
     unittest.main()
