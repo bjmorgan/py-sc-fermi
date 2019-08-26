@@ -8,20 +8,24 @@ class TestDefectChargeStateInit(unittest.TestCase):
     def test_defect_charge_state_is_initialised(self):
         charge = 1.0
         energy = 123.4
-        deg = 2
-        defect_charge_state = DefectChargeState(charge=charge, energy=energy, deg=deg)
-        self.assertEqual( defect_charge_state.charge, charge )
-        self.assertEqual( defect_charge_state.energy, energy )
-        self.assertEqual( defect_charge_state.deg, deg )
-        self.assertEqual( defect_charge_state.fixed_concentration, False )
+        degeneracy = 2
+        defect_charge_state = DefectChargeState(charge=charge, 
+                                                energy=energy, 
+                                                degeneracy=degeneracy)
+        self.assertEqual( defect_charge_state._charge, charge )
+        self.assertEqual( defect_charge_state._energy, energy )
+        self.assertEqual( defect_charge_state._degeneracy, degeneracy )
+        self.assertEqual( defect_charge_state._fixed_concentration, False )
 
 class TestDefectChargeState(unittest.TestCase):
 
     def setUp(self):
         charge = 1.0
         energy = 0.1234
-        deg = 2
-        self.defect_charge_state = DefectChargeState(charge=charge, energy=energy, deg=deg)
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(charge=charge, 
+                                                     energy=energy, 
+                                                     degeneracy=degeneracy)
    
     def test_get_formation_energy(self):
         e_fermi = 1.2
@@ -40,10 +44,11 @@ class TestFrozenDefectChargeStateInit(unittest.TestCase):
     def test_frozen_defect_charge_state_is_initialised(self):
         charge = 1.0
         concentration = 123.4
-        defect_charge_state = FrozenDefectChargeState(charge=charge, concentration=concentration)
-        self.assertEqual( defect_charge_state.charge, charge )
-        self.assertEqual( defect_charge_state.concentration, concentration )
-        self.assertEqual( defect_charge_state.fixed_concentration, True )
+        defect_charge_state = FrozenDefectChargeState(charge=charge, 
+                                                      concentration=concentration)
+        self.assertEqual( defect_charge_state._charge, charge )
+        self.assertEqual( defect_charge_state._concentration, concentration )
+        self.assertEqual( defect_charge_state._fixed_concentration, True )
 
 class TestFrozenDefectChargeState(unittest.TestCase):
 

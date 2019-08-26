@@ -71,7 +71,7 @@ class DefectSystem(object):
                 continue
             print(f'{ds.name:11}: Charge Concentration(cm^-3) Total')
             for q, conc in charge_state_concentrations.items():
-                if ds.charge_states[q].fixed_concentration:
+                if ds.charge_states[q].concentration_is_fixed:
                     fix_str = ' [fixed]'
                 else:
                     fix_str = ''
@@ -116,7 +116,7 @@ class DefectSystem(object):
             if not ds.fixed_concentration:
                 continue
             fixed_concentrations = [ cs.concentration for cs in ds.charge_states.values() 
-                                         if cs.fixed_concentration ]
+                                         if cs.concentration_is_fixed ]
             if sum(fixed_concentrations) > ds.fixed_concentration:
                 raise ValueError(f'ERROR: defect {ds.name} has a fixed'
                                  +'total concentration less than'

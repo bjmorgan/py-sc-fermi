@@ -101,10 +101,10 @@ class DefectSpecies(object):
             return sum( self.charge_state_concentrations( e_fermi, temperature ).values() )
 
     def fixed_conc_charge_states(self):
-        return { q: cs for q, cs in self.charge_states.items() if cs.fixed_concentration }
+        return { q: cs for q, cs in self.charge_states.items() if cs.concentration_is_fixed }
 
     def variable_conc_charge_states(self):
-        return { q: cs for q, cs in self.charge_states.items() if not cs.fixed_concentration }
+        return { q: cs for q, cs in self.charge_states.items() if not cs.concentration_is_fixed }
 
     def charge_state_concentrations(self, e_fermi, temperature):
         cs_concentrations = {}

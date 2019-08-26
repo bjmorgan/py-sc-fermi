@@ -5,7 +5,7 @@ from .constants import kboltz
 class DefectChargeState(object):
     """Class for individual defect charge states"""
     
-    def __init__(self, charge, energy, deg):
+    def __init__(self, charge, energy, degeneracy):
         """Instantiate a DefectChargeState.
 
         Args:
@@ -13,17 +13,33 @@ class DefectChargeState(object):
             energy (float): Energy of this charge state when E_Fermi = E(VBM) (in eV),
                 including any chemical potential contributions and energy
                 corrections.
-            deg (int): Degeneracy of this charge state (e.g. spin degeneracy).
+            degeneracy (int): Degeneracy of this charge state (e.g. spin degeneracy).
 
         Returns:
             None
 
         """ 
-        self.charge = charge
-        self.energy = energy
-        self.deg = deg
-        self.fixed_concentration = False
-        
+        self._charge = charge
+        self._energy = energy
+        self._degeneracy = degeneracy
+        self._fixed_concentration = False
+       
+    @property
+    def charge(self):
+        return self._charge
+
+    @property
+    def energy(self):
+        return self._energy
+
+    @property
+    def degeneracy(self):
+        return self._degeneracy
+
+    @property
+    def concentration_is_fixed(self):
+        return self._fixed_concentration
+ 
     def get_formation_energy(self, e_fermi):
         """Calculate the formation energy of this charge state at a 
         specified Fermi energy.
@@ -47,23 +63,57 @@ class DefectChargeState(object):
             temperature (float): Temperature (in K).
         
         Returns:
-            (float): Mole fraction of this charge state.
+            (float): Per-site concentration of this charge state.
 
         """
         expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
-        return self.deg * np.exp(expfac)
+        return self.degeneracy * np.exp(expfac)
         
     def __repr__(self):
-        return f'q={self.charge:+2}, e={self.energy}, deg={self.deg}'
+        return f'q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}'
 
 class FrozenDefectChargeState(object):
+    """Class for individual defect charge states with fixed concentrations"""
 
     def __init__(self, charge, concentration):
-        self.charge = charge
-        self.concentration = concentration
-        self.fixed_concentration = True
+        """Instantiate a FrozenDefectChargeState.
 
+        Args:
+            charge (int): Charge of this charge state.
+            concentration (float): Fixed concentration of this charge state per site.
+
+        Returns:
+            None
+
+        """
+        self._charge = charge
+        self._concentration = concentration
+        self._fixed_concentration = True
+
+    @property
+    def charge(self):
+        return self._charge
+
+    @property
+    def concentration(self):
+        return self._concentration
+
+    @property
+    def concentration_is_fixed(self):
+        return self._fixed_concentration
+ 
     def get_concentration(self, e_fermi, temperature):
+        """Convenience method to return the concentration of this charge state,
+        per site in the unit cell.
+
+        Args:
+            e_fermi (float): Position of the Fermi energy, relative to the VBM (in eV).
+            temperature (float): Temperature (in K).
+        
+        Returns:
+            (float): Per-site concentration of this charge state.
+
+        """
         return self.concentration
 
     def __repr__(self):
