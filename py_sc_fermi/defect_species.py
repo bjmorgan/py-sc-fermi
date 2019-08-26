@@ -38,18 +38,24 @@ class DefectSpecies(object):
     
     @property
     def name(self):
+        """The identifying name for this defect species."""
         return self._name
 
     @property
     def nsites(self):
+        """The number of sites per unit cell that this defect species may occupy."""
         return self._nsites
 
     @property
     def charge_states(self):
+        """The charge states for this defect species as s dictionary of
+        charge: defect_state key-value pairs"""
         return self._charge_states
 
     @property
     def fixed_concentration(self):
+        """The fixed net concentration (per unit cell) of this defect species,
+           or `None` if the defect concentrations are free to change"""
         return self._fixed_concentration
  
     def __repr__(self):
@@ -60,8 +66,23 @@ class DefectSpecies(object):
             for cs in self.charge_states.values() ])
         return to_return
     
-    def charge_states_by_energy( self, delphi ):
-        return sorted( defect_species[0].charge_states, key=lambda x: x.energy(delphi) )
+    def charge_states_by_energy( self, e_fermi ):
+        """Returns a list of defect charge states, sorted by increasing formation energy
+        at E_Fermi (relative to E(VBM)).
+
+        Args:
+            e_fermi (float): Fermi energy (in eV) relative to E(VBM).
+
+        Returns:
+            (list(DefectChargeState)): Ordered list of all defect charge states.
+        
+        TODO:
+            Not clear what happens if one or more of the charge states have fixed
+            concentrations. I suspect this breaks, as they will not have energy() 
+            methods.
+
+        """
+        return sorted( defect_species[0].charge_states, key=lambda x: x.energy(e_fermi) )
     
     def min_energy_charge_state( self, e_fermi ):
         return self.charge_states_by_energy( e_fermi )[0]   
