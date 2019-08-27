@@ -53,8 +53,12 @@ class DefectSystem(object):
             print(phi_min)
         return phi_min.x
     
-    def report(self):
-        e_fermi = self.get_sc_fermi(verbose=False)
+    def report(self, emin=None, emax=None, conv=1e-16):
+        if not emin:
+            emin = self.dos.emin()
+        if not emax:
+            emax = self.dos.emax()
+        e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)
         print(f'SC Fermi level :      {e_fermi}  (eV)\n')
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
         print( 'Concentrations:')
