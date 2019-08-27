@@ -35,6 +35,9 @@ class DefectSpecies(object):
         self._nsites = nsites
         self._charge_states = {cs.charge: cs for cs in charge_states}
         self._fixed_concentration = None
+
+    def fix_concentration(self, conc):
+        self._fixed_concentration = conc
     
     @property
     def name(self):
