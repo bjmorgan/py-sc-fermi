@@ -66,35 +66,55 @@ class DefectSpecies(object):
             for cs in self.charge_states.values() ])
         return to_return
     
-    def charge_states_by_energy( self, e_fermi ):
+    def charge_states_by_formation_energy( self, e_fermi ):
         """Returns a list of defect charge states, sorted by increasing formation energy
         at E_Fermi (relative to E(VBM)).
 
         Args:
-            e_fermi (float): Fermi energy (in eV) relative to E(VBM).
+            e_fermi (float): Fermi energy relative to E(VBM) (in eV).
 
         Returns:
             (list(DefectChargeState)): Ordered list of all defect charge states.
         
-        TODO:
-            Not clear what happens if one or more of the charge states have fixed
-            concentrations. I suspect this breaks, as they will not have energy() 
-            methods.
+        Note:
+            Defect charge states with fixed concentrations do not have a defined
+            formation energy, and are not returned in the sorted list.
 
         """
-        return sorted( defect_species[0].charge_states, key=lambda x: x.energy(e_fermi) )
+        return sorted( self.variable_conc_charge_states().values(),
+            key=lambda x: x.get_formation_energy(e_fermi) )
     
     def min_energy_charge_state( self, e_fermi ):
-        return self.charge_states_by_energy( e_fermi )[0]   
-    
-    def get_formation_energy(self, charge, e_fermi):
-        return self.charge_states[charge].get_formation_energy(e_fermi)
+        """Returns the defect charge state with the minimum energy at E_Fermi
+        (relative to E(VBM)).
+
+        Args:
+            e_fermi (float): Fermi energy relative to e(VBM) (in eV).
+
+        Returns:
+            DefectChargeState: The defect charge state with the lowest formation energy.
+
+        """
+        return self.charge_states_by_formation_energy( e_fermi )[0]   
     
     def get_formation_energies(self, e_fermi):
+        """Returns a dictionary of formation energies for all charge states. Formation
+        energies are calculated at E_Fermi relative to E_VBM.
+
+        Args:
+            e_fermi (float): Fermi energy relative to E(VBM) (in eV).
+        
+        Returns:
+            (dict(int:float)): Dictionary of {charge: formation_energy} pairs.
+
+        Notes:
+            Fixed-concentration defect charge states do not have a defined formation
+            energy and are not returned.
+
+        """
         form_eners = {}
-        for q, d in self.charge_states.items():
-            form_eners[q] = self.get_formation_energy(
-                q, e_fermi)
+        for q, cs in self.variable_conc_charge_states().items():
+            form_eners[q] = cs.get_formation_energy( e_fermi )
         return form_eners
     
     def charge_state_at_fermi_energy(self, e_fermi):
@@ -106,7 +126,6 @@ class DefectSpecies(object):
             ef_min)
         form_e = self.get_formation_energies(ef_min)
         points = [(ef_min, form_e[q1])]
-        # TODO: is there a better way to do this?
         while q1 != min(self.charges):
             qlist = [q for q in self.charges if q < q1]
             nextp, nextq = min(((self.get_transition_level_and_energy(
@@ -124,22 +143,18 @@ class DefectSpecies(object):
     
     def get_transition_level_and_energy(self, q1, q2):
         """
-        Get transition level between two charge states
+        Get the transition level between two charge states.
+
         Calculates the Fermi energy (relative to the host VBM) and formation
-        energy for the transition level between charge states q1 and q2, as a
-        function of elemental chemical potentials.
+        energy for the transition level between charge states q1 and q2.
+        
         Args:
             q1 (int): Charge of charge state 1.
             q2 (int): Charge of charge state 2.
-            chem_pots (dict or None): Dictionary of elemental
-                chemical potentials.  Keys are strings identifying
-                elements. Values are the corresponding elemental chemical
-                potentials. If None, set all chemical potentials to zero.
-            correction_keys (list): List of keyword strings for
-                the set of correction terms to include. Defaults to 'default'.
+        
         Returns:
-            2-tuple: Fermi energy (relative to the host VBM) and
-            formation energy of the transition level as tuple of floats
+            (tuple): Fermi energy (relative to the host VBM) and
+            formation energy of the transition level as a tuple of floats
             ``(trans_level, energy)``.
         """
 
