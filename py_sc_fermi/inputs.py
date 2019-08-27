@@ -91,5 +91,5 @@ def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename 
     inputs = {}
     inputs['volume'] = read_unitcell_data(unitcell_filename)
     inputs.update( read_input_data(input_fermi_filename) )
-    inputs['dos'], inputs['edos'] = read_dos_data(totdos_filename, inputs['nspinpol'], inputs['egap'])
+    inputs['dos'] = read_dos_data(totdos_filename, egap=inputs['egap'], nelect=inputs['nelect'])
     return inputs
