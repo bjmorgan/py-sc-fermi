@@ -1,6 +1,7 @@
 import numpy as np
 from .defect_species import DefectSpecies
 from .defect_charge_state import DefectChargeState
+from py_sc_fermi.dos import DOS
 
 def read_unitcell_data(filename, verbose=True):
     with open(filename, 'r') as f:
@@ -70,42 +71,21 @@ def read_input_data(filename, verbose=True, frozen=False):
              'nspinpol': nspinpol,
              'nelect': nelect }
 
-def read_dos_data(filename, nspinpol, egap):
-    with open( filename, 'r') as f:
-        readin = f.readlines()
-        pure_readin = [ l.split() for l in readin if l[0] != '#']
-    edos = []
-    dos = []
-    dosu = []
-    dosd = []
-    countdos = 0
-    if nspinpol == 1:
-        for l in pure_readin:
-            edos.append(float(l[0]))
-            dos.append(float(l[1]))
-            if dos[-1] < 0.0:
-                countdos += 1
-    elif nspinpol == 2:
-        for l in pure_readin:
-            edos.append(float(l[0]))
-            dosu.append(float(l[1]))
-            dosd.append(float(l[2]))
-            if (dosu[-1] < 0.0) or (dosd[-1] < 0.0):
-                countdos += 1
-            dos.append(dosu[-1] + dosd[-1])
-    if countdos > 0:
+def read_dos_data(filename, egap, nelect):
+    data = np.loadtxt(filename)
+    if data.shape[1] == 2:
+        print("Reading non-spin-polarised DOS")
+    elif data.shape[1] == 3:
+        print("Reading spin-polarised DOS")
+    else:
+        raise ValueError("DOS input file does not contain Nx2 or Nx3 elements")
+    edos = data[:,0]
+    dos = np.sum(data[:,1:], axis=1)
+    if np.any( data[:,1:] < 0.0 ):
         print( "WARNING: Found negative value(s) of DOS!" )
         print("         Do you know what you are doing?")
         print("         These may cause serious problems...")
-    numdos = len(edos)
-    emin = edos[0]
-    emax = edos[-1]
-    if egap > emax:
-        # BJM: Not sure why this check is here / implemented like this
-        raise ValueError('ERROR: your conduction band is not present in energy range of DOS!!')
-    dos = np.array(dos)
-    edos = np.array(edos)
-    return dos, edos
+    return DOS(dos=dos, edos=edos, nelect=nelect, egap=egap)
 
 def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename ):
     inputs = {}

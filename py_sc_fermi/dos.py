@@ -3,6 +3,8 @@ import numpy as np
 class DOS(object):
 
     def __init__(self, dos, edos, egap, nelect, normalise=True):
+        if egap > edos[-1]:
+            raise ValueError('ERROR: your conduction band is not present in energy range of DOS!!')
         self._dos = dos
         self._edos = edos
         self._egap = egap
