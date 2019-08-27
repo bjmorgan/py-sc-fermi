@@ -117,15 +117,11 @@ class DefectSpecies(object):
             form_eners[q] = cs.get_formation_energy( e_fermi )
         return form_eners
     
-    def charge_state_at_fermi_energy(self, e_fermi):
-        form_e = self.get_formation_energies(e_fermi)
-        return min([(q, d) for q, d in form_e.items()], key=lambda x: x[1])
-    
     def tl_profile(self, ef_min,  ef_max):
-        q1, d = self.charge_state_at_fermi_energy(
-            ef_min)
-        form_e = self.get_formation_energies(ef_min)
-        points = [(ef_min, form_e[q1])]
+        cs = self.min_energy_charge_state(ef_min)
+        q1 = cs.charge
+        form_e = cs.get_formation_energy(ef_min)
+        points = [(ef_min, form_e)]
         while q1 != min(self.charges):
             qlist = [q for q in self.charges if q < q1]
             nextp, nextq = min(((self.get_transition_level_and_energy(
@@ -137,8 +133,9 @@ class DefectSpecies(object):
                 q1 = nextq
             else:
                 break
-        form_e = self.get_formation_energies(ef_max)
-        points.append((ef_max, form_e[q1]))
+        cs = self.min_energy_charge_state(ef_max)
+        form_e = cs.get_formation_energy(ef_max)
+        points.append((ef_max, form_e))
         return np.array(points)
     
     def get_transition_level_and_energy(self, q1, q2):
