@@ -5,10 +5,22 @@ from py_sc_fermi.dos import DOS
 
 class DefectSystem(object):
     
-    def __init__(self, defect_species, volume, nelect, edos, dos, egap, temperature):
+    def __init__(self, defect_species, dos, volume, temperature):
+        """Initialise a DefectSystem instance.
+
+        Args:
+            defect_species (list(DefectSpecies)): List of DefectSpecies objects.
+            volume (float): Cell volume in A^3.
+            dos (:obj:`DOS`): A DOS object.
+            temperature (float): Temperature in K.
+
+        Returns:
+            None
+
+        """ 
         self.defect_species = defect_species
         self.volume = volume
-        self.dos = DOS( dos=dos, edos=edos, egap=egap, nelect=nelect )
+        self.dos = dos
         self.temperature = temperature
         self.kT = kboltz * temperature
 

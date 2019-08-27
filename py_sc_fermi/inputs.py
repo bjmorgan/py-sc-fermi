@@ -90,7 +90,7 @@ def read_dos_data(filename, nspinpol, egap):
             edos.append(float(l[0]))
             dosu.append(float(l[1]))
             dosd.append(float(l[2]))
-            if (dosu < 0.0) or (dosd < 0.0):
+            if (dosu[-1] < 0.0) or (dosd[-1] < 0.0):
                 countdos += 1
             dos.append(dosu[-1] + dosd[-1])
     if countdos > 0:
