@@ -10,7 +10,7 @@ class TestDOSInit(unittest.TestCase):
         edos = np.linspace(-10.0, 10.0, 100)
         egap = 3.0
         nelect = 10
-        with patch('py_sc_fermi.dos.DOS.normalise_dos') as mock_normalise_dos:
+        with patch('py_sc_fermi.dos.DOS.normalise_dos', autospec=True) as mock_normalise_dos:
             dos = DOS( dos=dos_data, edos=edos, egap=egap, nelect=nelect )
             self.assertEqual( mock_normalise_dos.call_count, 1 )
         np.testing.assert_equal( dos._dos, dos_data )
