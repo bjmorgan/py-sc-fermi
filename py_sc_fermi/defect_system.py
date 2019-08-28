@@ -83,6 +83,20 @@ class DefectSystem(object):
                 else:
                     fix_str = ''
                 print(f'           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}')
+                
+    def to_dict(self, emin=None, emax=None, conv=1e-16):
+        if not emin:
+            emin = self.dos.emin()
+        if not emax:
+            emax = self.dos.emax()
+        e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)
+        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
+        concs = {}
+        for ds in self.defect_species:
+            conc = ds.get_concentration(e_fermi, self.temperature)
+            concs.update({ds.name:conc* 1e24/ self.volume})
+        run_stats = {'Fermi Energy': e_fermi, 'p0': p0 * 1e24/ self.volume, 'n0':p0 * 1e24/ self.volume}
+        return {**run_stats, **concs}
 
     def defect_charge_contributions(self, e_fermi):
         lhs = 0.0
@@ -122,4 +136,13 @@ class DefectSystem(object):
                     raise ValueError(f'ERROR: defect {ds.name} has fixed concentrations'
                                      +'for all charge states, but the sum of these concentrations'
                                      +'does not equal the fixed total concentration.')
+    
+    def get_transition_levels(self):
+        tls = {}
+        for ds in self.defect_species_names:
+            tl = self.defect_species_by_name(ds).tl_profile(ef_min=self.dos.emin(), ef_max=self.dos.emax())
+            x = [[j][0][0] for j in tl]
+            y = [[j][0][1] for j in tl]
+            tls.update({ds:[x,y]})
+        return tls
 

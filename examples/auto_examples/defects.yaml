@@ -1,0 +1,1102 @@
+---
+title: La_Li
+status: finished
+stoichiometry:
+    - Li: 27
+    - La: 13
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -832.53744678 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.593
+cbm: 9.6709
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 29e1ed97f168a70066ad2585a05a4af4
+directory: ./La_Li/
+
+---
+title: La_Li_+
+status: finished
+stoichiometry:
+    - Li: 27
+    - La: 13
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -841.6546287 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.3214
+cbm: 9.5104
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 043674b26afed13e66926632d59fb203
+directory: ./La_Li/less1/
+
+---
+title: La_Li_++
+status: finished
+stoichiometry:
+    - Li: 27
+    - La: 13
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -850.69769664 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.8904
+cbm: 9.4928
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 305638dcdeeb2eafdb2b107567d19e92
+directory: ./La_Li/less2/
+
+---
+title: La_Zr
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 13
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -823.12448141 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.8629
+cbm: 5.6064
+converged: True
+version: vasp.5.4.1
+vasprun md5: 0c425e0262074de1a50c87cf65bc3dff
+directory: ./La_Zr/
+
+---
+title: La_Zr_-
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 13
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -818.44515226 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 4.025
+cbm: 9.6432
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 3bca58580815c7ad3b8e096537b5e886
+directory: ./La_Zr/plus1/
+
+---
+title: Li_La
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 11
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -819.75654256 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.05
+ibrion: 2
+vbm: 3.2703
+cbm: 5.0903
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: d8a2f38578d252f2d960773a08dfb3cc
+directory: ./Li_La/
+
+---
+title: Li_La_-
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 11
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -815.79286207 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.2993
+cbm: 5.1708
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 078c857467ece3f26cbdf73df78042c2
+directory: ./Li_La/plus1/
+
+---
+title: Li_La_--
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 11
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -811.51553775 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.407
+cbm: 9.2273
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 3070a2fb95de385ee0af8a225cdc83d6
+directory: ./Li_La/plus2/
+
+---
+title: Li_Zr
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 12
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -812.07285508 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.3558
+cbm: 5.1756
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 565ea1bde56fa27e8adfb8ea01d93fed
+directory: ./Li_Zr/
+
+---
+title: Li_Zr_-
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 12
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -807.99693321 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.5696
+cbm: 5.4588
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 496bc886de173bb3404df6dbb9f958cd
+directory: ./Li_Zr/plus1/
+
+---
+title: Li_Zr_--
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 12
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -803.68854992 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.5384
+cbm: 5.815
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 04bb904c13ad8f1a2b4d732c42ccddfd
+directory: ./Li_Zr/plus2/
+
+---
+title: Li_Zr_---
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 12
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -799.06511406 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.6208
+cbm: 9.2813
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 016019ee67d3ec3399b7a700a247607f
+directory: ./Li_Zr/plus3/
+
+---
+title: Li_i
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 12
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -833.47124787 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 9.0932
+cbm: 9.4119
+converged: True
+version: vasp.5.4.1
+vasprun md5: bbe42ba981c0ca96d88112b6a73560c4
+directory: ./Li_i/
+
+---
+title: Li_i_+
+status: finished
+stoichiometry:
+    - Li: 29
+    - La: 12
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -842.79301533 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.685
+cbm: 9.5756
+converged: True
+version: vasp.5.4.1
+vasprun md5: d88664a650bf609beb6034c9828f9af5
+directory: ./Li_i/less1/
+
+---
+title: O_i
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 12
+    - Zr: 8
+    - O: 49
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -838.90966389 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.8058
+cbm: 9.5396
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: f5b7ea71ddc95b85f2f17635ccffa33f
+directory: ./O_i/
+
+---
+title: O_i_-
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 12
+    - Zr: 8
+    - O: 49
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -829.61557946 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.7946
+cbm: 9.4518
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 393b09196930be1aace825b9d7acdaeb
+directory: ./O_i/plus1/
+
+---
+title: v_La_---
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 11
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -801.34529873 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.3911
+cbm: 9.2308
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 3ba5803cd7bdd93a9b9e81774c607e19
+directory: ./V_La/
+
+---
+title: v_Li
+status: finished
+stoichiometry:
+    - Li: 27
+    - La: 12
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -826.20515804 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.6293
+cbm: 4.8664
+converged: True
+version: vasp.5.4.1
+vasprun md5: eb5de0f8f2ca89b8d5a2068696ccc29f
+directory: ./V_Li/
+
+---
+title: v_Li_-
+status: finished
+stoichiometry:
+    - Li: 27
+    - La: 12
+    - Zr: 8
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -822.15676675 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.015
+ibrion: 2
+vbm: 3.6293
+cbm: 9.5195
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 9cff1d86b11abf714c1ed0f4da77049b
+directory: ./V_Li/plus1/
+
+---
+title: v_O
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 12
+    - Zr: 8
+    - O: 47
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -818.64444206 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.4659
+cbm: 9.4461
+converged: True
+version: vasp.5.4.1
+vasprun md5: 9dc815be1c134446fdf0ad23a538d02a
+directory: ./V_O/
+
+---
+title: v_O_+
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 12
+    - Zr: 8
+    - O: 47
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -826.71317939 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 6.6834
+cbm: 8.8049
+converged: True
+version: vasp.5.4.1
+vasprun md5: 91d1bc4f63b18f566340a68b90085a82
+directory: ./V_O/less1/
+
+---
+title: v_O_++
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 12
+    - Zr: 8
+    - O: 47
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -834.17979901 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.618
+cbm: 8.4898
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: b055c815ba35a3d7ca617e697cd8164d
+directory: ./V_O/less2/
+
+---
+title: v_Zr_----
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 12
+    - Zr: 7
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -787.43937873 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.6857
+cbm: 9.2952
+converged: True
+version: vasp.5.4.1
+vasprun md5: 10354fd876f12c2ccff3d21d855b8ed4
+directory: ./V_Zr/
+
+---
+title: Zr_La
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 11
+    - Zr: 9
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -835.25644429 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.8587
+cbm: 9.4167
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: ee05293ee9f7bcd32f58a4c510f36c51
+directory: ./Zr_La/
+
+---
+title: Zr_La_+
+status: finished
+stoichiometry:
+    - Li: 28
+    - La: 11
+    - Zr: 9
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - O: PAW_PBE O 08Apr2002
+energy: -843.87449637 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.6503
+cbm: 9.2826
+converged: True
+version: vasp.5.4.1
+vasprun md5: 3ed55f8efa7d0089b105e8fe97fa8a03
+directory: ./Zr_La/less1/
+
+---
+title: Zr_Li
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -838.33459835 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.1475
+cbm: 9.3766
+converged: True
+version: vasp.5.4.1
+vasprun md5: 13d05cc8811ec78d25ed4afef7d1ab54
+directory: ./Zr_Li_oct/
+
+---
+title: Zr_Li_+
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -847.10210015 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.9424
+cbm: 9.3406
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 795f0be12bd69f70c96104de798a3937
+directory: ./Zr_Li_oct/less1/
+
+---
+title: Zr_Li_++
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -855.78343635 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.9437
+cbm: 9.2687
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 113e8801c5f77fd8641976eac503f48b
+directory: ./Zr_Li_oct/less2/
+
+---
+title: Zr_Li_+++
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -864.35465732 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.8028
+cbm: 9.1726
+converged: True
+version: vasp.5.4.1
+vasprun md5: 8ae4ac0fe85df25299298b8e167d5105
+directory: ./Zr_Li_oct/less3/
+
+---
+title: Zr_Li_tet
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -837.20315549 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.1556
+cbm: 9.5042
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: f908dd33d5cabdc3f27111ea1247e6f4
+directory: ./Zr_Li_tet/
+
+---
+title: Zr_Li_tet_+
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -846.03331409 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.1419
+cbm: 9.3396
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: b43ccc46e0097e05b0bfbe72d3107c50
+directory: ./Zr_Li_tet/less1/
+
+---
+title: Zr_Li_tet_++
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -855.78326339 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.9404
+cbm: 9.2696
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: ae7d18a8d94d2566b1c3ce1b2fc330c3
+directory: ./Zr_Li_tet/less2/
+
+---
+title: Zr_Li_tet_+++
+status: finished
+stoichiometry:
+    - Li: 27
+    - Zr: 9
+    - La: 12
+    - O: 48
+potcar:
+    - Li: PAW_PBE Li 17Jan2003
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - La: PAW_PBE Li 17Jan2003
+    - O: PAW_PBE La 06Sep2000
+energy: -846.37488767 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.8412
+cbm: 9.3692
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 3c173a8edc6ea7bb6004b2de7d97b3da
+directory: ./Zr_Li_tet/less3/
+
+---
+title: Zr_i
+status: finished
+stoichiometry:
+    - Zr: 9
+    - Li: 28
+    - La: 12
+    - O: 48
+potcar:
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -837.2412618 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.379
+cbm: 9.7473
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: cd58948146bc27a7521c776837bcd659
+directory: ./Zr_i/
+
+---
+title: Zr_i_+
+status: finished
+stoichiometry:
+    - Zr: 9
+    - Li: 28
+    - La: 12
+    - O: 48
+potcar:
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -846.16680601 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 8.6912
+cbm: 9.3834
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: 1b297a5f163e055e8932bce0829947d9
+directory: ./Zr_i/less1/
+
+---
+title: Zr_i_++
+status: finished
+stoichiometry:
+    - Zr: 9
+    - Li: 28
+    - La: 12
+    - O: 48
+potcar:
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -856.72482639 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.9958
+cbm: 9.3609
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: b0c6f78cc812c0b0c2d1e4be319fe1e1
+directory: ./Zr_i/less2/
+
+---
+title: Zr_i_+++
+status: finished
+stoichiometry:
+    - Zr: 9
+    - Li: 28
+    - La: 12
+    - O: 48
+potcar:
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -865.45796751 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 7.9543
+cbm: 9.3694
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: f323f3f9065a703a753aeefcad72596c
+directory: ./Zr_i/less3/
+
+---
+title: Zr_i_++++
+status: finished
+stoichiometry:
+    - Zr: 9
+    - Li: 28
+    - La: 12
+    - O: 48
+potcar:
+    - Zr: PAW_PBE Zr_sv 04Jan2005
+    - Li: PAW_PBE Li 17Jan2003
+    - La: PAW_PBE La 06Sep2000
+    - O: PAW_PBE Zr_sv 04Jan2005
+energy: -874.08251292 eV
+lreal: True
+k-points:
+    scheme: Monkhorst
+    grid: 2 2 2
+functional: screened hybrid. alpha=0.25, mu=0.207
+encut: 520.0
+ediffg: -0.01
+ibrion: 2
+vbm: 3.8984
+cbm: 9.2624
+converged: True
+version: vasp.5.4.4.18Apr17-6-g9f103f2a35
+vasprun md5: e4fd252c96ff595619a0b0848f14b32d
+directory: ./Zr_i/less4/
+
