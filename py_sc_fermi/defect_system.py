@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 from .constants import kboltz
 from py_sc_fermi.dos import DOS
+import multiprocessing
 
 class DefectSystem(object):
     
@@ -85,15 +86,10 @@ class DefectSystem(object):
                 print(f'           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}')
 
     def defect_charge_contributions(self, e_fermi):
-        lhs = 0.0
-        rhs = 0.0
-        # get defect concentrations at E_F
-        for ds in self.defect_species:
-            for q, concd in ds.charge_state_concentrations( e_fermi, self.temperature ).items():
-                if q < 0:
-                    rhs += concd * abs(q)
-                elif q > 0:
-                    lhs += concd * abs(q)
+        contrib = np.array([ ds.defect_charge_contributions( e_fermi, self.temperature ) 
+                             for ds in self.defect_species ])
+        lhs = np.sum( contrib[:,0] )
+        rhs = np.sum( contrib[:,1] )
         return lhs, rhs
     
     def q_tot(self, e_fermi):

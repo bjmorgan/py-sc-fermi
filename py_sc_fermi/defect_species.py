@@ -201,3 +201,13 @@ class DefectSpecies(object):
                 if q in self.variable_conc_charge_states():
                     cs_concentrations[q] *= scaling
         return cs_concentrations    
+
+    def defect_charge_contributions(self, e_fermi, temperature):
+        lhs = 0.0
+        rhs = 0.0
+        for q, concd in self.charge_state_concentrations( e_fermi, temperature ).items():
+            if q < 0:
+                rhs += concd * abs(q)
+            if q > 0:
+                lhs += concd * abs(q)
+        return lhs, rhs
