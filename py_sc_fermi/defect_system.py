@@ -95,7 +95,7 @@ class DefectSystem(object):
         for ds in self.defect_species:
             conc = ds.get_concentration(e_fermi, self.temperature)
             concs.update({ds.name:conc* 1e24/ self.volume})
-        run_stats = {'Fermi Energy': e_fermi, 'p0': p0 * 1e24/ self.volume, 'n0':p0 * 1e24/ self.volume}
+        run_stats = {'Fermi Energy': e_fermi, 'p0': p0 * 1e24/ self.volume, 'n0':n0 * 1e24/ self.volume}
         return {**run_stats, **concs}
 
     def defect_charge_contributions(self, e_fermi):
