@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.optimize import minimize_scalar
+from scipy.optimize import minimize_scalar, minimize
 from .constants import kboltz
 from py_sc_fermi.dos import DOS
 import multiprocessing
@@ -42,7 +42,42 @@ class DefectSystem(object):
     @property
     def defect_species_names(self):
         return [ ds.name for ds in self.defect_species ]
-    
+   
+    def get_constrained_sc_fermi(self, constraint, total, conv=1e-16, emin=None, emax=None, verbose=True):
+        """Calculate the self-consistent Fermi energy, subject to constrained net
+        defect concentrations. The constraint to be satisfied is defined as a set of
+        coefficients for the relevant defect species concentrations, and their
+        constrained sum, e.g. [V_Li] - [Li_i] = 0.
+
+        Args:
+            constraint (dict): Dictionary of non-zero concentration coefficients,
+                               i.e. {'v_Li': +1, 'Li_i': -1}.
+            total (float): Summed concentration of constrained defect species.
+            conv (float, optional): TODO
+            emin (float, optional): TODO
+            emax (float, optional): TODO
+            verbose (bool, optional): TODO
+
+        Returns:
+            (float): self-consistent Fermi energy.
+
+        """
+        if not emin:
+            emin = self.dos.emin()
+        if not emax:
+            emax = self.dos.emax()
+        def constraint_func(phi):
+            summed_total = total
+            for name, c in constraint.items():
+                summed_total += self.defect_species_by_name(name).get_concentration(phi, self.temperature)
+            summed_total *= 1e10
+            return summed_total
+        phi_min = minimize_scalar(self.abs_q_tot, method='bounded', bounds=(emin, emax),
+                        tol=conv, options={'disp': False} )
+        phi_min = minimize(self.abs_q_tot, x0=phi_min.x, 
+                           constraints={'fun': constraint_func, 'type': 'eq'})
+        return phi_min.x[0] 
+
     def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
         if not emin:
             emin = self.dos.emin()
