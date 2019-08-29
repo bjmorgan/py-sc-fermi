@@ -167,14 +167,33 @@ class DefectSpecies(object):
     def charges(self):
         """
         Return a list of charges for the charge states of this defect.
+
         Args:
             None
+
         Returns:
             (list(int)): A list of integer charges.
+
         """
         return self.charge_states.keys()
     
     def get_concentration(self, e_fermi, temperature):
+        """
+        Get the net concentration for this defect species at a specific
+        Fermi energy (relative to E(VBM)) and temperature..
+        
+        Args:
+            e_fermi (float): Fermi energy, relative to E(VBM) (in eV).
+            temperature (float): Temperature (in K).
+       
+        Returns:
+            (float): The concentration, summed over all charge states.
+
+        Note:
+            If this DefectSpecies has a fixed concentration, then this
+            will be returned.
+
+        """ 
         if self.fixed_concentration:
             return self.fixed_concentration
         else:
