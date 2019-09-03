@@ -6,7 +6,7 @@ import multiprocessing
 
 class DefectSystem(object):
     
-    def __init__(self, defect_species, dos, volume, temperature):
+    def __init__(self, defect_species, dos, volume, temperature, spin_pol):
         """Initialise a DefectSystem instance.
 
         Args:
@@ -24,6 +24,7 @@ class DefectSystem(object):
         self.dos = dos
         self.temperature = temperature
         self.kT = kboltz * temperature
+        self.spin_pol = spin_pol
 
     def __repr__(self):
         to_return = [f'DefectSystem\n',
@@ -176,4 +177,34 @@ class DefectSystem(object):
             y = [[j][0][1] for j in tl]
             tls.update({ds:[x,y]})
         return tls
+    
+    def write_inputs( self ):
+
+            with open('input-fermi.dat', 'w') as f:
+
+                f.write( str(self.spin_pol) + '\n' )
+                f.write( str(self.dos._nelect) + '\n' )
+                f.write( str(self.dos._egap) + '\n')
+                f.write( str(self.temperature) + '\n')
+                f.write( str(len(self.defect_species_names)) + '\n' )
+                frozen_defects = []
+                frozen_charge_states = []
+                for d in self.defect_species:
+                    f.write( '{} {} {}'.format( d.name, len(d._charge_states), d.nsites ) + '\n')
+                    if d._fixed_concentration is not None:
+                        frozen_defects.append(d)
+                    for c in d.charge_states:
+                        f.write( '{} {} {}'.format( c, d.charge_states[c].energy, d.charge_states[c].degeneracy ) + '\n')    
+                        if d.charge_states[c]._fixed_concentration is not False:
+                            frozen_charge_states.append((d.name, d.charge_states[c]))
+                f.write( str(len(frozen_defects)) + '\n' ) 
+                if frozen_defects is not []:
+                    for fd in frozen_defects:
+                        f.write( '{} {}'.format( fd.name, fd.fixed_concentration ) + '\n')               
+                f.write( str(len(frozen_charge_states)) + '\n' )
+                if frozen_charge_states is not []:
+                    for fc in frozen_charge_states:
+                        f.write( '{} {} {}'.format( fc[0], fc[1].charge, fc[1]._fixed_concentration * 1e24 / self.volume ) + '\n')
+                        
+            f.close()
 

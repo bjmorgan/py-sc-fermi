@@ -60,7 +60,12 @@ defects:
        - 'Li_Zr'
        - 'Li_Zr_-'
        - 'Li_Zr_--' 
-       - 'Li_Zr_---'       
+       - 'Li_Zr_---'
+      'La_Li':
+       - 3
+       - 'La_Li'
+       - 'La_Li_+'
+       - 'La_Li_++'
 e_vbm: 3.647
 nelect: 544
 e_gap: 5.904
