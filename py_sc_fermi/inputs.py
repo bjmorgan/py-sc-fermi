@@ -1,6 +1,7 @@
 import numpy as np
+import itertools
 from .defect_species import DefectSpecies
-from .defect_charge_state import DefectChargeState
+from .defect_charge_state import DefectChargeState,FrozenDefectChargeState
 from py_sc_fermi.dos import DOS
 
 def read_unitcell_data(filename, verbose=True):
@@ -16,7 +17,7 @@ def read_unitcell_data(filename, verbose=True):
         print(f"Volume of cell: {volume} A^3")
     return volume
 
-def read_input_data(filename, verbose=True, frozen=False):
+def read_input_data(filename, verbose=True, frozen=False, volume=None):
     with open(filename, 'r') as f:
         readin = f.readlines()
         pure_readin = [ l for l in readin if l[0] != '#']
@@ -65,6 +66,41 @@ def read_input_data(filename, verbose=True, frozen=False):
             degs.append(int(l[2]))
         charge_states  = [ DefectChargeState(c, e, d) for c, e, d in zip( charges, energies, degs ) ]
         defect_species.append( DefectSpecies(name, nsites, charge_states) )
+    if frozen == True:
+        nfrozen_defects = int(pure_readin.pop(0))
+        if verbose:
+            print(f'Number of frozen defects: {nfrozen_defects}')
+        if nfrozen_defects > 0:
+            frozen_defects = {}
+            for i in range(nfrozen_defects):
+                l = pure_readin.pop(0).split()
+                frozen_defects.update({l[0]:l[1]})
+        for k,v in frozen_defects.items():
+            for i in defect_species:
+                if i.name == k:
+                    i.fix_concentration(float(v) / 1e24 * volume) #  
+        nfrozen_chgstates = int(pure_readin.pop(0))
+        if verbose:
+            print(f'Number of frozen charge states: {nfrozen_chgstates}')
+        if nfrozen_chgstates > 0:
+            frozen_defects = []
+            for i in range(nfrozen_chgstates):
+                l = pure_readin.pop(0).split()
+                frozen_defects.append({'Name': l[0], 'Chg_state': l[1], 'Con': l[2]} )
+        defects = {}
+        for key, group in itertools.groupby(frozen_defects, lambda item: item["Name"]):
+            d = {key: {item["Chg_state"] : item["Con"] for item in group}}
+            defects.update(d)
+        frozen_defects = []
+        for k,v in defects.items():
+            charge_states = []
+            for l,w in v.items():
+                chgstate = FrozenDefectChargeState(int(l),float(w)) #/ 1e24 * volume
+                charge_states.append(chgstate)
+            defect_species.append(DefectSpecies(k, 0, charge_states))
+            
+
+            
     return { 'defect_species': defect_species,
              'egap': egap,
              'temperature': temperature,
@@ -87,9 +123,9 @@ def read_dos_data(filename, egap, nelect):
         print("         These may cause serious problems...")
     return DOS(dos=dos, edos=edos, nelect=nelect, egap=egap)
 
-def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename ):
+def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename, frozen=False ):
     inputs = {}
     inputs['volume'] = read_unitcell_data(unitcell_filename)
-    inputs.update( read_input_data(input_fermi_filename) )
+    inputs.update( read_input_data(input_fermi_filename, frozen=frozen, volume=inputs['volume']) )
     inputs['dos'] = read_dos_data(totdos_filename, egap=inputs['egap'], nelect=inputs['nelect'])
     return inputs

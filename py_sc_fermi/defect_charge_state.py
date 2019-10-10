@@ -102,6 +102,7 @@ class FrozenDefectChargeState(TemplateChargeState):
         self._concentration = concentration
         self._fixed_concentration = True
 
+        
     @property
     def charge(self):
         """Get the charge of this charge state."""
