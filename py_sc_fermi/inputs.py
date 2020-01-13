@@ -95,9 +95,9 @@ def read_input_data(filename, verbose=True, frozen=False, volume=None):
         for k,v in defects.items():
             charge_states = []
             for l,w in v.items():
-                chgstate = FrozenDefectChargeState(int(l),float(w)) #/ 1e24 * volume
+                chgstate = FrozenDefectChargeState(int(l),float(w)/ 1e24 * volume) #
                 charge_states.append(chgstate)
-            defect_species.append(DefectSpecies(k, 0, charge_states))
+            defect_species.append(DefectSpecies(k, 1, charge_states))
             
 
             
