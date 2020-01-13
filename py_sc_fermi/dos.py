@@ -53,13 +53,21 @@ class DOS(object):
         """Get the number of electrons in the unit cell."""
         return self._nelect
 
-    def normalise_dos(self):
+    def sum_dos(self):
         vbm_index = np.where(self._edos <= 0)[0][-1]
         if self._replicate_sc_fermi:
             sum1 = np.trapz(self._dos[:vbm_index+2], self._edos[:vbm_index+2]) # Off-by-one error
         else:
             sum1 = np.trapz(self._dos[:vbm_index+1], self._edos[:vbm_index+1]) # Correct integral
-        self._dos = self._dos / sum1 * self._nelect
+        return sum1
+    
+    def normalise_dos(self, verbose=True):
+        integrated_dos = self.sum_dos()
+        if verbose:
+            print(f'Integration of DOS up to Fermi level: {integrated_dos}')
+        self._dos = self._dos / integrated_dos * self._nelect
+        if verbose:
+            print(f'Renormalised integrated DOS        : {self.sum_dos()}')
 
     def emin(self):
         return self._edos[0]

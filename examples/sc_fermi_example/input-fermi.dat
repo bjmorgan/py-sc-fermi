@@ -25,7 +25,7 @@
 #
 # Now enter temperature (K)
 #
-300 
+100 
 #
 # Number of defect species considered in your system
 #
@@ -49,28 +49,3 @@ Ga_Sb 3 1
 0  2.2649 1
   -1  2.0937 1
   -2  2.2527 1
-#
-# Number of defect species whose total concentration is to be kept
-# frozen
-#
-1
-#
-# Enter name and total concentration of the frozen defects
-# (the concentration is in cm^-3 and can be taken from the output
-# of the 'sc-fermi' program)"
-#
-V_Ga  0.3285677364522E+20
-#
-# Number of defect species with particular charge states that are
-# to be kept frozen (you can include here defects that are not part
-# of those originally considered above, but they must have a particular
-# charge state)
-#
-2
-#
-# Enter name, charge state and concentration of those defects
-# (the concentration is in cm^-3 and can be taken from the output
-# of the 'sc-fermi' program)"
-#
-V_Ga -1 0.19E+19
-Ga_i 1 0.5E+20
