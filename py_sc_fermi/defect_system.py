@@ -2,12 +2,13 @@ import numpy as np
 from scipy.optimize import minimize_scalar, minimize
 from .constants import kboltz
 from py_sc_fermi.dos import DOS
+from py_sc_fermi.defect_charge_state import  FrozenDefectChargeState
 import multiprocessing
 import pandas as pd
 
 class DefectSystem(object):
-    
-    def __init__(self, defect_species, dos, volume, temperature):
+
+    def __init__(self, defect_species, dos, volume, temperature, spin_pol):
         """Initialise a DefectSystem instance.
         Args:
             defect_species (list(DefectSpecies)): List of DefectSpecies objects.
@@ -16,12 +17,13 @@ class DefectSystem(object):
             temperature (float): Temperature in K.
         Returns:
             None
-        """ 
+        """
         self.defect_species = defect_species
         self.volume = volume
         self.dos = dos
         self.temperature = temperature
         self.kT = kboltz * temperature
+        self.spin_pol = spin_pol
 
     def __repr__(self):
         to_return = [f'DefectSystem\n',
@@ -40,7 +42,7 @@ class DefectSystem(object):
     @property
     def defect_species_names(self):
         return [ ds.name for ds in self.defect_species ]
-   
+
     def get_constrained_sc_fermi(self, constraint, total, conv=1e-16, emin=None, emax=None, verbose=True):
         """Calculate the self-consistent Fermi energy, subject to constrained net
         defect concentrations. The constraint to be satisfied is defined as a set of
@@ -69,9 +71,9 @@ class DefectSystem(object):
             return summed_total
         phi_min = minimize_scalar(self.abs_q_tot, method='bounded', bounds=(emin, emax),
                         tol=conv, options={'disp': False, 'xatol': 1e-4} )
-        phi_min = minimize(self.abs_q_tot, x0=phi_min.x, 
+        phi_min = minimize(self.abs_q_tot, x0=phi_min.x,
                            constraints={'fun': constraint_func, 'type': 'eq'})
-        return phi_min.x[0] 
+        return phi_min.x[0]
 
     def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
         if not emin:
@@ -116,7 +118,7 @@ class DefectSystem(object):
             print(f'e_fermi_err: {e_fermi_err}')
             print(f'e_fermi: {e_fermi}')
         return e_fermi
- 
+
     def get_sc_fermi_new(self, conv=1e-16, emin=None, emax=None, verbose=True, niter=100):
         if not emin:
             emin = self.dos.emin()
@@ -185,12 +187,12 @@ class DefectSystem(object):
                 print(f'           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}')
 
     def defect_charge_contributions(self, e_fermi):
-        contrib = np.array([ ds.defect_charge_contributions( e_fermi, self.temperature ) 
+        contrib = np.array([ ds.defect_charge_contributions( e_fermi, self.temperature )
                              for ds in self.defect_species ])
         lhs = np.sum( contrib[:,0] )
         rhs = np.sum( contrib[:,1] )
         return lhs, rhs
-    
+
     def q_tot(self, e_fermi):
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
         lhs_def, rhs_def = self.defect_charge_contributions(e_fermi)
@@ -206,7 +208,7 @@ class DefectSystem(object):
         for ds in self.defect_species:
             if not ds.fixed_concentration:
                 continue
-            fixed_concentrations = [ cs.concentration for cs in ds.charge_states.values() 
+            fixed_concentrations = [ cs.concentration for cs in ds.charge_states.values()
                                          if cs.concentration_is_fixed ]
             if sum(fixed_concentrations) > ds.fixed_concentration:
                 raise ValueError(f'ERROR: defect {ds.name} has a fixed'
@@ -217,7 +219,7 @@ class DefectSystem(object):
                     raise ValueError(f'ERROR: defect {ds.name} has fixed concentrations'
                                      +'for all charge states, but the sum of these concentrations'
                                      +'does not equal the fixed total concentration.')
-    
+
     def get_transition_levels(self):
         tls = {}
         for ds in self.defect_species_names:
@@ -226,7 +228,7 @@ class DefectSystem(object):
             y = [[j][0][1] for j in tl]
             tls.update({ds:[x,y]})
         return tls
-    
+
     def to_dict(self, emin=None, emax=None, conv=1e-16, decomposed=False):
         if not emin:
             emin = self.dos.emin()
@@ -244,7 +246,7 @@ class DefectSystem(object):
             else:
                     concs.update({ds.name:conc* 1e24/ self.volume})
         run_stats = {'Fermi Energy': e_fermi, 'p0': p0 * 1e24/ self.volume, 'n0':n0 * 1e24/ self.volume}
-            
+
         return {**run_stats, **concs}
 
 
@@ -264,8 +266,10 @@ class DefectSystem(object):
                     concs.update({ds.name:all_chg_states})
             else:
                     concs.update({ds.name:conc})
-        run_stats = {'Fermi Energy': e_fermi, 'p0': p0 * 1e24/ self.volume, 'n0':n0 * 1e24/ self.volume}
-    
+        run_stats = {'Fermi Energy': e_fermi, 'p0': p0, 'n0':n0}
+
+        return {**run_stats, **concs}
+
     def write_inputs( self, filename='input-fermi.dat' ):
 
             with open(filename, 'w') as f:
@@ -275,7 +279,7 @@ class DefectSystem(object):
                 f.write( str(self.dos._egap) + '\n')
                 f.write( str(self.temperature) + '\n')
                 #f.write( str(len(self.defect_species_names)) + '\n' )
-                i = 0 
+                i = 0
                 for d in self.defect_species:
                     free_chg_states = []
                     for c in d.charge_states:
@@ -284,7 +288,7 @@ class DefectSystem(object):
                     if len(free_chg_states) > 0:
                            i=i+1
                 #print(i)
-                f.write(str(i) +'\n')        
+                f.write(str(i) +'\n')
                 frozen_defects = []
                 frozen_charge_states = []
                 free_defects_to_write = []
@@ -299,18 +303,17 @@ class DefectSystem(object):
                             frozen_defects.append(d)
                     for c in d.charge_states:
                             if type(d.charge_states[c]) != FrozenDefectChargeState:
-                                f.write( '{} {} {}'.format( c, d.charge_states[c].energy, d.charge_states[c].degeneracy ) + '\n')    
+                                f.write( '{} {} {}'.format( c, d.charge_states[c].energy, d.charge_states[c].degeneracy ) + '\n')
                             if d.charge_states[c]._fixed_concentration is not False:
                                 frozen_charge_states.append((d.name, d.charge_states[c]))
-                f.write( str(len(frozen_defects)) + '\n' ) 
+                f.write( str(len(frozen_defects)) + '\n' )
                 if frozen_defects is not []:
                     for fd in frozen_defects:
-                        f.write( '{} {}'.format( fd.name, fd.fixed_concentration * 1e24 / self.volume   ) + '\n')  #   
+                        f.write( '{} {}'.format( fd.name, fd.fixed_concentration * 1e24 / self.volume   ) + '\n')  #
                 f.write( str(len(frozen_charge_states)) + '\n' )
                 if frozen_charge_states is not []:
                     for fc in frozen_charge_states:
                         #print(fc)
-                        f.write( '{} {} {}'.format( fc[0], fc[1].charge, fc[1]._concentration * 1e24 / self.volume ) + '\n')  #  
-                        
-            f.close()
+                        f.write( '{} {} {}'.format( fc[0], fc[1].charge, fc[1]._concentration * 1e24 / self.volume ) + '\n')  #
 
+            f.close()
