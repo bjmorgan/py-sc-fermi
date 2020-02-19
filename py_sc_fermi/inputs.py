@@ -107,14 +107,15 @@ def read_input_data(filename, verbose=True, frozen=False, volume=None):
              'nspinpol': nspinpol,
              'nelect': nelect }
 
-def read_dos_data(filename, egap, nelect):
+def read_dos_data(filename, egap, nelect, verbose=True):
     data = np.loadtxt(filename)
-    if data.shape[1] == 2:
-        print("Reading non-spin-polarised DOS")
-    elif data.shape[1] == 3:
-        print("Reading spin-polarised DOS")
-    else:
-        raise ValueError("DOS input file does not contain Nx2 or Nx3 elements")
+    if verbose:
+        if data.shape[1] == 2:
+            print("Reading non-spin-polarised DOS")
+        elif data.shape[1] == 3:
+            print("Reading spin-polarised DOS")
+        else:
+            raise ValueError("DOS input file does not contain Nx2 or Nx3 elements")
     edos = data[:,0]
     dos = np.sum(data[:,1:], axis=1)
     if np.any( data[:,1:] < 0.0 ):
@@ -123,9 +124,9 @@ def read_dos_data(filename, egap, nelect):
         print("         These may cause serious problems...")
     return DOS(dos=dos, edos=edos, nelect=nelect, egap=egap)
 
-def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename, frozen=False ):
+def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename, frozen=False, verbose=True):
     inputs = {}
-    inputs['volume'] = read_unitcell_data(unitcell_filename)
-    inputs.update( read_input_data(input_fermi_filename, frozen=frozen, volume=inputs['volume']) )
-    inputs['dos'] = read_dos_data(totdos_filename, egap=inputs['egap'], nelect=inputs['nelect'])
+    inputs['volume'] = read_unitcell_data(unitcell_filename, verbose=verbose)
+    inputs.update( read_input_data(input_fermi_filename, frozen=frozen, volume=inputs['volume'], verbose=verbose) )
+    inputs['dos'] = read_dos_data(totdos_filename, egap=inputs['egap'], nelect=inputs['nelect'], verbose=verbose)
     return inputs
