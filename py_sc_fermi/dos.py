@@ -13,8 +13,6 @@ class DOS(object):
             nelect (int): Number of electrons.
             normalise (:obj:`bool`, optional): Normalise the DOS so that the integral
                 from e_min --> 0.0 is equal to the `nelect`. Default is `True`.
-            replicate_sc_fermi (:obj:`bool`, optional): If True will reproduce off-by-one
-                errors in SC-Fermi when integrating the DOS. Default is `True`.
 
         Returns:
             None
@@ -55,10 +53,7 @@ class DOS(object):
 
     def sum_dos(self):
         vbm_index = np.where(self._edos <= 0)[0][-1]
-        if self._replicate_sc_fermi:
-            sum1 = np.trapz(self._dos[:vbm_index+2], self._edos[:vbm_index+2]) # Off-by-one error
-        else:
-            sum1 = np.trapz(self._dos[:vbm_index+1], self._edos[:vbm_index+1]) # Correct integral
+        sum1 = np.trapz(self._dos[:vbm_index+1], self._edos[:vbm_index+1])
         return sum1
     
     def normalise_dos(self, verbose=False):
