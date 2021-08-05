@@ -61,7 +61,7 @@ class DOS(object):
             sum1 = np.trapz(self._dos[:vbm_index+1], self._edos[:vbm_index+1]) # Correct integral
         return sum1
     
-    def normalise_dos(self, verbose=True):
+    def normalise_dos(self, verbose=False):
         integrated_dos = self.sum_dos()
         if verbose:
             print(f'Integration of DOS up to Fermi level: {integrated_dos}')

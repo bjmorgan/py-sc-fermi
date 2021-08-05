@@ -1,0 +1,146 @@
+**************************************************************
+
+   SSSS    CCCC      FFFFFF  EEEEEE   RRRR   MM     MM  IIIII
+  SS   S  CC   C     FF      EE      RR   R  MMM   MMM    I
+  SS      CC         FF      EE      RR  R   M MM MM M    I
+   SSSS   CC     --- FFFFFF  EEEEEE  RRRR    M  MMM  M    I
+      SS  CC         FF      EE      R   R   M   M   M    I
+  S   SS  CC   C     FF      EE      R   RR  M   M   M    I
+   SSSS    CCCC      FF      EEEEEE  R   RR  M   M   M  IIIII
+
+Energies in eV, temperature in Kelvin, DOS in states/unit cell
+
+------
+j.buckeridge@ucl.ac.uk 2018
+**************************************************************
+
+ERROR: unitcell.dat (unit cell for which DOS determined) is needed!!
+...but found a POSCAR! Will use that instead...
+(Should be cell for which DOS was determined!)
+ 
+Volume of cell:    1056.622886 A^3
+ 
+Found spin polarised system...
+ 
+Number of electrons in system:     544.000000
+         Energy gap of system:       5.903400 eV
+                 Temperature :    1500.000000 K
+     Number of defect species:    14
+ 
+Defects found:
+Name  # charge states  # sites in unit cell
+v_O                 3                     3
+v_Li                2                     3
+v_La                1                     2
+v_Zr                1                     1
+Li_i                2                     1
+Zr_i                5                     1
+O_i                 2                     1
+La_Zr               2                     1
+Zr_La               2                     2
+Zr_Li               4                     2
+Zr_Li_tet           4                     1
+Li_Zr               4                     1
+Li_La               3                     1
+La_Li               3                     1
+ 
+WARNING: Found negative value(s) of DOS!
+         Do you know what you are doing?
+         These may cause serious problems...
+ 
+Integration of DOS up to Fermi level:     542.862404
+Renormalised integrated DOS         :     544.000000
+ 
+Solution found!
+ 
+Condition (n + acceptors) - (p + donors):   0.4137240652220E+007  cm^-3
+ 
+Results:
+--------
+SC Fermi level :       3.3787971705544  (eV)
+ 
+Concentrations:
+n (electrons)  :   0.4855791593001E+013  cm^-3
+p (holes)      :   0.4441102690015E+011  cm^-3
+v_O            :   0.8628866258059E+014  cm^-3
+v_Li           :   0.3163804998238E+020  cm^-3
+v_La           :   0.2246047236252E+012  cm^-3
+v_Zr           :   0.1586148893714E+006  cm^-3
+Li_i           :   0.3163815152063E+020  cm^-3
+Zr_i           :   0.1392314136383E+010  cm^-3
+O_i            :   0.1048116577329E+006  cm^-3
+La_Zr          :   0.4508928359359E+015  cm^-3
+Zr_La          :   0.3057544454843E+016  cm^-3
+Zr_Li          :   0.2165531881728E+016  cm^-3
+Zr_Li_tet      :   0.1227921974212E+012  cm^-3
+Li_Zr          :   0.1660112152947E+016  cm^-3
+Li_La          :   0.2179535454057E+016  cm^-3
+La_Li          :   0.5135387067693E+012  cm^-3
+ 
+Breakdown of concentrations for each defect charge state:
+--------------------------------------------------------
+v_O            :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.5297193349825E+010    0.01
+               :     1.0     0.3104961617346E+014   35.98
+               :     2.0     0.5523374921378E+014   64.01
+--------------------------------------------------------
+v_Li           :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.1233096179425E+011    0.00
+               :    -1.0     0.3163804997005E+020  100.00
+--------------------------------------------------------
+v_La           :   Charge   Concentration(cm^-3) % total
+               :    -3.0     0.2246047236252E+012  100.00
+--------------------------------------------------------
+v_Zr           :   Charge   Concentration(cm^-3) % total
+               :    -4.0     0.1586148893714E+006  100.00
+--------------------------------------------------------
+Li_i           :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.2432900890643E+013    0.00
+               :     1.0     0.3163814908773E+020  100.00
+--------------------------------------------------------
+Zr_i           :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.1206292584825E-013    0.00
+               :     1.0     0.3546216970432E-008    0.00
+               :     2.0     0.1058064016107E+003    0.00
+               :     3.0     0.2267438699541E+007    0.16
+               :     4.0     0.1390046591877E+010   99.84
+--------------------------------------------------------
+O_i            :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.1048116561546E+006  100.00
+               :    -1.0     0.1578253488869E-002    0.00
+--------------------------------------------------------
+La_Zr          :   Charge   Concentration(cm^-3) % total
+               :    -1.0     0.4508927957924E+015  100.00
+               :     0.0     0.4014353120621E+008    0.00
+--------------------------------------------------------
+Zr_La          :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.2212063155593E+011    0.00
+               :     1.0     0.3057522334212E+016  100.00
+--------------------------------------------------------
+Zr_Li          :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.1504226192654E+002    0.00
+               :     1.0     0.5463337219714E+007    0.00
+               :     2.0     0.2458661789552E+012    0.01
+               :     3.0     0.2165286010085E+016   99.99
+--------------------------------------------------------
+Zr_Li_tet      :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.4751893977327E-002    0.00
+               :     1.0     0.4227600966142E+003    0.00
+               :     2.0     0.1227921969984E+012  100.00
+               :     3.0     0.3123275491748E-045    0.00
+--------------------------------------------------------
+Li_Zr          :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.4790849044536E-010    0.00
+               :    -1.0     0.1053536460694E+001    0.00
+               :    -2.0     0.2209164432104E+009    0.00
+               :    -3.0     0.1660111932031E+016  100.00
+--------------------------------------------------------
+Li_La          :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.2166383781495E-003    0.00
+               :    -1.0     0.4431411526367E+007    0.00
+               :    -2.0     0.2179535449626E+016  100.00
+--------------------------------------------------------
+La_Li          :   Charge   Concentration(cm^-3) % total
+               :     0.0     0.1813029068180E+001    0.00
+               :     1.0     0.3106070209534E+006    0.00
+               :     2.0     0.5135383961605E+012  100.00

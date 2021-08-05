@@ -77,6 +77,9 @@ class DefectChargeState(TemplateChargeState):
         """
         expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
         return self.degeneracy * np.exp(expfac)
+    
+    def write_fixed_concentration(self, concentration):
+        self._fixed_concentration = concentration
         
     def __repr__(self):
         return f'q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}'
@@ -99,6 +102,7 @@ class FrozenDefectChargeState(TemplateChargeState):
         self._concentration = concentration
         self._fixed_concentration = True
 
+        
     @property
     def charge(self):
         """Get the charge of this charge state."""
