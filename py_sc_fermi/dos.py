@@ -3,7 +3,7 @@ import numpy as np
 class DOS(object):
     """Class for handling density-of-states data and its integration"""
 
-    def __init__(self, dos, edos, egap, nelect, normalise=True, replicate_sc_fermi=True):
+    def __init__(self, dos, edos, egap, nelect, normalise=True):
         """Initialise a DOS instance.
 
         Args:
@@ -26,8 +26,7 @@ class DOS(object):
         self._dos = dos
         self._edos = edos
         self._egap = egap
-        self._nelect = nelect
-        self._replicate_sc_fermi = replicate_sc_fermi
+        self._nelect = nelect 
         if normalise:
             self.normalise_dos()
 
