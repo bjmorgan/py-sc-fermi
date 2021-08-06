@@ -75,55 +75,55 @@ class DefectSystem(object):
 #                            constraints={'fun': constraint_func, 'type': 'eq'})
 #         return phi_min.x[0]
 
-    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
-        """Solve to find value of E_fermi for which the DefectSystem is
-        charge neutral
+#    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
+#        """Solve to find value of E_fermi for which the DefectSystem is
+#        charge neutral
         
-        """
-        if not emin:
-            emin = self.dos.emin()
-        if not emax:
-            emax = self.dos.emax()
-        direction = +1.0
-        e_fermi = (emin + emax)/2.0
-        step = 1.0
-        converged = False
-        reached_e_min = False
-        reached_e_max = False
+#        """
+#        if not emin:
+#            emin = self.dos.emin()
+#        if not emax:
+#            emax = self.dos.emax()
+#        direction = +1.0
+#        e_fermi = (emin + emax)/2.0
+#        step = 1.0
+#        converged = False
+#        reached_e_min = False
+#        reached_e_max = False
         # TODO: need to check whether emin and emax are reached.
-        for i in range(1000):
-            q_tot = self.q_tot(e_fermi=e_fermi)
-            if e_fermi > emax:
-                if reached_e_min or reached_e_max:
-                    raise RuntimeError(f'No solution found between {emin} and {emax}')
-                reached_e_max = True
-                direction = -1.0
-            if e_fermi < emin:
-                if reached_e_max or reached_e_min:
-                    raise RuntimeError(f'No solution found between {emin} and {emax}')
-                reached_e_min = True
-                direction = +1.0
-            if abs(q_tot) < conv:
-                converged = True
-                break
-            if q_tot > 0.0:
-                if direction == +1.0:
-                    step *= 0.25
-                    direction = -1.0
-            else:
-                if direction == -1.0:
-                    step *= 0.25
-                    direction = +1.0
-            e_fermi += step * direction
-        e_fermi_err = (self.q_tot(e_fermi=e_fermi+step) - self.q_tot(e_fermi=e_fermi-step))/2.0
-        if verbose:
-            print(f'converged: {converged}')
-            print(f'residual: {abs(q_tot)}')
-            print(f'e_fermi_err: {e_fermi_err}')
-            print(f'e_fermi: {e_fermi}')
-        return e_fermi
+#        for i in range(1000):
+#            q_tot = self.q_tot(e_fermi=e_fermi)
+#            if e_fermi > emax:
+#                if reached_e_min or reached_e_max:
+#                    raise RuntimeError(f'No solution found between {emin} and {emax}')
+#                reached_e_max = True
+#                direction = -1.0
+#            if e_fermi < emin:
+#                if reached_e_max or reached_e_min:
+#                    raise RuntimeError(f'No solution found between {emin} and {emax}')
+#                reached_e_min = True
+#                direction = +1.0
+#            if abs(q_tot) < conv:
+#                converged = True
+#                break
+#            if q_tot > 0.0:
+#                if direction == +1.0:
+#                    step *= 0.25
+#                    direction = -1.0
+#            else:
+#                if direction == -1.0:
+#                    step *= 0.25
+#                    direction = +1.0
+#            e_fermi += step * direction
+#        e_fermi_err = (self.q_tot(e_fermi=e_fermi+step) - self.q_tot(e_fermi=e_fermi-step))/2.0
+#        if verbose:
+#            print(f'converged: {converged}')
+#            print(f'residual: {abs(q_tot)}')
+#            print(f'e_fermi_err: {e_fermi_err}')
+#            print(f'e_fermi: {e_fermi}')
+#        return e_fermi
 
-    def get_sc_fermi_new(self, conv=1e-16, emin=None, emax=None, verbose=True, niter=100):
+    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True, niter=100):
         """Solve to find value of E_fermi for which the DefectSystem is
         charge neutral
         Args:
