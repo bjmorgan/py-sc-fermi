@@ -51,30 +51,40 @@ class DOS(object):
         return self._nelect
 
     def sum_dos(self):
+        """get integrated density of states"""
         vbm_index = np.where(self._edos <= 0)[0][-1]
         sum1 = np.trapz(self._dos[:vbm_index+1], self._edos[:vbm_index+1])
         return sum1
     
-    def normalise_dos(self, verbose=False):
-        integrated_dos = self.sum_dos()
-        if verbose:
-            print(f'Integration of DOS up to Fermi level: {integrated_dos}')
-        self._dos = self._dos / integrated_dos * self._nelect
-        if verbose:
-            print(f'Renormalised integrated DOS        : {self.sum_dos()}')
+    def normalise_dos(self):
+        """normalise the density of states w.r.t. number of electrons (self.nelect)""" 
+        integrated_dos = self.sum_dos()  
+        self._dos = self._dos / integrated_dos * self._nelect 
 
     def emin(self):
+        """get lowest energy in the dos data"""
         return self._edos[0]
 
     def emax(self):
+        """get highest energy in the dos data"""
         return self._edos[-1]
 
     def carrier_concentrations(self, e_fermi, kT):
-        # get n0 and p0 using integrals (equations 28.9 in Ashcroft Mermin)
+        """get n0 and p0 using integrals (equations 28.9 in Ashcroft Mermin)
+           for an abitrary value of kT and Fermi energy. Typically used internally 
+           to calculate carrier concentrations at the self-cosistent Fermi energy
+        Args:
+            efermi (float): Fermi energy
+            kT (float): k * temperature
+
+        Returns:
+            p0 (float): concentration of holes
+            n0 (float): concentration of electrons
+        """
         p0_index = np.where(self._edos <= 0)[0][-1]
-        n0_index = np.where(self._edos > self.egap)[0][0] 
-        p0 = np.trapz( p_func(e_fermi, self._dos[:p0_index+2], self._edos[:p0_index+1], kT ),
-                           self._edos[:p0_index+1]) # Off-by-one error
+        n0_index = np.where(self._edos > self.egap)[0][0]
+        p0 = np.trapz( p_func(e_fermi, self._dos[:p0_index+1], self._edos[:p0_index+1], kT ),
+                       self._edos[:p0_index+1])
         n0 = np.trapz( n_func(e_fermi, self._dos[n0_index:], self._edos[n0_index:], kT ),
                        self._edos[n0_index:])
         return p0, n0
