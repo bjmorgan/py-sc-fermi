@@ -75,99 +75,100 @@ class DefectSystem(object):
 #                            constraints={'fun': constraint_func, 'type': 'eq'})
 #         return phi_min.x[0]
 
-#    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
-#        """Solve to find value of E_fermi for which the DefectSystem is
-#        charge neutral
-        
-#        """
-#        if not emin:
-#            emin = self.dos.emin()
-#        if not emax:
-#            emax = self.dos.emax()
-#        direction = +1.0
-#        e_fermi = (emin + emax)/2.0
-#        step = 1.0
-#        converged = False
-#        reached_e_min = False
-#        reached_e_max = False
-        # TODO: need to check whether emin and emax are reached.
-#        for i in range(1000):
-#            q_tot = self.q_tot(e_fermi=e_fermi)
-#            if e_fermi > emax:
-#                if reached_e_min or reached_e_max:
-#                    raise RuntimeError(f'No solution found between {emin} and {emax}')
-#                reached_e_max = True
-#                direction = -1.0
-#            if e_fermi < emin:
-#                if reached_e_max or reached_e_min:
-#                    raise RuntimeError(f'No solution found between {emin} and {emax}')
-#                reached_e_min = True
-#                direction = +1.0
-#            if abs(q_tot) < conv:
-#                converged = True
-#                break
-#            if q_tot > 0.0:
-#                if direction == +1.0:
-#                    step *= 0.25
-#                    direction = -1.0
-#            else:
-#                if direction == -1.0:
-#                    step *= 0.25
-#                    direction = +1.0
-#            e_fermi += step * direction
-#        e_fermi_err = (self.q_tot(e_fermi=e_fermi+step) - self.q_tot(e_fermi=e_fermi-step))/2.0
-#        if verbose:
-#            print(f'converged: {converged}')
-#            print(f'residual: {abs(q_tot)}')
-#            print(f'e_fermi_err: {e_fermi_err}')
-#            print(f'e_fermi: {e_fermi}')
-#        return e_fermi
-
-    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True, niter=100):
-        """Solve to find value of E_fermi for which the DefectSystem is
+    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
+        """
+        Solve to find value of E_fermi for which the DefectSystem is
         charge neutral
-        Args:
-            conv (float, optional): convergence tolerance for what is considered "charge neutral"
-            emin (float, optional): lower bound on E_fermi search window
-            emax (float, optional): upper bound on E_fermi search window
-            verbose (bool, optional): prints verbose output
-        Returns:
-            (float): self-consistent Fermi energy.
+        
         """
         if not emin:
             emin = self.dos.emin()
         if not emax:
             emax = self.dos.emax()
-        bounds = [emin, emax]
-        q_tot_min = self.q_tot(e_fermi=bounds[0])
-        q_tot_max = self.q_tot(e_fermi=bounds[1])
-        if verbose:
-            print(f'Initial E_Fermi bracketing values are {emin} {emax}')
-            print(f'E_F = {emin} => Q_tot = {q_tot_min}')
-            print(f'E_F = {emax} => Q_tot = {q_tot_max}')
-        if (q_tot_min > 0) or (q_tot_max < 0):
-            raise ValueError(f'emin and emax do not appear to bound a zero-charge solution: [{emin} {emax}]')
-        for i in range(niter):
-            e_fermi = np.mean(bounds)
+        direction = +1.0
+        e_fermi = (emin + emax)/2.0
+        step = 1.0
+        converged = False
+        reached_e_min = False
+        reached_e_max = False
+      #  TODO: need to check whether emin and emax are reached.
+        for i in range(1000):
             q_tot = self.q_tot(e_fermi=e_fermi)
-            if verbose:
-                print(f'iteration {i}')
-                print(bounds[0], e_fermi, bounds[1])
-                print(q_tot_min, q_tot, q_tot_max)
-                print()
-            if (q_tot > 0) and (q_tot <= q_tot_max):
-                q_tot_max = q_tot
-                bounds[1] = e_fermi
-            elif (q_tot < 0) and (q_tot >= q_tot_min):
-                q_tot_min = q_tot
-                bounds[0] = e_fermi
-            else:
-                raise RuntimeError('Warning! You probably shouldn\'t reach here!')
-            if (abs(q_tot_min) < conv) and (abs(q_tot_max) < conv):
+            if e_fermi > emax:
+                if reached_e_min or reached_e_max:
+                    raise RuntimeError(f'No solution found between {emin} and {emax}')
+                reached_e_max = True
+                direction = -1.0
+            if e_fermi < emin:
+                if reached_e_max or reached_e_min:
+                    raise RuntimeError(f'No solution found between {emin} and {emax}')
+                reached_e_min = True
+                direction = +1.0
+            if abs(q_tot) < conv:
+                converged = True
                 break
-        return { 'e_fermi': e_fermi,
-                 'n_iter': i,
-                 'bracket': bounds }
+            if q_tot > 0.0:
+                if direction == +1.0:
+                    step *= 0.25
+                    direction = -1.0
+            else:
+                if direction == -1.0:
+                    step *= 0.25
+                    direction = +1.0
+            e_fermi += step * direction
+        e_fermi_err = (self.q_tot(e_fermi=e_fermi+step) - self.q_tot(e_fermi=e_fermi-step))/2.0
+        if verbose:
+            print(f'converged: {converged}')
+            print(f'residual: {abs(q_tot)}')
+            print(f'e_fermi_err: {e_fermi_err}')
+            print(f'e_fermi: {e_fermi}')
+        return e_fermi
+
+#     def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True, niter=int(1e4)):
+#         """Solve to find value of E_fermi for which the DefectSystem is
+#         charge neutral
+#         Args:
+#             conv (float, optional): convergence tolerance for what is considered "charge neutral"
+#             emin (float, optional): lower bound on E_fermi search window
+#             emax (float, optional): upper bound on E_fermi search window
+#             verbose (bool, optional): prints verbose output
+#         Returns:
+#             (float): self-consistent Fermi energy.
+#         """
+#         if not emin:
+#             emin = self.dos.emin()
+#         if not emax:
+#             emax = self.dos.emax()
+#         bounds = [emin, emax]
+#         q_tot_min = self.q_tot(e_fermi=bounds[0])
+#         q_tot_max = self.q_tot(e_fermi=bounds[1])
+#         if verbose:
+#             print(f'Initial E_Fermi bracketing values are {emin} {emax}')
+#             print(f'E_F = {emin} => Q_tot = {q_tot_min}')
+#             print(f'E_F = {emax} => Q_tot = {q_tot_max}')
+#         if (q_tot_min > 0) or (q_tot_max < 0):
+#             raise ValueError(f'emin and emax do not appear to bound a zero-charge solution: [{emin} {emax}]')
+#         for i in range(niter):
+#             e_fermi = np.mean(bounds)
+#             q_tot = self.q_tot(e_fermi=e_fermi)
+#             if verbose:
+#                 print(f'iteration {i}')
+#                 print(bounds[0], e_fermi, bounds[1])
+#                 print(q_tot_min, q_tot, q_tot_max)
+#                 print()
+#             if (q_tot > 0) and (q_tot <= q_tot_max):
+#                 q_tot_max = q_tot
+#                 bounds[1] = e_fermi
+#             elif (q_tot < 0) and (q_tot >= q_tot_min):
+#                 q_tot_min = q_tot
+#                 bounds[0] = e_fermi
+#             else:
+#                 raise RuntimeError('Warning! You probably shouldn\'t reach here!')
+#             if (abs(q_tot_min) < conv) and (abs(q_tot_max) < conv):
+#                 break
+#         return { 'e_fermi': e_fermi,
+#                  'n_iter': i,
+#                  'bracket': bounds }
 
     def report(self, emin=None, emax=None, conv=1e-16):
         if not emin:
@@ -269,7 +270,7 @@ class DefectSystem(object):
             emin = self.dos.emin()
         if not emax:
             emax = self.dos.emax()
-        e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)['e_fermi']
+        e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
         concs = {}
         for ds in self.defect_species:
