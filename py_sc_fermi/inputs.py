@@ -3,6 +3,7 @@ import itertools
 from .defect_species import DefectSpecies
 from .defect_charge_state import DefectChargeState,FrozenDefectChargeState
 from py_sc_fermi.dos import DOS
+from pymatgen.core import Structure
 
 def read_unitcell_data(filename, verbose=True):
     with open(filename, 'r') as f:
@@ -130,3 +131,18 @@ def inputs_from_files( unitcell_filename, totdos_filename, input_fermi_filename,
     inputs.update( read_input_data(input_fermi_filename, frozen=frozen, volume=inputs['volume'], verbose=verbose) )
     inputs['dos'] = read_dos_data(totdos_filename, egap=inputs['egap'], nelect=inputs['nelect'], verbose=verbose)
     return inputs
+
+def volume_from_structure(structure_file):
+    """
+    return volume in A^3 for a given structure file. Relies on pymatgen structure parser
+    so accepts a wide range of formats inc. POSCAR, .cif, vasp output files (OUTCAR, vasprun.xml) etc.
+    
+    Args:
+        structure_file (str): path to structure file to parse
+    
+    Returns:
+        volume (float): volume of structure in A^3
+    """
+    structure = Structure.from_file(structure_file)
+    volume = structure.volume
+    return volume

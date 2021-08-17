@@ -1,4 +1,6 @@
 import numpy as np
+from pymatgen.io.vasp import Vasprun
+
 
 class DOS(object):
     """Class for handling density-of-states data and its integration"""
@@ -96,4 +98,24 @@ def p_func(e_fermi, dos, edos, kT):
 def n_func(e_fermi, dos, edos, kT):
     return dos / (1.0 + np.exp((edos - e_fermi)/kT))
 
+def DOS_from_vasprun(vasprun, nelect):
+    """
+    generate DOS object (py_sc_fermi.dos) from a vasp 
+    doscar given number of electrons in calculation
+    
+    Args:
+        doscar (string): path to DOSCAR to parse
+        nelect (float): number of electrons in vasp calculation
+    
+    Returns:
+        dos (DOS): DOS object 
+    """
+    vr = Vasprun(vasprun)
+    cbm, vbm = vr.tdos.get_cbm_vbm()
+    edos = sum(vr.tdos.densities.values())
+    energies = vr.tdos.energies
+    bandgap = vr.tdos.get_gap()
+    dos = DOS(edos, energies, bandgap, nelect=nelect)
+    return dos
+    
 
