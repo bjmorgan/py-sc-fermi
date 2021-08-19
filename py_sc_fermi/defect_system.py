@@ -43,38 +43,6 @@ class DefectSystem(object):
     def defect_species_names(self):
         return [ ds.name for ds in self.defect_species ]
 
-#     def get_constrained_sc_fermi(self, constraint, total, conv=1e-16, emin=None, emax=None, verbose=True):
-#         """Calculate the self-consistent Fermi energy, subject to constrained net
-#         defect concentrations. The constraint to be satisfied is defined as a set of
-#         coefficients for the relevant defect species concentrations, and their
-#         constrained sum, e.g. [V_Li] - [Li_i] = 0.
-#         Args:
-#             constraint (dict): Dictionary of non-zero concentration coefficients,
-#                                i.e. {'v_Li': +1, 'Li_i': -1}.
-#             total (float): Summed concentration of constrained defect species.
-#             conv (float, optional): TODO
-#             emin (float, optional): TODO
-#             emax (float, optional): TODO
-#             verbose (bool, optional): TODO
-#         Returns:
-#             (float): self-consistent Fermi energy.
-#         """
-#         if not emin:
-#             emin = self.dos.emin()
-#         if not emax:
-#             emax = self.dos.emax()
-#         def constraint_func(phi):
-#             summed_total = total
-#             for name, c in constraint.items():
-#                 summed_total += self.defect_species_by_name(name).get_concentration(phi, self.temperature)
-#             summed_total *= 1e10
-#             return summed_total
-#         phi_min = minimize_scalar(self.abs_q_tot, method='bounded', bounds=(emin, emax),
-#                         tol=conv, options={'disp': False, 'xatol': 1e-4} )
-#         phi_min = minimize(self.abs_q_tot, x0=phi_min.x,
-#                            constraints={'fun': constraint_func, 'type': 'eq'})
-#         return phi_min.x[0]
-
     def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
         """
         Solve to find value of E_fermi for which the DefectSystem is
@@ -123,52 +91,6 @@ class DefectSystem(object):
             print(f'e_fermi_err: {e_fermi_err}')
             print(f'e_fermi: {e_fermi}')
         return e_fermi
-
-#     def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True, niter=int(1e4)):
-#         """Solve to find value of E_fermi for which the DefectSystem is
-#         charge neutral
-#         Args:
-#             conv (float, optional): convergence tolerance for what is considered "charge neutral"
-#             emin (float, optional): lower bound on E_fermi search window
-#             emax (float, optional): upper bound on E_fermi search window
-#             verbose (bool, optional): prints verbose output
-#         Returns:
-#             (float): self-consistent Fermi energy.
-#         """
-#         if not emin:
-#             emin = self.dos.emin()
-#         if not emax:
-#             emax = self.dos.emax()
-#         bounds = [emin, emax]
-#         q_tot_min = self.q_tot(e_fermi=bounds[0])
-#         q_tot_max = self.q_tot(e_fermi=bounds[1])
-#         if verbose:
-#             print(f'Initial E_Fermi bracketing values are {emin} {emax}')
-#             print(f'E_F = {emin} => Q_tot = {q_tot_min}')
-#             print(f'E_F = {emax} => Q_tot = {q_tot_max}')
-#         if (q_tot_min > 0) or (q_tot_max < 0):
-#             raise ValueError(f'emin and emax do not appear to bound a zero-charge solution: [{emin} {emax}]')
-#         for i in range(niter):
-#             e_fermi = np.mean(bounds)
-#             q_tot = self.q_tot(e_fermi=e_fermi)
-#             if verbose:
-#                 print(f'iteration {i}')
-#                 print(bounds[0], e_fermi, bounds[1])
-#                 print(q_tot_min, q_tot, q_tot_max)
-#                 print()
-#             if (q_tot > 0) and (q_tot <= q_tot_max):
-#                 q_tot_max = q_tot
-#                 bounds[1] = e_fermi
-#             elif (q_tot < 0) and (q_tot >= q_tot_min):
-#                 q_tot_min = q_tot
-#                 bounds[0] = e_fermi
-#             else:
-#                 raise RuntimeError('Warning! You probably shouldn\'t reach here!')
-#             if (abs(q_tot_min) < conv) and (abs(q_tot_max) < conv):
-#                 break
-#         return { 'e_fermi': e_fermi,
-#                  'n_iter': i,
-#                  'bracket': bounds }
 
     def report(self, emin=None, emax=None, conv=1e-16):
         if not emin:
@@ -236,15 +158,36 @@ class DefectSystem(object):
                                      +'does not equal the fixed total concentration.')
 
     def get_transition_levels(self):
-        tls = {}
-        for ds in self.defect_species_names:
-            tl = self.defect_species_by_name(ds).tl_profile(ef_min=self.dos.emin(), ef_max=self.dos.emax())
-            x = [[j][0][0] for j in tl]
-            y = [[j][0][1] for j in tl]
+        """
+        method which returns the transition lebels as a dictionary:
+        {defect species label: [[x_values],[y_values]]}
+        """
+        transition_levels = {}
+        for defect_species in self.defect_species_names:
+            transition_level = self.defect_species_by_name(defect_species).tl_profile(ef_min=self.dos.emin(), ef_max=self.dos.emax())
+            x = [[x_value][0][0] for x_value in transition_level]
+            y = [[y_value][0][1] for y_value in transition_level]
             tls.update({ds:[x,y]})
         return tls
 
     def to_dict(self, emin=None, emax=None, conv=1e-16, decomposed=False):
+        """
+        returns a dictionary of relevent properties of the DefectSystem
+        concentrations are reported in cm^-3
+        
+        args:
+            emin (float): minimum energy for the Fermi energy search
+            emax (float): maximum energy for the Fermi energy search
+            conv (float): convergence tolerance for the charge neutrality condition
+            decomposed (bool): False (default) returns concentrations of defect species,
+            true returns the concentraion of individual charge states.
+            
+        returns:
+            {**run_stats, **concs} (dict): {'Fermi Energy': self consistent fermi energy value,
+                                            'p0': concentration of holes in cm^-3
+                                            'n0': concentration of electrons in cm^-3
+                                             concs: {defect concentrations in cm^-3}}
+        """
         if not emin:
             emin = self.dos.emin()
         if not emax:
@@ -266,6 +209,23 @@ class DefectSystem(object):
 
 
     def to_dict_per_site(self, emin=None, emax=None, conv=1e-16, decomposed=False):
+        """
+        returns a dictionary of relevent properties of the DefectSystem
+        concentrations are reported per site
+        
+        args:
+            emin (float): minimum energy for the Fermi energy search
+            emax (float): maximum energy for the Fermi energy search
+            conv (float): convergence tolerance for the charge neutrality condition
+            decomposed (bool): False (default) returns concentrations of defect species,
+            true returns the concentraion of individual charge states.
+            
+        returns:
+            {**run_stats, **concs} (dict): {'Fermi Energy': self consistent fermi energy value,
+                                            'p0': concentration of holes per site
+                                            'n0': concentration of electrons per site
+                                             concs: {defect concentrations in per site}}
+        """
         if not emin:
             emin = self.dos.emin()
         if not emax:
@@ -293,7 +253,6 @@ class DefectSystem(object):
                 f.write( str(self.dos._nelect) + '\n' )
                 f.write( str(self.dos._egap) + '\n')
                 f.write( str(self.temperature) + '\n')
-                #f.write( str(len(self.defect_species_names)) + '\n' )
                 i = 0
                 for d in self.defect_species:
                     free_chg_states = []
