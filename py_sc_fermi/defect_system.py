@@ -47,6 +47,19 @@ class DefectSystem(object):
         """
         Solve to find value of E_fermi for which the DefectSystem is
         charge neutral
+
+        args:
+            conv (float): convergence tolerance for total charge when
+            assessing the condition of charge neutrality
+            emin (float): minmum energy for E_fermi search, cannot be lower than 
+            the lowest energy in the DOS input, defaults to None, which will use
+            the lowest energy in the DOS
+            emax (float): maximum energy for Fermi energy search, cannot exceed the
+            highest energy in the DOS input, default to None, which will use the
+            highest energy in the DOS
+
+        returns:
+            e_fermi (float): self consistent Fermi energy in electron volts
         
         """
         if not emin:
@@ -246,6 +259,14 @@ class DefectSystem(object):
         return {**run_stats, **concs}
 
     def write_inputs( self, filename='input-fermi.dat' ):
+        """
+        writes an input file which is compatible with the FORTRAN code
+        SC-FERMI on which py-sc-fermi was initially based. 
+
+        args:
+            filename (string): name of file to write. defaults to 'input-fermi.dat' as
+            this is what SC-FERMI expects to read.
+        """
 
             with open(filename, 'w') as f:
 
