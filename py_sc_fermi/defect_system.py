@@ -172,16 +172,18 @@ class DefectSystem(object):
 
     def get_transition_levels(self):
         """
-        method which returns the transition lebels as a dictionary:
-        {defect species label: [[x_values],[y_values]]}
+        method which returns the transition levels as a dictionary:
+
+        returns:
+         transition_levels (dict): {defect_species_label: [[x_values],[y_values]]}
         """
         transition_levels = {}
         for defect_species in self.defect_species_names:
             transition_level = self.defect_species_by_name(defect_species).tl_profile(ef_min=self.dos.emin(), ef_max=self.dos.emax())
             x = [[x_value][0][0] for x_value in transition_level]
             y = [[y_value][0][1] for y_value in transition_level]
-            tls.update({ds:[x,y]})
-        return tls
+            transition_levels.update({ds:[x,y]})
+        return transition_levels
 
     def to_dict(self, emin=None, emax=None, conv=1e-16, decomposed=False):
         """
@@ -266,6 +268,9 @@ class DefectSystem(object):
         args:
             filename (string): name of file to write. defaults to 'input-fermi.dat' as
             this is what SC-FERMI expects to read.
+        
+        returns:
+            None
         """
 
             with open(filename, 'w') as f:
