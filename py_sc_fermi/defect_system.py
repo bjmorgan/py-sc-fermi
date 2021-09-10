@@ -106,6 +106,19 @@ class DefectSystem(object):
         return e_fermi
 
     def report(self, emin=None, emax=None, conv=1e-16):
+        """
+        print a report in the style of SC-FERMI which summarises key properties of
+        the defect system.
+
+        Args:
+            emin: minimum energy considered in Fermi energy solver, the default is the bottom of the DOS
+            emax: maximum energy considered in Fermi energy solver, the default is the top of the DOS
+            conv: convergence tolerance for charge neutrality condition 
+
+        Returns:
+            None
+
+        """
         if not emin:
             emin = self.dos.emin()
         if not emax:
@@ -144,6 +157,17 @@ class DefectSystem(object):
         return lhs, rhs
 
     def q_tot(self, e_fermi):
+        """
+        for a given Fermi energy, calculate the net charge as the difference between 
+        all positive species (including holes) and all negative species (including)
+        electrons.
+
+        Args:
+            e_fermi (float): Fermi energy
+        
+        Returns:
+            diff (float): net charge
+        """
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
         lhs_def, rhs_def = self.defect_charge_contributions(e_fermi)
         lhs = p0 + lhs_def
@@ -155,6 +179,15 @@ class DefectSystem(object):
         return abs( self.q_tot(e_fermi) )
 
     def check_concentrations(self):
+        """
+        Assess whether defects with fixed concentrations sum to reasonable values,
+        i.e. does the sum of all fixed charge states of a defect equal the total fixed 
+        concentration of the defect.
+
+        Args: None
+
+        Returns: None
+        """
         for ds in self.defect_species:
             if not ds.fixed_concentration:
                 continue
