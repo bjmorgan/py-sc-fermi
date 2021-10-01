@@ -305,48 +305,45 @@ class DefectSystem(object):
         returns:
             None
         """
-
-            with open(filename, 'w') as f:
-
-                f.write( str(self.spin_pol) + '\n' )
-                f.write( str(self.dos._nelect) + '\n' )
-                f.write( str(self.dos._egap) + '\n')
-                f.write( str(self.temperature) + '\n')
-                i = 0
-                for d in self.defect_species:
-                    free_chg_states = []
-                    for c in d.charge_states:
-                         if type(d.charge_states[c]) != FrozenDefectChargeState:
-                                free_chg_states.append(c)
+        with open(filename, 'w') as f:
+            f.write( str(self.spin_pol) + '\n' )
+            f.write( str(self.dos._nelect) + '\n' )
+            f.write( str(self.dos._egap) + '\n')
+            f.write( str(self.temperature) + '\n')
+            i = 0
+            for d in self.defect_species:
+                free_chg_states = []
+                for c in d.charge_states:
+                    if type(d.charge_states[c]) != FrozenDefectChargeState:
+                        free_chg_states.append(c)
+                if len(free_chg_states) > 0:
+                    i=i+1
+            #print(i)
+            f.write(str(i) +'\n')
+            frozen_defects = []
+            frozen_charge_states = []
+            free_defects_to_write = []
+            for d in self.defect_species:
+                free_chg_states = []
+                for c in d.charge_states:
+                    if type(d.charge_states[c]) != FrozenDefectChargeState:
+                        free_chg_states.append(c)
                     if len(free_chg_states) > 0:
-                           i=i+1
-                #print(i)
-                f.write(str(i) +'\n')
-                frozen_defects = []
-                frozen_charge_states = []
-                free_defects_to_write = []
-                for d in self.defect_species:
-                    free_chg_states = []
-                    for c in d.charge_states:
-                         if type(d.charge_states[c]) != FrozenDefectChargeState:
-                                free_chg_states.append(c)
-                    if len(free_chg_states) > 0:
-                          f.write( '{} {} {}'.format( d.name, len(free_chg_states), d.nsites ) + '\n')
+                        f.write( '{} {} {}'.format( d.name, len(free_chg_states), d.nsites ) + '\n')
                     if d._fixed_concentration is not None:
-                            frozen_defects.append(d)
+                        frozen_defects.append(d)
                     for c in d.charge_states:
-                            if type(d.charge_states[c]) != FrozenDefectChargeState:
-                                f.write( '{} {} {}'.format( c, d.charge_states[c].energy, d.charge_states[c].degeneracy ) + '\n')
-                            if d.charge_states[c]._fixed_concentration is not False:
-                                frozen_charge_states.append((d.name, d.charge_states[c]))
-                f.write( str(len(frozen_defects)) + '\n' )
-                if frozen_defects is not []:
-                    for fd in frozen_defects:
-                        f.write( '{} {}'.format( fd.name, fd.fixed_concentration * 1e24 / self.volume   ) + '\n')  #
-                f.write( str(len(frozen_charge_states)) + '\n' )
-                if frozen_charge_states is not []:
-                    for fc in frozen_charge_states:
-                        #print(fc)
-                        f.write( '{} {} {}'.format( fc[0], fc[1].charge, fc[1]._concentration * 1e24 / self.volume ) + '\n')  #
-
-            f.close()
+                        if type(d.charge_states[c]) != FrozenDefectChargeState:
+                            f.write( '{} {} {}'.format( c, d.charge_states[c].energy, d.charge_states[c].degeneracy ) + '\n')
+                        if d.charge_states[c]._fixed_concentration is not False:
+                            frozen_charge_states.append((d.name, d.charge_states[c]))
+            f.write( str(len(frozen_defects)) + '\n' )
+            if frozen_defects is not []:
+                for fd in frozen_defects:
+                    f.write( '{} {}'.format( fd.name, fd.fixed_concentration * 1e24 / self.volume   ) + '\n')  #
+            f.write( str(len(frozen_charge_states)) + '\n' )
+            if frozen_charge_states is not []:
+                for fc in frozen_charge_states:
+                    #print(fc)
+                    f.write( '{} {} {}'.format( fc[0], fc[1].charge, fc[1]._concentration * 1e24 / self.volume ) + '\n')  #
+        f.close()
