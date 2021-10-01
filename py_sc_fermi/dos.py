@@ -1,6 +1,5 @@
 import numpy as np
-from pymatgen.io.vasp import Vasprun
-
+from pymatgen.io.vasp import Vasprun # type: ignore
 
 class DOS(object):
     """Class for handling density-of-states data and its integration"""

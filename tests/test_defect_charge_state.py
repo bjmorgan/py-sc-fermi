@@ -47,9 +47,9 @@ class TestDefectChargeState(unittest.TestCase):
     def test_get_concentration(self):
         e_fermi = 1.2
         temperature = 298.0 
-        conc = self.defect_charge_state.get_concentration( e_fermi=e_fermi,
-            temperature=temperature )
-        self.assertEqual( conc, 8.311985602942568e-23 )
+        conc = self.defect_charge_state.get_concentration(e_fermi=e_fermi,
+                                                          temperature=temperature)
+        self.assertEqual(conc, 8.311501552630706e-23)
  
 class TestFrozenDefectChargeStateInit(unittest.TestCase):
 

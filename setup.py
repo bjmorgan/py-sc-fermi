@@ -14,7 +14,7 @@ config = {
     'download_url': "https://github.com/bjmorgan/py-sc-fermi/archive/%s.tar.gz" % (VERSION),
     'author_email': 'b.j.morgan@bath.ac.uk',
     'version': VERSION,
-    'install_requires': open( 'requirements.txt' ).read(),
+    'install_requires': open('requirements.txt').read(),
     'python_requires': '>=3.5',
     'license': 'MIT',
     'packages': [ 'py_sc_fermi' ],

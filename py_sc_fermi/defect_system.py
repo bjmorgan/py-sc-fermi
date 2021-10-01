@@ -1,10 +1,10 @@
 import numpy as np
-from scipy.optimize import minimize_scalar, minimize
-from .constants import kboltz
+from scipy.optimize import minimize_scalar, minimize # type: ignore
+from py_sc_fermi.constants import kboltz
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_charge_state import  FrozenDefectChargeState
 import multiprocessing
-import pandas as pd
+import pandas as pd # type: ignore
 
 class DefectSystem(object):
 
