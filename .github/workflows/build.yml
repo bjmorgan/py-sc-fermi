@@ -30,7 +30,7 @@ jobs:
             pip list
         - name: Run tests
           run: |
-            pytest --cov-config=.coveragerc --cov=vasppy --cov-report xml
+            pytest --cov-config=.coveragerc --cov=py_sc_fermi --cov-report xml
         - name: Publish code coverage
           uses: paambaati/codeclimate-action@v2.7.5
           env:
