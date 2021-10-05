@@ -31,12 +31,13 @@ class DOS(object):
         self._edos = edos
         self._egap = egap
         self._nelect = nelect 
-        if normalise:
-            self.normalise_dos()
+        #if normalise:
+        self.normalise_dos()
 
     @property
     def dos(self):
         """Get the dos array."""
+        self.normalise_dos()
         return self._dos
 
     @property
@@ -116,7 +117,8 @@ def DOS_from_vasprun(vasprun, nelect, bandgap = None):
     """
     vr = Vasprun(vasprun)
     densities = vr.complete_dos.densities
-    edos = vr.complete_dos.energies - vr.parameters['SIGMA']
+    cbm = vr.eigenvalue_band_properties[2]
+    edos = vr.complete_dos.energies - vr.parameters['SIGMA'] - cbm
     if len(densities) == 2:
         tdos_data = np.stack([edos,densities[Spin.up], densities[Spin.down]], axis=1)
     else:
@@ -124,7 +126,7 @@ def DOS_from_vasprun(vasprun, nelect, bandgap = None):
     edos = tdos_data[:,0]
     dos = np.sum(tdos_data[:,1:], axis=1)
     if bandgap == None:
-        bandgap = vr.tdos.get_gap()
+        bandgap = vr.eigenvalue_band_properties[0]
     dos = DOS(dos, edos, bandgap, nelect=nelect)
     return dos
     
