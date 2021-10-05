@@ -107,7 +107,7 @@ def DOS_from_vasprun(vasprun, nelect, bandgap = None):
     doscar given number of electrons in calculation
     
     Args:
-        doscar (string): path to DOSCAR to parse
+        vasprun (string): path to vasprun to parse
         nelect (float): number of electrons in vasp calculation
         bandgap (float): user supplied band-gap (defualts to `None`),
         in which case, the bandgap will be determined from the DOS provided
