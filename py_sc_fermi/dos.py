@@ -111,10 +111,10 @@ def DOS_from_vasprun(vasprun, nelect):
     """
     vr = Vasprun(vasprun)
     cbm, vbm = vr.tdos.get_cbm_vbm()
-    edos = sum(vr.tdos.densities.values())
+    dos = sum(vr.tdos.densities.values())
     energies = vr.tdos.energies
     bandgap = vr.tdos.get_gap()
-    dos = DOS(edos, energies, bandgap, nelect=nelect)
+    dos = DOS(dos, energies, bandgap, nelect=nelect)
     return dos
     
 
