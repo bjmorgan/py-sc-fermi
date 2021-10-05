@@ -1,6 +1,6 @@
 import numpy as np
 from pymatgen.io.vasp import Vasprun # type: ignore
-from pymatgen.electronic_structure.core import Spin
+from pymatgen.electronic_structure.core import Spin # type: ignore
 
 class DOS(object):
     """Class for handling density-of-states data and its integration"""
