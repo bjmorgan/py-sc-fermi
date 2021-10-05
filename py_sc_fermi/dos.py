@@ -114,7 +114,7 @@ def DOS_from_vasprun(vasprun, nelect):
     dos = sum(vr.tdos.densities.values())
     energies = vr.tdos.energies
     bandgap = vr.tdos.get_gap()
-    dos = DOS(dos, energies, bandgap, nelect=nelect)
+    dos = DOS(dos, energies, bandgap, nelect=nelect, normalise=True)
     return dos
     
 
