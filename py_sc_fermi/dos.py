@@ -31,13 +31,12 @@ class DOS(object):
         self._edos = edos
         self._egap = egap
         self._nelect = nelect 
-        #if normalise:
-        self.normalise_dos()
+        if normalise:
+            self.normalise_dos()
 
     @property
     def dos(self):
         """Get the dos array."""
-        self.normalise_dos()
         return self._dos
 
     @property
