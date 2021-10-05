@@ -1,10 +1,11 @@
 import numpy as np
 from pymatgen.io.vasp import Vasprun # type: ignore
+from pymatgen.electronic_structure.core import Spin
 
 class DOS(object):
     """Class for handling density-of-states data and its integration"""
 
-    def __init__(self, dos, edos, egap, nelect, normalise=True):
+    def __init__(self, dos, edos, egap, nelect, spin_polarised=False, normalise=True):
         """Initialise a DOS instance.
 
         Args:
@@ -12,6 +13,8 @@ class DOS(object):
             edos (np.array): Energies for the density of states (in eV).
             egap (float): Width of the band gap (in eV).
             nelect (int): Number of electrons.
+            spin_polarise(`bool`, optional): is the calculated DOS spin polarisised? Default
+                is `False`
             normalise (:obj:`bool`, optional): Normalise the DOS so that the integral
                 from e_min --> 0.0 is equal to the `nelect`. Default is `True`.
 
@@ -97,7 +100,7 @@ def p_func(e_fermi, dos, edos, kT):
 def n_func(e_fermi, dos, edos, kT):
     return dos / (1.0 + np.exp((edos - e_fermi)/kT))
 
-def DOS_from_vasprun(vasprun, nelect):
+def DOS_from_vasprun(vasprun, nelect, bandgap = None):
     """
     generate DOS object (py_sc_fermi.dos) from a vasp 
     doscar given number of electrons in calculation
@@ -105,16 +108,24 @@ def DOS_from_vasprun(vasprun, nelect):
     Args:
         doscar (string): path to DOSCAR to parse
         nelect (float): number of electrons in vasp calculation
+        bandgap (float): user supplied band-gap (defualts to `None`),
+        in which case, the bandgap will be determined from the DOS provided
     
     Returns:
         dos (DOS): DOS object 
     """
     vr = Vasprun(vasprun)
-    cbm, vbm = vr.tdos.get_cbm_vbm()
-    edos = sum(vr.tdos.densities.values())
-    energies = vr.tdos.energies
-    bandgap = vr.tdos.get_gap()
-    dos = DOS(edos, energies, bandgap, nelect=nelect)
+    densities = vr.complete_dos.densities
+    edos = vr.complete_dos.energies - vr.parameters['SIGMA']
+    if len(densities) == 2:
+        tdos_data = np.stack([edos,densities[Spin.up], densities[Spin.down]], axis=1)
+    else:
+        tdos_data = np.stack([edos,densities[Spin.up]], axis = 1)
+    edos = tdos_data[:,0]
+    dos = np.sum(tdos_data[:,1:], axis=1)
+    if bandgap == None:
+        bandgap = vr.tdos.get_gap()
+    dos = DOS(dos, edos, bandgap, nelect=nelect)
     return dos
     
 
