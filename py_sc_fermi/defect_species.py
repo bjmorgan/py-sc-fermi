@@ -37,7 +37,7 @@ class DefectSpecies(object):
         self._fixed_concentration = None
 
     def fix_concentration(self, conc):
-         """fixed the net concentration (per unit cell) of this defect species"""
+        """fixed the net concentration (per unit cell) of this defect species"""
         self._fixed_concentration = conc
     
     @property
