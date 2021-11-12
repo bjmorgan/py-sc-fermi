@@ -1,0 +1,12 @@
+cff-version: 0.0.1
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Squires"
+  given-names: "Alexander G."
+  orcid: "https://orcid.org/0000-0001-6967-3690"
+- family-names: "Morgan"
+  given-names: "Benjamin J."
+  orcid: "https://orcid.org/0000-0002-3056-8233"
+title: "py-sc-Fermi"
+version: 0.0.1
+url: "https://github.com/bjmorgan/py-sc-fermi"
