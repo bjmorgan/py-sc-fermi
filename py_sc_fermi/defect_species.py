@@ -180,15 +180,15 @@ class DefectSpecies(object):
     
     def get_concentration(self, e_fermi, temperature):
         """
-        Get the net concentration for this defect species at a specific
-        Fermi energy (relative to E(VBM)) and temperature..
+        Get the net concentration per unit cell for this defect species at a specific
+        Fermi energy (relative to E(VBM)) and temperature.
         
         Args:
             e_fermi (float): Fermi energy, relative to E(VBM) (in eV).
             temperature (float): Temperature (in K).
        
         Returns:
-            (float): The concentration, summed over all charge states.
+            (float): The concentration (per unit cell), summed over all charge states.
 
         Note:
             If this DefectSpecies has a fixed concentration, then this
