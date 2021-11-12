@@ -218,7 +218,7 @@ class DefectSystem(object):
             transition_levels.update({ds:[x,y]})
         return transition_levels
 
-    def to_dict(self, emin=None, emax=None, conv=1e-16, decomposed=False):
+    def to_dict_per_volume(self, emin=None, emax=None, conv=1e-16, decomposed=False):
         """
         returns a dictionary of relevent properties of the DefectSystem
         concentrations are reported in cm^-3
@@ -256,10 +256,10 @@ class DefectSystem(object):
         return {**run_stats, **concs}
 
 
-    def to_dict_per_site(self, emin=None, emax=None, conv=1e-16, decomposed=False):
+    def to_dict(self, emin=None, emax=None, conv=1e-16, decomposed=False):
         """
         returns a dictionary of relevent properties of the DefectSystem
-        concentrations are reported per site
+        concentrations are reported per unit cell
         
         args:
             emin (float): minimum energy for the Fermi energy search
@@ -270,9 +270,9 @@ class DefectSystem(object):
             
         returns:
             {**run_stats, **concs} (dict): {'Fermi Energy': self consistent fermi energy value,
-                                            'p0': concentration of holes per site
-                                            'n0': concentration of electrons per site
-                                             concs: {defect concentrations in per site}}
+                                            'p0': concentration of holes per unit cell
+                                            'n0': concentration of electrons per unit cell
+                                             concs: {defect concentrations in per unit cell}}
         """
         if not emin:
             emin = self.dos.emin()
