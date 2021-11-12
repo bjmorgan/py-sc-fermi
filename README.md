@@ -12,4 +12,5 @@ The inputs are (charged) defect formation energies, an (electronic) density of s
 If you use py-sc-Fermi in your work, please consider citing 
 - this repositoiry (see `cite this repository` in the sidebar)
 - the paper associated with the FORTRAN implementation which provides an excellent discussion of both the underlying theory and the self-consitent Fermi energy searching algorithm  
+
    > J. Buckeridge, Equilibrium point defect and charge carrier concentrations in a material determined through calculation of the self-consistent Fermi energy, Computer Physics      Communications, Volume 244, 2019, Pages 329-342, ISSN 0010-4655, https://doi.org/10.1016/j.cpc.2019.06.017.
