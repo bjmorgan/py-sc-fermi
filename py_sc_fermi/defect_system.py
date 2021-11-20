@@ -43,7 +43,7 @@ class DefectSystem(object):
     def defect_species_names(self):
         return [ ds.name for ds in self.defect_species ]
 
-    def get_sc_fermi(self, conv=1e-16, emin=None, emax=None, verbose=True):
+    def get_sc_fermi(self, conv=1e-20, emin=None, emax=None, verbose=True):
         """
         Solve to find value of E_fermi for which the DefectSystem is
         charge neutral
@@ -105,7 +105,7 @@ class DefectSystem(object):
             print(f'e_fermi: {e_fermi}')
         return e_fermi
 
-    def report(self, emin=None, emax=None, conv=1e-16):
+    def report(self, emin=None, emax=None, conv=1e-20):
         """
         print a report in the style of SC-FERMI which summarises key properties of
         the defect system.
@@ -218,7 +218,7 @@ class DefectSystem(object):
             transition_levels.update({ds:[x,y]})
         return transition_levels
 
-    def to_dict_per_volume(self, emin=None, emax=None, conv=1e-16, decomposed=False):
+    def to_dict_per_volume(self, emin=None, emax=None, conv=1e-20, decomposed=False):
         """
         returns a dictionary of relevent properties of the DefectSystem
         concentrations are reported in cm^-3
@@ -256,7 +256,7 @@ class DefectSystem(object):
         return {**run_stats, **concs}
 
 
-    def to_dict(self, emin=None, emax=None, conv=1e-16, decomposed=False):
+    def to_dict(self, emin=None, emax=None, conv=1e-20, decomposed=False):
         """
         returns a dictionary of relevent properties of the DefectSystem
         concentrations are reported per unit cell
