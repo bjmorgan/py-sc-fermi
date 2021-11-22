@@ -21,7 +21,7 @@ for conv in conv_convergence:
 
 returning a plot such as
 
-<img src="py_sc_fermi_convergence_testing.PNG" alt="convergence plot" width="200"/>
+<img src="py_sc_fermi_convergence_testing.PNG" alt="convergence plot" width="400"/>
 
 ### Citing
 
