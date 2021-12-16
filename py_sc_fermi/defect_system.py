@@ -215,7 +215,7 @@ class DefectSystem(object):
             transition_level = self.defect_species_by_name(defect_species).tl_profile(ef_min=self.dos.emin(), ef_max=self.dos.emax())
             x = [[x_value][0][0] for x_value in transition_level]
             y = [[y_value][0][1] for y_value in transition_level]
-            transition_levels.update({ds:[x,y]})
+            transition_levels.update({defect_species:[x,y]})
         return transition_levels
 
     def to_dict_per_volume(self, emin=None, emax=None, conv=1e-20, decomposed=False):
