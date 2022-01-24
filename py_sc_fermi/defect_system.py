@@ -43,7 +43,7 @@ class DefectSystem(object):
     def defect_species_names(self):
         return [ ds.name for ds in self.defect_species ]
 
-    def get_sc_fermi(self, conv=1e-20, emin=None, emax=None, verbose=True):
+    def get_sc_fermi(self, conv=1e-20, emin=None, emax=None, verbose=True, n_trial_steps=1000):
         """
         Solve to find value of E_fermi for which the DefectSystem is
         charge neutral
@@ -73,7 +73,7 @@ class DefectSystem(object):
         reached_e_min = False
         reached_e_max = False
       #  TODO: need to check whether emin and emax are reached.
-        for i in range(1000):
+        for i in range(n_trial_steps):
             q_tot = self.q_tot(e_fermi=e_fermi)
             if e_fermi > emax:
                 if reached_e_min or reached_e_max:
