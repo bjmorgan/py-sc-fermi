@@ -1,6 +1,7 @@
 import numpy as np
 from pymatgen.io.vasp import Vasprun # type: ignore
 from pymatgen.electronic_structure.core import Spin # type: ignore
+from py_sc_fermi.constants import kboltz
 
 class DOS(object):
     """Class for handling density-of-states data and its integration"""
@@ -73,13 +74,13 @@ class DOS(object):
         """get highest energy in the dos data"""
         return self._edos[-1]
 
-    def carrier_concentrations(self, e_fermi, kT):
+    def carrier_concentrations(self, e_fermi, temperature):
         """get n0 and p0 using integrals (equations 28.9 in Ashcroft Mermin)
-           for an abitrary value of kT and Fermi energy. Typically used internally 
+           for an abitrary value of temperature and Fermi energy. Typically used internally 
            to calculate carrier concentrations at the self-cosistent Fermi energy
         Args:
             efermi (float): Fermi energy
-            kT (float): k * temperature
+            temperature (float): temperature for Fermi-Dirac distribution solution 
 
         Returns:
             p0 (float): concentration of holes
@@ -87,18 +88,18 @@ class DOS(object):
         """
         p0_index = np.where(self._edos <= 0)[0][-1]
         n0_index = np.where(self._edos > self.egap)[0][0]
-        p0 = np.trapz( p_func(e_fermi, self._dos[:p0_index+1], self._edos[:p0_index+1], kT ),
+        p0 = np.trapz( p_func(e_fermi, self._dos[:p0_index+1], self._edos[:p0_index+1], temperature ),
                        self._edos[:p0_index+1])
-        n0 = np.trapz( n_func(e_fermi, self._dos[n0_index:], self._edos[n0_index:], kT ),
+        n0 = np.trapz( n_func(e_fermi, self._dos[n0_index:], self._edos[n0_index:], temperature ),
                        self._edos[n0_index:])
         return p0, n0
 
 # Possibly better as class methods that integrate over a certain energy range.
-def p_func(e_fermi, dos, edos, kT):
-    return dos / (1.0 + np.exp((e_fermi - edos)/kT))
+def p_func(e_fermi, dos, edos, temperature):
+    return dos / (1.0 + np.exp((e_fermi - edos)/(kboltz * temperature)))
 
-def n_func(e_fermi, dos, edos, kT):
-    return dos / (1.0 + np.exp((edos - e_fermi)/kT))
+def n_func(e_fermi, dos, edos, temperature):
+    return dos / (1.0 + np.exp((edos - e_fermi)/(kboltz * temperature)))
 
 def DOS_from_vasprun(vasprun, nelect, bandgap = None):
     """
