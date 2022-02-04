@@ -22,7 +22,6 @@ class DefectSystem(object):
         self.volume = volume
         self.dos = dos
         self.temperature = temperature
-        self.kT = kboltz * temperature
         self.spin_pol = spin_pol
 
     def __repr__(self):
@@ -125,7 +124,7 @@ class DefectSystem(object):
             emax = self.dos.emax()
         e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)
         print(f'SC Fermi level :      {e_fermi}  (eV)\n')
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
+        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         print( 'Concentrations:')
         print( f'n (electrons)  : {n0 * 1e24 / self.volume} cm^-3')
         print( f'p (holes)      : {p0 * 1e24 / self.volume} cm^-3')
@@ -168,7 +167,7 @@ class DefectSystem(object):
         Returns:
             diff (float): net charge
         """
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
+        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         lhs_def, rhs_def = self.defect_charge_contributions(e_fermi)
         lhs = p0 + lhs_def
         rhs = n0 + rhs_def
@@ -241,7 +240,7 @@ class DefectSystem(object):
         if not emax:
             emax = self.dos.emax()
         e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
+        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         concs = {}
         for ds in self.defect_species:
             conc = ds.get_concentration(e_fermi, self.temperature)
@@ -279,7 +278,7 @@ class DefectSystem(object):
         if not emax:
             emax = self.dos.emax()
         e_fermi = self.get_sc_fermi(verbose=False, emin=emin, emax=emax, conv=conv)
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.kT)
+        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         concs = {}
         for ds in self.defect_species:
             conc = ds.get_concentration(e_fermi, self.temperature)
