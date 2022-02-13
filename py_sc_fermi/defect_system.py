@@ -15,6 +15,7 @@ class DefectSystem(object):
             volume (float): Cell volume in A^3.
             dos (:obj:`DOS`): A DOS object.
             temperature (float): Temperature in K.
+            spin_pol (int): 1 for spin-polarised, 0 for non-spin polarised
         Returns:
             None
         """
