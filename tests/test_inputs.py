@@ -13,7 +13,7 @@ structure = Structure.from_file(test_poscar_filename)
 volume = Structure.volume
 
 def test_volume_from_structure():
-    assert volume == volume_from_structure(test_poscar_filename)
+    assert_almost_equal(volume,volume_from_structure(test_poscar_filename))
 
 def test_read_unitcell_data():
      assert_almost_equal(volume,read_unitcell_data(test_unitcell_filename))
