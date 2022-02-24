@@ -12,13 +12,16 @@ class TestDefectSystemInit(unittest.TestCase):
         mock_defect_species = [ Mock(spec=DefectSpecies), Mock(spec=DefectSpecies) ]
         dos = Mock(spec=DOS)
         spin_pol = 1
+        temperature = 298
         defect_system = DefectSystem( defect_species=mock_defect_species,
                                         volume=volume,
                                         dos=dos,
-                                        spin_pol=spin_pol)
+                                        spin_pol=spin_pol,
+                                        temperature=temperature)
         self.assertEqual( defect_system._volume, volume )
         self.assertEqual( defect_system._spin_pol, spin_pol )
         self.assertEqual( defect_system._dos, dos )
+        self.assertEqual( defect_system._temperature, temperature )
         self.assertEqual( defect_system._defect_species[0], mock_defect_species[0] )
         self.assertEqual( defect_system._defect_species[1], mock_defect_species[1] )
         
