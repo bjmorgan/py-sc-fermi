@@ -78,8 +78,8 @@ class DefectChargeState(TemplateChargeState):
         expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
         return self.degeneracy * np.exp(expfac)
     
-    def write_fixed_concentration(self, concentration):
-        self._fixed_concentration = concentration
+ #   def write_fixed_concentration(self, concentration):
+ #       self._fixed_concentration = concentration
         
     def __repr__(self):
         return f'q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}'
