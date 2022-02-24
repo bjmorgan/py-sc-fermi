@@ -12,7 +12,7 @@ class TestDefectSystemInit(unittest.TestCase):
         mock_defect_species = [ Mock(spec=DefectSpecies), Mock(spec=DefectSpecies) ]
         dos = Mock(spec=DOS)
         spin_pol = 1
-        defect_system = DefectSpecies( defect_species=mock_defect_species,
+        defect_system = DefectSystem( defect_species=mock_defect_species,
                                         volume=volume,
                                         dos=dos,
                                         spin_pol=spin_pol)
