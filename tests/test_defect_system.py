@@ -18,12 +18,12 @@ class TestDefectSystemInit(unittest.TestCase):
                                         dos=dos,
                                         spin_pol=spin_pol,
                                         temperature=temperature)
-        self.assertEqual( defect_system._volume, volume )
-        self.assertEqual( defect_system._spin_pol, spin_pol )
-        self.assertEqual( defect_system._dos, dos )
-        self.assertEqual( defect_system._temperature, temperature )
-        self.assertEqual( defect_system._defect_species[0], mock_defect_species[0] )
-        self.assertEqual( defect_system._defect_species[1], mock_defect_species[1] )
+        self.assertEqual( defect_system.volume, volume )
+        self.assertEqual( defect_system.spin_pol, spin_pol )
+        self.assertEqual( defect_system.dos, dos )
+        self.assertEqual( defect_system.temperature, temperature )
+        self.assertEqual( defect_system.defect_species[0], mock_defect_species[0] )
+        self.assertEqual( defect_system.defect_species[1], mock_defect_species[1] )
         
 if __name__ == '__main__':
     unittest.main()
