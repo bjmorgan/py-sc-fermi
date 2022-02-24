@@ -17,7 +17,8 @@ class TestDefectSystemInit(unittest.TestCase):
                                         dos=dos,
                                         spin_pol=spin_pol)
         self.assertEqual( defect_system._volume, volume )
-        self.assertEqual( defect_system._nsites, nsites )
+        self.assertEqual( defect_system._spin_pol, spin_pol )
+        self.assertEqual( defect_system._dos, dos )
         self.assertEqual( defect_system._defect_species[0], mock_defect_species[0] )
         self.assertEqual( defect_system._defect_species[1], mock_defect_species[1] )
         
