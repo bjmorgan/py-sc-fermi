@@ -55,6 +55,17 @@ class TestDos(unittest.TestCase):
                   egap=egap,
                   nelect=nelect)
         np.testing.assert_equal(dos.dos, dos_data)
+        
+     def test_emin(self):
+        dos_data = np.ones(101)
+        edos = np.linspace(-10.0, 10.0, 101)
+        egap = 3.0
+        nelect = 10
+        dos = DOS(dos=dos_data,
+                  edos=edos,
+                  egap=egap,
+                  nelect=nelect)
+        np.testing.assert_equal(dos.emin, -10)
 
 if __name__ == '__main__':
     unittest.main()
