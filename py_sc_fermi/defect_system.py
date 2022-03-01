@@ -318,7 +318,6 @@ class DefectSystem(object):
                         free_chg_states.append(c)
                 if len(free_chg_states) > 0:
                     i=i+1
-            #print(i)
             f.write(str(i) +'\n')
             frozen_defects = []
             frozen_charge_states = []
@@ -344,6 +343,5 @@ class DefectSystem(object):
             f.write( str(len(frozen_charge_states)) + '\n' )
             if frozen_charge_states is not []:
                 for fc in frozen_charge_states:
-                    #print(fc)
                     f.write( '{} {} {}'.format( fc[0], fc[1].charge, fc[1]._concentration * 1e24 / self.volume ) + '\n')  #
         f.close()

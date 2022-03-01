@@ -1,0 +1,51 @@
+#
+# Input file for self-consistent Fermi level code 'sc-fermi'
+# J. Buckeridge June 2016
+#
+# The POSCAR of the pure system for which the DOS has been 
+# determined should be included in the directory. The DOS
+# should be present in a file 'totdos.dat' with the energy 
+# scaled relative to the top of the VBM (or the Fermi level 
+# for a metal)
+#
+# Enter whether system is spin polarised or not (for reading in
+# the DOS)
+# 1 = non-spin polarised; 2 = spin polarised
+#
+1
+#
+# Now input number of electrons in pure unit cell using which the 
+# DOS has been calculated
+#
+18
+#
+# Next enter the energy gap (eV)
+#
+0.8084
+#
+# Now enter temperature (K)
+#
+100 
+#
+# Number of defect species considered in your system
+#
+2
+#
+# For each defect species enter the name, number of charge states
+# and number of possible sites for that defect in the unit cell
+# (on one line), then the charge, formation energy (at E_F = 0)
+# and degeneracy on subsequent lines.
+# The degeneracy can be derived from the number of possible electron
+# configurations for a defect in a particular charge state, including
+# spin degeneracy and degeneracy due to possible localisation in 
+# different configurations
+#
+V_Ga 4 1 
+0  2.4451 1
+  -1  0.0265 1
+  -2  2.3469 1
+  -3  2.7146 1
+Ga_Sb 3 1
+0  2.2649 1
+  -1  2.0937 1
+  -2  2.2527 1
