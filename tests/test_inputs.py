@@ -35,7 +35,7 @@ class TestInputs(unittest.TestCase):
 
     def test_read_unitcell_data(self):
         assert_almost_equal(
-            read_unitcell_data(test_unitcell_filename, verbose=False), volume
+            read_unitcell_data(test_unitcell_filename), volume
         )
 
     def test_read_input_data(self):
