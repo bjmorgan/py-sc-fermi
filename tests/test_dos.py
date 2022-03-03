@@ -71,10 +71,10 @@ class TestDos(unittest.TestCase):
             (1.8410010954042135e-05, 6.835895952127446e-16),
         )
 
-def test_DOS_from_vasprun():
-    dos = DOS_from_vasprun(test_vasprun_filename, nelect = 320) 
-    np.testing.assert_equal(dos.nelect, 320)
-    np.testing.assert_almost_equal(dos.bandgap, 8.7342)
+    def test_DOS_from_vasprun(self):
+        dos = DOS_from_vasprun(test_vasprun_filename, nelect = 320) 
+        np.testing.assert_equal(dos.nelect, 320)
+        np.testing.assert_almost_equal(dos.egap, 8.7342)
 
 if __name__ == "__main__":
     unittest.main()
