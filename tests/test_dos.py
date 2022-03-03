@@ -1,8 +1,13 @@
 import unittest
 from unittest.mock import Mock, patch
 import numpy as np
+import os
+
+from py_sc_fermi.inputs import read_dos_data
 from py_sc_fermi.dos import DOS
 
+test_data_dir = "inputs/"
+test_dos_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "totdos.dat")
 
 class TestDOSInit(unittest.TestCase):
     def test_DOS_is_initialised(self):
@@ -58,6 +63,9 @@ class TestDos(unittest.TestCase):
     def test_emax(self):
         np.testing.assert_equal(self.dos.emax(), 10)
 
-
+    def test_carrier_concentrations(self):
+        dos = read_dos_data(test_dos_filename, 0.8084, 18)
+        np.testing.assert_almost_equal(dos.carrier_concentrations(0.1, 298), (1.8410010954042135e-05, 6.835895952127446e-16))
+        self
 if __name__ == "__main__":
     unittest.main()

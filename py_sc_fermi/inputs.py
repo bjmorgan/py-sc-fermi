@@ -70,7 +70,7 @@ def read_input_data(filename, volume=None, frozen=False):
     return input_data
 
 
-def read_dos_data(filename, egap, nelect, verbose=True):
+def read_dos_data(filename, egap, nelect):
     """
     return dos information from a `totdos.dat` file.
 
@@ -82,13 +82,6 @@ def read_dos_data(filename, egap, nelect, verbose=True):
         dos (DOS): py_sc_fermi.DOS object 
     """
     data = np.loadtxt(filename)
-    if verbose:
-        if data.shape[1] == 2:
-            print("Reading non-spin-polarised DOS")
-        elif data.shape[1] == 3:
-            print("Reading spin-polarised DOS")
-        else:
-            raise ValueError("DOS input file does not contain Nx2 or Nx3 elements")
     edos = data[:, 0]
     dos = np.sum(data[:, 1:], axis=1)
     if np.any(data[:, 1:] < 0.0):
