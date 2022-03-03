@@ -4,10 +4,11 @@ import numpy as np
 import os
 
 from py_sc_fermi.inputs import read_dos_data
-from py_sc_fermi.dos import DOS
+from py_sc_fermi.dos import DOS, DOS_from_vasprun
 
 test_data_dir = "inputs/"
 test_dos_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "totdos.dat")
+test_vasprun_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml")
 
 class TestDOSInit(unittest.TestCase):
     def test_DOS_is_initialised(self):
@@ -65,7 +66,15 @@ class TestDos(unittest.TestCase):
 
     def test_carrier_concentrations(self):
         dos = read_dos_data(test_dos_filename, 0.8084, 18)
-        np.testing.assert_almost_equal(dos.carrier_concentrations(0.1, 298), (1.8410010954042135e-05, 6.835895952127446e-16))
-        self
+        np.testing.assert_almost_equal(
+            dos.carrier_concentrations(0.1, 298),
+            (1.8410010954042135e-05, 6.835895952127446e-16),
+        )
+
+def test_DOS_from_vasprun():
+    dos = DOS_from_vasprun(test_vasprun_filename, nelect = 320) 
+    np.testing.assert_equal(dos.nelect, 320)
+    np.testing.assert_almost_equal(dos.bandgap, 8.7342)
+
 if __name__ == "__main__":
     unittest.main()
