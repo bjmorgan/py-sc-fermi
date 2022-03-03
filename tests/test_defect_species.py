@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import Mock, patch
 
+from numpy.testing import assert_almost_equal, assert_equal
+
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState, FrozenDefectChargeState
 
@@ -127,6 +129,20 @@ class TestDefectSpecies(unittest.TestCase):
         defect = DefectSpecies('v_O', 1, [charge_state_1, charge_state_2])
         self.assertEqual(defect.min_energy_charge_state(0), defect.charge_states[-1])
         self.assertEqual(defect.min_energy_charge_state(2), defect.charge_states[-2])
+
+    def test_get_concentrations(self):
+
+        charge_state_1 = DefectChargeState(-1, 1.1, 1)
+        charge_state_2 = DefectChargeState(-2, 1.2, 1)
+        defect = DefectSpecies('v_O', 1, [charge_state_1, charge_state_2])
+        
+        assert_almost_equal(defect.get_concentration(0.2, 300), 3.7117030892903665e-14)
+        defect.fix_concentration(0.1234)
+        assert_almost_equal(defect.get_concentration(0.2, 300), 0.1234)
+
+        #self.assertEqual(defect.min_energy_charge_state(0), defect.charge_states[-1])
+        #self.assertEqual(defect.min_energy_charge_state(2), defect.charge_states[-2])
+
 
 if __name__ == "__main__":
     unittest.main()
