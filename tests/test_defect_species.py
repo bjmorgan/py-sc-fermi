@@ -59,6 +59,11 @@ class TestDefectSpecies(unittest.TestCase):
             self.defect_species._fixed_concentration,
         )
 
+    def test_fix_concentration(self):
+        assert self.defect_species.fixed_concentration == None
+        self.defect_species.fix_concentration(0.1234)
+        self.assertEqual(self.defect_species.fixed_concentration,0.1234)
+
     def test_charge_states_by_formation_energy(self):
         self.defect_species.charge_states[0].get_formation_energy = Mock(
             return_value=0.3
@@ -115,6 +120,13 @@ class TestDefectSpecies(unittest.TestCase):
         formation_energies_dict = self.defect_species.get_formation_energies(0.0)
         self.assertEqual(formation_energies_dict, {0: 0.3, 1: 0.1})
 
+    def test_min_energy_charge_state(self):
+
+        charge_state_1 = DefectChargeState(-1, 0.1, 1)
+        charge_state_2 = DefectChargeState(-2, 0.2, 1)
+        defect = DefectSpecies('v_O', 1, [charge_state_1, charge_state_2])
+        self.assertEqual(defect.min_energy_charge_state(0), defect.charge_states[-1])
+        self.assertEqual(defect.min_energy_charge_state(2), defect.charge_states[-2])
 
 if __name__ == "__main__":
     unittest.main()
