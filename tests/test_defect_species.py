@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from numpy.testing import assert_almost_equal, assert_equal
+from numpy.testing import assert_almost_equal
 
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState, FrozenDefectChargeState
@@ -126,7 +126,8 @@ class TestDefectSpecies(unittest.TestCase):
 
         charge_state_1 = DefectChargeState(-1, 0.1, 1)
         charge_state_2 = DefectChargeState(-2, 0.2, 1)
-        defect = DefectSpecies('v_O', 1, [charge_state_1, charge_state_2])
+        defect = DefectSpecies('O_i', 1, [charge_state_1, charge_state_2])
+
         self.assertEqual(defect.min_energy_charge_state(0), defect.charge_states[-1])
         self.assertEqual(defect.min_energy_charge_state(2), defect.charge_states[-2])
 
@@ -134,14 +135,41 @@ class TestDefectSpecies(unittest.TestCase):
 
         charge_state_1 = DefectChargeState(-1, 1.1, 1)
         charge_state_2 = DefectChargeState(-2, 1.2, 1)
-        defect = DefectSpecies('v_O', 1, [charge_state_1, charge_state_2])
+        defect = DefectSpecies('O_i', 1, [charge_state_1, charge_state_2])
         
         assert_almost_equal(defect.get_concentration(0.2, 300), 3.7117030892903665e-14)
         defect.fix_concentration(0.1234)
         assert_almost_equal(defect.get_concentration(0.2, 300), 0.1234)
 
-        #self.assertEqual(defect.min_energy_charge_state(0), defect.charge_states[-1])
-        #self.assertEqual(defect.min_energy_charge_state(2), defect.charge_states[-2])
+    def test_get_transition_level_and_energy(self):
+        
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = DefectChargeState(2, -1, 1)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
+                  
+        assert defect.get_transition_level_and_energy(0, 2) == (1.5, 2)
+
+    def test_fixed_concentration_charge_states(self):
+        
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = DefectChargeState(2, -1, 1)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
+        assert defect.fixed_conc_charge_states() == {}
+        defect.charge_states[2] = FrozenDefectChargeState(2, 0.1234)
+        assert defect.fixed_conc_charge_states() == {2: defect.charge_states[2]}
+
+    def test_variable_concentration_charge_states(self):
+        
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = DefectChargeState(2, -1, 1)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
+        assert defect.variable_conc_charge_states() == {0: charge_state_1, 2: charge_state_2}
+        defect.charge_states[2] = FrozenDefectChargeState(2, 0.1234)
+        assert defect.variable_conc_charge_states() == {0: charge_state_1}
+
+        
+
+
 
 
 if __name__ == "__main__":
