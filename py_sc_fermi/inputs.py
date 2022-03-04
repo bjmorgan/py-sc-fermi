@@ -55,9 +55,9 @@ def read_input_data(filename, volume=None, frozen=False):
     defect_species = read_defect_species(pure_readin, ndefects)
     if frozen == True:
         nfrozen_defects = int(pure_readin.pop(0))
-        read_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defects)
+        update_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defects)
         nfrozen_chgstates = int(pure_readin.pop(0))
-        read_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates)
+        update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates)
 
     input_data = {
         "defect_species": defect_species,

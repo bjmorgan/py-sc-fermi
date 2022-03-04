@@ -75,14 +75,14 @@ class TestInputs(unittest.TestCase):
         string = "V_Ga  0.3285677364522E+20"
         string = string.splitlines()
         defects = [DefectSpecies('V_Ga', 1, [])]
-        read_frozen_defect_species(string,defects,1,1)
+        update_frozen_defect_species(string,defects,1,1)
         assert_almost_equal(defects[0].get_concentration(0.1, 298), 3.285677364522e-05)
 
     def test_update_frozen_chgstates(self):
         string = "V_Ga -1 0.19E+19\nGa_i 1 0.5E+20"
         string = string.splitlines()
         defects = [DefectSpecies('V_Ga', 1, [DefectChargeState(-1,1,1)]), DefectSpecies('Ga_i', 1, [DefectChargeState(1,1,1)])]
-        read_frozen_chgstates(string,defects,1,2)
+        update_frozen_chgstates(string,defects,1,2)
         assert_almost_equal(defects[0].get_concentration(0.1,300), 1.9e-06)
         assert_almost_equal(defects[1].get_concentration(0.1,300), 5e-05)
 
