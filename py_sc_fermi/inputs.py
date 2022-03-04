@@ -153,7 +153,7 @@ def read_defect_species(pure_readin, ndefects):
     return defect_species
 
 
-def read_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defects):
+def update_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defects):
     """
     read frozen DefectSpecies data from SC-Fermi input file and update a list of "free" DefectSpecies
     objects. Typically will only be called by `read_input_data()`.
@@ -176,7 +176,7 @@ def read_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defe
                     defect.fix_concentration(float(v) / 1e24 * volume)
 
 
-def read_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates):
+def update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates):
     """
     read frozen DefectChgStates data from SC-Fermi input file and update a list of "free" DefectSpecies
     objects. Typically will only be called by `read_input_data()`.
