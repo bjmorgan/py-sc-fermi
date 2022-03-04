@@ -167,8 +167,28 @@ class TestDefectSpecies(unittest.TestCase):
         defect.charge_states[2] = FrozenDefectChargeState(2, 0.1234)
         assert defect.variable_conc_charge_states() == {0: charge_state_1}
 
+    def test_variable_concentration_charge_states(self):
         
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = DefectChargeState(2, -1, 1)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
+        assert defect.variable_conc_charge_states() == {0: charge_state_1, 2: charge_state_2}
+        defect.charge_states[2] = FrozenDefectChargeState(2, 0.1234)
+        assert defect.variable_conc_charge_states() == {0: charge_state_1}
 
+    def test_charge_state_concentrations(self):
+
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = FrozenDefectChargeState(2, 0.1234)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
+        assert defect.charge_state_concentrations(0.2, 300) == {0: 2.520453931443997e-34, 2: 0.1234}
+        
+    def test_defect_charge_contributions(self):
+        
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = FrozenDefectChargeState(2, 0.1234)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])    
+        assert defect.defect_charge_contributions(0.2, 300) == (0.2468, 0.0)
 
 
 
