@@ -196,10 +196,6 @@ class TestDefectSpecies(unittest.TestCase):
         charge_state_2 = DefectChargeState(2, -1, 1)
         defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
         assert_equal(defect.tl_profile(0,5),[[0, -1], [1.5, 2], [5, 2]])
-        
-        #assert defect.variable_conc_charge_states() == {0: charge_state_1, 2: charge_state_2}
-        #defect.charge_states[2] = FrozenDefectChargeState(2, 0.1234)
-        #assert defect.variable_conc_charge_states() == {0: charge_state_1}
 
 
 

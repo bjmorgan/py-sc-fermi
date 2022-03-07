@@ -121,25 +121,36 @@ class DefectSpecies(object):
             form_eners[q] = cs.get_formation_energy( e_fermi )
         return form_eners
     
-    def tl_profile(self, ef_min,  ef_max):
-        cs = self.min_energy_charge_state(ef_min)
+    def tl_profile(self, efermi_min,  efermi_max):
+        """
+        get transition level profile between a range of specified 
+        Fermi energies
+
+        Args:
+            efermi_min (float): minimum Fermi energy for range of interest
+            efermi_max (float): maximum Fermi energy for range of interest
+
+        Returns:
+            points (numpy.array): transtion levels 
+        """
+        cs = self.min_energy_charge_state(efermi_min)
         q1 = cs.charge
-        form_e = cs.get_formation_energy(ef_min)
-        points = [(ef_min, form_e)]
+        form_e = cs.get_formation_energy(efermi_min)
+        points = [(efermi_min, form_e)]
         while q1 != min(self.charges):
             qlist = [q for q in self.charges if q < q1]
             nextp, nextq = min(((self.get_transition_level_and_energy(
                 q1, q2),
                 q2)
                 for q2 in qlist), key=lambda p: p[0][0])
-            if nextp[0] < ef_max:
+            if nextp[0] < efermi_max:
                 points.append(nextp)
                 q1 = nextq
             else:
                 break
-        cs = self.min_energy_charge_state(ef_max)
-        form_e = cs.get_formation_energy(ef_max)
-        points.append((ef_max, form_e))
+        cs = self.min_energy_charge_state(efermi_max)
+        form_e = cs.get_formation_energy(efermi_max)
+        points.append((efermi_max, form_e))
         return np.array(points)
     
     def get_transition_level_and_energy(self, q1, q2):
