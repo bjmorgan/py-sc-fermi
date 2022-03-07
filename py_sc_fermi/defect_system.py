@@ -212,7 +212,7 @@ class DefectSystem(object):
         """
         transition_levels = {}
         for defect_species in self.defect_species_names:
-            transition_level = self.defect_species_by_name(defect_species).tl_profile(ef_min=self.dos.emin(), ef_max=self.dos.emax())
+            transition_level = self.defect_species_by_name(defect_species).tl_profile(self.dos.emin(), self.dos.emax())
             x = [[x_value][0][0] for x_value in transition_level]
             y = [[y_value][0][1] for y_value in transition_level]
             transition_levels.update({defect_species:[x,y]})
