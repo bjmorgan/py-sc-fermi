@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_equal
 
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState, FrozenDefectChargeState
@@ -189,6 +189,17 @@ class TestDefectSpecies(unittest.TestCase):
         charge_state_2 = FrozenDefectChargeState(2, 0.1234)
         defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])    
         assert defect.defect_charge_contributions(0.2, 300) == (0.2468, 0.0)
+
+    def test_tl_profile(self):
+        
+        charge_state_1 = DefectChargeState(0, 2, 1)
+        charge_state_2 = DefectChargeState(2, -1, 1)
+        defect = DefectSpecies('V_O', 1, [charge_state_1, charge_state_2])
+        assert_equal(defect.tl_profile(0,5),[[0, -1], [1.5, 2], [5, 2]])
+        
+        #assert defect.variable_conc_charge_states() == {0: charge_state_1, 2: charge_state_2}
+        #defect.charge_states[2] = FrozenDefectChargeState(2, 0.1234)
+        #assert defect.variable_conc_charge_states() == {0: charge_state_1}
 
 
 

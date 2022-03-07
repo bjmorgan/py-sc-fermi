@@ -201,12 +201,26 @@ class DefectSpecies(object):
             return sum( self.charge_state_concentrations( e_fermi, temperature ).values() )
 
     def fixed_conc_charge_states(self):
+        """return dict of fixed concentration charge states for this DefectSpecies"""
         return { q: cs for q, cs in self.charge_states.items() if cs.concentration_is_fixed }
 
     def variable_conc_charge_states(self):
+        """return dict of charge states with no fixed concentration for this defect species"""
         return { q: cs for q, cs in self.charge_states.items() if not cs.concentration_is_fixed }
 
     def charge_state_concentrations(self, e_fermi, temperature):
+        """
+        At a given Fermi energy and temperature, calculate the concentrations
+        of the different charge states of this defect species
+
+        Args:
+            e_fermi (float): the Fermi energy (relative to the VBM) (in eV)
+            temperature (flot): Temperature (in K)
+
+        Returns:
+            cs_concentrations (Dict): a dictionary of charge state (int)
+            concentration (float) pairs. 
+        """
         cs_concentrations = {}
         for cs in self.charge_states.values():
             cs_concentrations[cs.charge] = cs.get_concentration(e_fermi, temperature) * self.nsites
@@ -223,6 +237,7 @@ class DefectSpecies(object):
         return cs_concentrations    
 
     def defect_charge_contributions(self, e_fermi, temperature):
+        """get total charge contribution for this DefectSpecies in all charge states"""
         lhs = 0.0
         rhs = 0.0
         for q, concd in self.charge_state_concentrations( e_fermi, temperature ).items():
