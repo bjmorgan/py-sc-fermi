@@ -259,7 +259,7 @@ class DefectSystem(object):
     def to_dict(self, emin=None, emax=None, conv=1e-20, decomposed=False):
         """
         returns a dictionary of relevent properties of the DefectSystem
-        concentrations are reported per unit cell
+        concentrations are reported per cell
         
         args:
             emin (float): minimum energy for the Fermi energy search
@@ -270,9 +270,9 @@ class DefectSystem(object):
             
         returns:
             {**run_stats, **concs} (dict): {'Fermi Energy': self consistent fermi energy value,
-                                            'p0': concentration of holes per unit cell
-                                            'n0': concentration of electrons per unit cell
-                                             concs: {defect concentrations in per unit cell}}
+                                            'p0': concentration of holes per cell
+                                            'n0': concentration of electrons per cell
+                                             concs: {defect concentrations in per cell}}
         """
         if not emin:
             emin = self.dos.emin()

@@ -27,6 +27,25 @@ class TestDefectSystemInit(unittest.TestCase):
         self.assertEqual(defect_system.defect_species[0], mock_defect_species[0])
         self.assertEqual(defect_system.defect_species[1], mock_defect_species[1])
 
+class TestDefectSystem(unittest.TestCase):
+    def setUp(self):
+        volume = 100
+        mock_defect_species = [Mock(spec=DefectSpecies), Mock(spec=DefectSpecies)]
+        mock_defect_species[0].name = 'v_O'
+        dos = Mock(spec=DOS)
+        spin_pol = 1
+        temperature = 298
+        self.defect_system = DefectSystem(
+            defect_species=mock_defect_species,
+            volume=volume,
+            dos=dos,
+            spin_pol=spin_pol,
+            temperature=temperature,
+        )
 
+    def test_defect_species_by_name(self):
+        assert self.defect_system.defect_species_by_name('v_O') == self.defect_system.defect_species[0]
+        
+        
 if __name__ == "__main__":
     unittest.main()
