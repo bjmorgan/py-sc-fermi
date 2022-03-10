@@ -59,10 +59,10 @@ class TestDos(unittest.TestCase):
         np.testing.assert_equal(dos.dos, dos_data)
 
     def test_emin(self):
-        np.testing.assert_equal(self.dos.emin(), -10)
+        self.assertEqual(self.dos.emin(), -10)
 
     def test_emax(self):
-        np.testing.assert_equal(self.dos.emax(), 10)
+        self.assertEqual(self.dos.emax(), 10)
 
     def test_carrier_concentrations(self):
         dos = read_dos_data(test_dos_filename, 0.8084, 18)
