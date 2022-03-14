@@ -87,5 +87,5 @@ class TestInputs(unittest.TestCase):
         assert_almost_equal(defects[1].get_concentration(0.1,300), 5e-05)
 
 
-if __name__ == "__main__":
-    unittest.main()
+# if __name__ == "__main__":
+#     unittest.main()

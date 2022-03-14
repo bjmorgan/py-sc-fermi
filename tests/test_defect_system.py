@@ -47,5 +47,5 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.defect_species_by_name('v_O'),self.defect_system.defect_species[0])
         
         
-if __name__ == "__main__":
-    unittest.main()
+# if __name__ == "__main__":
+#     unittest.main()
