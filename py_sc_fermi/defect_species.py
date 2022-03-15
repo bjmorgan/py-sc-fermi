@@ -37,9 +37,9 @@ class DefectSpecies(object):
         self._charge_states = {cs.charge: cs for cs in charge_states}
         self._fixed_concentration = None
 
-    def fix_concentration(self, conc):
+    def fix_concentration(self, concentration):
         """fixed the net concentration (per unit cell) of this defect species"""
-        self._fixed_concentration = conc
+        self._fixed_concentration = concentration
 
     @property
     def name(self):

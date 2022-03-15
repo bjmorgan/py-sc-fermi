@@ -8,9 +8,9 @@ class DefectChargeState:
     def __init__(
         self,
         charge: int,
-        energy: float,
-        degeneracy: int,
+        energy: float = None,
         fixed_concentration: float = None,
+        degeneracy: int = 1,
     ):
         """Instantiate a DefectChargeState.
 
@@ -18,18 +18,26 @@ class DefectChargeState:
             charge (int): Charge of this charge state.
             energy (float): Formation energy of this charge state when E_Fermi = E(VBM)
             degeneracy (int): Degeneracy of this charge state (e.g. spin/intrinsic degeneracy).
+            fixed_concentration (float): the fixed concentration of the defect charge state (default = None)
 
         Returns:
             None
 
+        Raises:
+            ValueError: If `energy` and `fixed concentration` == None.
+
         """
+        if energy == None and fixed_concentration == None:
+            raise ValueError(
+                "You must specify either a fixed concentration or energy for this defect! \n Note, if you specify both, the concentration will treated as fixed"
+            )
         self._charge = charge
         self._energy = energy
         self._degeneracy = degeneracy
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration):
-        """fixed the net concentration (per unit cell) of this defect species"""
+        """fix the net concentration (per unit cell) of this defect species"""
         self._fixed_concentration = concentration
 
     @property
