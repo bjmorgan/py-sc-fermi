@@ -223,13 +223,13 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertEqual(self.defect_species.defect_charge_contributions(1.5, 298), (0, 0.1234))
 
     def test_tl_profile(self):
+        # TODO: ideally, this test should more directly check the 
+        # funtionality of this method
         charge_state_1 = DefectChargeState(0, energy = 2, degeneracy = 1)
         charge_state_2 = DefectChargeState(2, energy = -1, degeneracy = 1)
         defect = DefectSpecies('foo', 1, [charge_state_1, charge_state_2])
         assert_equal(defect.tl_profile(0,5),[[0, -1], [1.5, 2], [5, 2]])
         
-        
-
 
 if __name__ == "__main__":
     unittest.main()
