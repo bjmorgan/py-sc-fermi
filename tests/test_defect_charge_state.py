@@ -1,5 +1,4 @@
 import unittest
-from mock import Mock
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
