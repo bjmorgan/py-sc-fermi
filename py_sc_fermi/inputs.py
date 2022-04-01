@@ -1,7 +1,6 @@
 import numpy as np
-import itertools
 from .defect_species import DefectSpecies
-from .defect_charge_state import DefectChargeState, FrozenDefectChargeState
+from .defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
 
@@ -146,7 +145,7 @@ def read_defect_species(pure_readin, ndefects):
             energies.append(float(l[1]))
             degs.append(int(l[2]))
         charge_states = [
-            DefectChargeState(c, e, d) for c, e, d in zip(charges, energies, degs)
+            DefectChargeState(charge = c, energy = e, degeneracy = d) for c, e, d in zip(charges, energies, degs)
         ]
         defect_species.append(DefectSpecies(name, nsites, charge_states))
 
@@ -202,8 +201,8 @@ def update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstat
                 ][0]
                 defect_to_freeze.charge_states[
                     defect["Chg_state"]
-                ] = FrozenDefectChargeState(
-                    int(defect["Chg_state"]), float(defect["Con"]) / 1e24 * volume
+                ] = DefectChargeState(
+                    charge = int(defect["Chg_state"]), fixed_concentration = float(defect["Con"]) / 1e24 * volume
                 )
             else:
                 defect_species.append(
@@ -211,9 +210,9 @@ def update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstat
                         defect["Name"],
                         1,
                         [
-                            FrozenDefectChargeState(
-                                int(defect["Chg_state"]),
-                                float(defect["Con"]) / 1e24 * volume,
+                            DefectChargeState(
+                                charge = int(defect["Chg_state"]),
+                                fixed_concentration = float(defect["Con"]) / 1e24 * volume,
                             )
                         ],
                     )
