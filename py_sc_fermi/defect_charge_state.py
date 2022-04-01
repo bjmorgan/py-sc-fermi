@@ -36,33 +36,33 @@ class DefectChargeState:
         self._degeneracy = degeneracy
         self._fixed_concentration = fixed_concentration
 
-    def fix_concentration(self, concentration):
+    def fix_concentration(self, concentration: float) -> None:
         """fix the net concentration (per unit cell) of this defect species"""
         self._fixed_concentration = concentration
 
     @property
-    def energy(self):
+    def energy(self) -> float:
         """Get the energy of this charge state at E_Fermi = E(VBM) (0)."""
         return self._energy
 
     @property
-    def charge(self):
+    def charge(self) -> int:
         """Get the charge of this charge state."""
         return self._charge
 
     @property
-    def degeneracy(self):
+    def degeneracy(self) -> int:
         """Get the degeneracy of this charge state."""
         return self._degeneracy
 
     @property
-    def fixed_concentration(self):
+    def fixed_concentration(self) -> float:
         """The fixed net concentration (per unit cell) of this defect species,
            or `None` if the defect concentrations are free to change"""
         return self._fixed_concentration
 
 
-    def get_formation_energy(self, e_fermi: float):
+    def get_formation_energy(self, e_fermi: float) -> float:
         """Calculate the formation energy of this charge state at a
         specified Fermi energy.
 
@@ -75,7 +75,7 @@ class DefectChargeState:
         """
         return self.energy + self.charge * e_fermi
 
-    def get_concentration(self, e_fermi: float, temperature: float):
+    def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this charge state at a
         specified Fermi energy and temperature, per site in the unit
         cell..

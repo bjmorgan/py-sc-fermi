@@ -5,7 +5,7 @@ from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
 
 
-def read_unitcell_data(filename):
+def read_unitcell_data(filename: str) -> float:
     """
     get volume in A^3 from `unitcell.dat` file used in SC-Fermi
 
@@ -29,7 +29,7 @@ def read_unitcell_data(filename):
     return float(volume)
 
 
-def read_input_data(filename, volume=None, frozen=False):
+def read_input_data(filename: str, volume: float = None, frozen: bool = False) -> dict:
     """
     return all information from a input file correctly formated to work
     for `SC-Fermi`.
@@ -54,7 +54,9 @@ def read_input_data(filename, volume=None, frozen=False):
     defect_species = read_defect_species(pure_readin, ndefects)
     if frozen == True:
         nfrozen_defects = int(pure_readin.pop(0))
-        update_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defects)
+        update_frozen_defect_species(
+            pure_readin, defect_species, volume, nfrozen_defects
+        )
         nfrozen_chgstates = int(pure_readin.pop(0))
         update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates)
 
@@ -69,7 +71,7 @@ def read_input_data(filename, volume=None, frozen=False):
     return input_data
 
 
-def read_dos_data(filename, egap, nelect):
+def read_dos_data(filename: str, egap: float, nelect: int) -> DOS:
     """
     return dos information from a `totdos.dat` file.
 
@@ -92,8 +94,11 @@ def read_dos_data(filename, egap, nelect):
 
 
 def inputs_from_files(
-    unitcell_filename, totdos_filename, input_fermi_filename, frozen=False,
-):
+    unitcell_filename: str,
+    totdos_filename: str,
+    input_fermi_filename: str,
+    frozen: bool = False,
+) -> dict:
     """
     return a set of inputs descrbing a full defect system from py_sc_fermi input files
 
@@ -107,11 +112,7 @@ def inputs_from_files(
     inputs = {}
     inputs["volume"] = read_unitcell_data(unitcell_filename)
     inputs.update(
-        read_input_data(
-            input_fermi_filename,
-            frozen=frozen,
-            volume=inputs["volume"]
-        )
+        read_input_data(input_fermi_filename, frozen=frozen, volume=inputs["volume"])
     )
     inputs["dos"] = read_dos_data(
         totdos_filename, egap=inputs["egap"], nelect=inputs["nelect"]
@@ -119,7 +120,7 @@ def inputs_from_files(
     return inputs
 
 
-def read_defect_species(pure_readin, ndefects):
+def read_defect_species(pure_readin: str, ndefects: int) -> list:
     """
     read defect data from SC-Fermi input file and return a list of DefectSpecies.
     Typically will only be called by `read_input_data()`
@@ -145,14 +146,17 @@ def read_defect_species(pure_readin, ndefects):
             energies.append(float(l[1]))
             degs.append(int(l[2]))
         charge_states = [
-            DefectChargeState(charge = c, energy = e, degeneracy = d) for c, e, d in zip(charges, energies, degs)
+            DefectChargeState(charge=c, energy=e, degeneracy=d)
+            for c, e, d in zip(charges, energies, degs)
         ]
         defect_species.append(DefectSpecies(name, nsites, charge_states))
 
     return defect_species
 
 
-def update_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_defects):
+def update_frozen_defect_species(
+    pure_readin: str, defect_species: list, volume: float, nfrozen_defects: int
+):
     """
     read frozen DefectSpecies data from SC-Fermi input file and update a list of "free" DefectSpecies
     objects. Typically will only be called by `read_input_data()`.
@@ -175,7 +179,9 @@ def update_frozen_defect_species(pure_readin, defect_species, volume, nfrozen_de
                     defect.fix_concentration(float(v) / 1e24 * volume)
 
 
-def update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates):
+def update_frozen_chgstates(
+    pure_readin: str, defect_species: list, volume: float, nfrozen_chgstates: int
+):
     """
     read frozen DefectChgStates data from SC-Fermi input file and update a list of "free" DefectSpecies
     objects. Typically will only be called by `read_input_data()`.
@@ -199,10 +205,9 @@ def update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstat
                 defect_to_freeze = [
                     i for i in defect_species if defect["Name"] == i.name
                 ][0]
-                defect_to_freeze.charge_states[
-                    defect["Chg_state"]
-                ] = DefectChargeState(
-                    charge = int(defect["Chg_state"]), fixed_concentration = float(defect["Con"]) / 1e24 * volume
+                defect_to_freeze.charge_states[defect["Chg_state"]] = DefectChargeState(
+                    charge=int(defect["Chg_state"]),
+                    fixed_concentration=float(defect["Con"]) / 1e24 * volume,
                 )
             else:
                 defect_species.append(
@@ -211,15 +216,17 @@ def update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstat
                         1,
                         [
                             DefectChargeState(
-                                charge = int(defect["Chg_state"]),
-                                fixed_concentration = float(defect["Con"]) / 1e24 * volume,
+                                charge=int(defect["Chg_state"]),
+                                fixed_concentration=float(defect["Con"])
+                                / 1e24
+                                * volume,
                             )
                         ],
                     )
                 )
 
 
-def volume_from_structure(structure_file):
+def volume_from_structure(structure_file: str) -> float:
     """
     return volume in A^3 for a given structure file. Relies on pymatgen structure parser
     so accepts a wide range of formats inc. POSCAR, .cif, vasp output files (OUTCAR, vasprun.xml) etc.

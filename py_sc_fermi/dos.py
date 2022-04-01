@@ -73,7 +73,7 @@ class DOS(object):
         return self._nelect
 
     @classmethod
-    def from_vasprun(cls, path_to_vasprun: str, nelect: int, bandgap: float = None):
+    def from_vasprun(cls, path_to_vasprun: str, nelect: int, bandgap: float = None) -> DOS:
         """
         generate DOS object (py_sc_fermi.dos) from a vasp 
         doscar given number of electrons in calculation
@@ -130,7 +130,7 @@ class DOS(object):
         """get index of the cbm in self._edos"""
         return np.where(self._edos > self.egap)[0][0]
 
-    def carrier_concentrations(self, e_fermi: float, temperature: float):
+    def carrier_concentrations(self, e_fermi: float, temperature: float) -> tuple[float, float]:
         """get n0 and p0 using integrals (equations 28.9 in Ashcroft Mermin)
            for an abitrary value of temperature and Fermi energy. Typically used internally 
            to calculate carrier concentrations at the self-cosistent Fermi energy
@@ -150,7 +150,7 @@ class DOS(object):
         )
         return p0, n0
 
-    def _p_func(self, e_fermi: float, temperature: float):
+    def _p_func(self, e_fermi: float, temperature: float) -> float:
         return self.dos[: self._p0_index() + 1] / (
             1.0
             + np.exp(
@@ -158,7 +158,7 @@ class DOS(object):
             )
         )
 
-    def _n_func(self, e_fermi: float, temperature: float):
+    def _n_func(self, e_fermi: float, temperature: float) -> float:
         return self.dos[self._n0_index() :] / (
             1.0
             + np.exp((self.edos[self._n0_index() :] - e_fermi) / (kboltz * temperature))
