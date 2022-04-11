@@ -1,14 +1,14 @@
+from typing import Union
 import numpy as np
-from py_sc_fermi.constants import kboltz
-from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 import warnings
+
 
 class DefectSystem(object):
     def __init__(
         self,
-        defect_species: list[DefectSpecies],
-        dos: DOS,
+        defect_species: list["py_sc_fermi.defect_species.DefectSpecies"],
+        dos: "py_sc_fermi.dos.DOS",
         volume: float,
         temperature: float,
     ):
@@ -18,7 +18,7 @@ class DefectSystem(object):
             volume (float): Cell volume in A^3.
             dos (:obj:`DOS`): A DOS object.
             temperature (float): Temperature in K.
-        
+
         Returns:
             None
         """
@@ -40,16 +40,18 @@ class DefectSystem(object):
             to_return.append(str(ds))
         return "".join(to_return)
 
-    def defect_species_by_name(self, name):
+    def defect_species_by_name(
+        self, name: str
+    ) -> "py_sc_fermi.defect_species.DefectSpecies":
         return [ds for ds in self.defect_species if ds.name == name][0]
 
     @property
-    def defect_species_names(self):
+    def defect_species_names(self) -> list[str]:
         return [ds.name for ds in self.defect_species]
 
     def get_sc_fermi(
         self, conv: float = 1e-20, n_trial_steps: int = 1000
-    ) -> tuple[float, dict]:
+    ) -> tuple[float, dict[str, Union[float, bool]]]:
         """
         Solve to find value of E_fermi for which the DefectSystem is
         charge neutral
@@ -61,10 +63,10 @@ class DefectSystem(object):
             full_report (bool): if True, return full report of the convergence performance
 
         returns:
-            Tuple[e_fermi (float), report (dict)]: 
+            Tuple[e_fermi (float), report (dict)]:
                 e_fermi = self consistent Fermi energy in electron volts
                 report : dictionary of convergence information
-        
+
         """
         # initial guess
         emin = self.dos.emin()
@@ -108,7 +110,7 @@ class DefectSystem(object):
         ) / 2.0
         if not converged:
             warnings.warn(
-                f"residual greater than {conv} eV after {n_trial_steps} steps, increase n_trial_steps, or relax convergence tolerance"
+                f"residual greater than {conv} after {n_trial_steps} steps, increase n_trial_steps, or relax convergence tolerance"
             )
         report = {
             "converged": converged,
@@ -117,13 +119,13 @@ class DefectSystem(object):
         }
         return e_fermi, report
 
-    def report(self, conv: float = 1e-20, n_trial_steps: int = 1000):
+    def report(self, conv: float = 1e-20, n_trial_steps: int = 1000) -> None:
         """
         print a report in the style of SC-FERMI which summarises key properties of
         the defect system.
 
         Args:
-            conv: convergence tolerance for charge neutrality condition 
+            conv: convergence tolerance for charge neutrality condition
             n_trial_steps: number of steps to try to find a solution for SC-Fermi level
 
         Returns:
@@ -180,13 +182,13 @@ class DefectSystem(object):
 
     def q_tot(self, e_fermi: float) -> float:
         """
-        for a given Fermi energy, calculate the net charge as the difference between 
+        for a given Fermi energy, calculate the net charge as the difference between
         all positive species (including holes) and all negative species (including)
         electrons.
 
         Args:
             e_fermi (float): Fermi energy
-        
+
         Returns:
             diff (float): net charge
         """
@@ -197,7 +199,7 @@ class DefectSystem(object):
         diff = rhs - lhs
         return diff
 
-    def get_transition_levels(self) -> dict:
+    def get_transition_levels(self) -> dict[str, list[list]]:
         """
         method which returns the transition levels as a dictionary:
 
@@ -214,18 +216,20 @@ class DefectSystem(object):
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
-    def as_dict(self, conv=1e-20, decomposed=False, per_volume=True) -> dict:
+    def as_dict(
+        self, conv: float = 1e-20, decomposed: bool = False, per_volume: bool = True
+    ) -> dict[str, float]:
         """
         returns a dictionary of relevent properties of the DefectSystem
         concentrations are reported per cell
-        
+
         args:
             emin (float): minimum energy for the Fermi energy search
             emax (float): maximum energy for the Fermi energy search
             conv (float): convergence tolerance for the charge neutrality condition
             decomposed (bool): False (default) returns concentrations of defect species,
             true returns the concentraion of individual charge states.
-            
+
         returns:
             {**run_stats, **concs} (dict): {'Fermi Energy': self consistent fermi energy value,
                                             'p0': concentration of holes per cell
@@ -251,7 +255,9 @@ class DefectSystem(object):
 
         return {**run_stats, **concs}
 
-    def _collect_defect_species_with_fixed_chg_states(self) -> dict:
+    def _collect_defect_species_with_fixed_chg_states(
+        self,
+    ) -> dict[str, "py_sc_fermi.defect_species.DefectSpecies"]:
         """
         returns a dictionary of defect species with fixed concentration charge states
         """
@@ -300,24 +306,26 @@ class DefectSystem(object):
             input_string += f"{d.name} {d._fixed_concentration * 1e24 / self.volume}\n"
 
         # count the number of fixed concentration DefectChargeStates and write their information to file
-        
+
         all_fixed_charge_states = self._collect_defect_species_with_fixed_chg_states
         input_string += (
             str(sum([len(v) for v in all_fixed_charge_states.values()])) + "\n"
         )
         for k, v in all_fixed_charge_states.items():
             for cs in v:
-                input_string += f"{k} {cs.charge} {cs.fixed_concentration * 1e24 / self.volume}\n"
+                input_string += (
+                    f"{k} {cs.charge} {cs.fixed_concentration * 1e24 / self.volume}\n"
+                )
         return input_string
 
-    def write_inputs(self, filename="input-fermi.dat"):
+    def write_inputs(self, filename: str = "input-fermi.dat") -> None:
         """
         writes an input file which is compatible with the FORTRAN code
-        SC-FERMI on which py-sc-fermi was initially based. 
+        SC-FERMI on which py-sc-fermi was initially based.
 
         args:
             filename (string): name of file to write. defaults to 'input-fermi.dat'
-        
+
         returns:
             None
         """

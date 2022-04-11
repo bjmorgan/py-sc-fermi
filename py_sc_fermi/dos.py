@@ -1,7 +1,9 @@
 import numpy as np
 from pymatgen.io.vasp import Vasprun  # type: ignore
 from pymatgen.electronic_structure.core import Spin  # type: ignore
-from py_sc_fermi.constants import kboltz
+from scipy.constants import physical_constants  # type: ignore
+
+kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
 class DOS(object):
@@ -73,19 +75,21 @@ class DOS(object):
         return self._nelect
 
     @classmethod
-    def from_vasprun(cls, path_to_vasprun: str, nelect: int, bandgap: float = None) -> DOS:
+    def from_vasprun(
+        cls, path_to_vasprun: str, nelect: int, bandgap: float = None
+    ) -> "py_sc_fermi.dos.DOS":
         """
-        generate DOS object (py_sc_fermi.dos) from a vasp 
+        generate DOS object (py_sc_fermi.dos) from a vasp
         doscar given number of electrons in calculation
-        
+
         Args:
             vasprun (string): path to vasprun to parse
             nelect (int): number of electrons in vasp calculation
             bandgap (float): user supplied band-gap (defualts to `None`),
             in which case, the bandgap will be determined from the DOS provided
-        
+
         Returns:
-            dos (DOS): DOS object 
+            dos (DOS): DOS object
         """
         vr = Vasprun(path_to_vasprun, parse_potcar_file=False)
         densities = vr.complete_dos.densities
@@ -130,13 +134,15 @@ class DOS(object):
         """get index of the cbm in self._edos"""
         return np.where(self._edos > self.egap)[0][0]
 
-    def carrier_concentrations(self, e_fermi: float, temperature: float) -> tuple[float, float]:
+    def carrier_concentrations(
+        self, e_fermi: float, temperature: float
+    ) -> tuple[float, float]:
         """get n0 and p0 using integrals (equations 28.9 in Ashcroft Mermin)
-           for an abitrary value of temperature and Fermi energy. Typically used internally 
+           for an abitrary value of temperature and Fermi energy. Typically used internally
            to calculate carrier concentrations at the self-cosistent Fermi energy
         Args:
             efermi (float): Fermi energy
-            temperature (float): temperature for Fermi-Dirac distribution solution 
+            temperature (float): temperature for Fermi-Dirac distribution solution
 
         Returns:
             p0 (float): concentration of holes

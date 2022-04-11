@@ -14,7 +14,7 @@ class TestDefectChargeStateInit(unittest.TestCase):
         self.assertEqual(defect_charge_state._energy, energy)
         self.assertEqual(defect_charge_state._degeneracy, degeneracy)
         self.assertEqual(defect_charge_state.fixed_concentration, None)
-        
+
     def test_bad_energy_and_concentration(self):
         with self.assertRaises(ValueError):
             DefectChargeState(1, None, None)

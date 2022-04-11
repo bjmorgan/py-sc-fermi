@@ -3,6 +3,7 @@ from .defect_species import DefectSpecies
 from .defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
+from typing import Union
 
 
 def read_unitcell_data(filename: str) -> float:
@@ -12,7 +13,7 @@ def read_unitcell_data(filename: str) -> float:
     Args:
         filename (str): `unitcell.dat` file to parse
     Returns:
-        volume (float): cell volume in A^3    
+        volume (float): cell volume in A^3
     """
     with open(filename, "r") as f:
         readin = [l for l in f.readlines() if l[0] != "#"]
@@ -29,7 +30,9 @@ def read_unitcell_data(filename: str) -> float:
     return float(volume)
 
 
-def read_input_data(filename: str, volume: float = None, frozen: bool = False) -> dict:
+def read_input_data(
+    filename: str, volume: float = None, frozen: bool = False
+) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
     """
     return all information from a input file correctly formated to work
     for `SC-Fermi`.
@@ -37,9 +40,9 @@ def read_input_data(filename: str, volume: float = None, frozen: bool = False) -
     Args:
         filename (str): path to input file to parse
         volume (float): volume of structure in A^3
-        frozen (bool): if the file to be read contains frozen defect concentrations 
+        frozen (bool): if the file to be read contains frozen defect concentrations
     Returns:
-        input_data (dict): a dictionary of data required to initialise a defect system    
+        input_data (dict): a dictionary of data required to initialise a defect system
     """
 
     with open(filename, "r") as f:
@@ -71,16 +74,16 @@ def read_input_data(filename: str, volume: float = None, frozen: bool = False) -
     return input_data
 
 
-def read_dos_data(filename: str, egap: float, nelect: int) -> DOS:
+def read_dos_data(filename: str, egap: float, nelect: int) -> "py_sc_fermi.dos.DOS":
     """
     return dos information from a `totdos.dat` file.
 
     Args:
         filename (str): path to `totdos.dat` to parse
         egap (float): bandgap of host material
-        nelect (int): number of the electrons in host material calculation 
+        nelect (int): number of the electrons in host material calculation
     Returns:
-        dos (DOS): py_sc_fermi.DOS object 
+        dos (DOS): py_sc_fermi.DOS object
     """
     data = np.loadtxt(filename)
     edos = data[:, 0]
@@ -98,7 +101,7 @@ def inputs_from_files(
     totdos_filename: str,
     input_fermi_filename: str,
     frozen: bool = False,
-) -> dict:
+) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
     """
     return a set of inputs descrbing a full defect system from py_sc_fermi input files
 
@@ -107,7 +110,7 @@ def inputs_from_files(
         totdos_filename (str): path to `totdos.dat` to parse
         input_fermi_filename (str): path to `SC-Fermi` to parse
     Returns:
-        inputs (dict): set of input data for py_sc_fermi.DefectSystem 
+        inputs (dict): set of input data for py_sc_fermi.DefectSystem
     """
     inputs = {}
     inputs["volume"] = read_unitcell_data(unitcell_filename)
@@ -120,11 +123,13 @@ def inputs_from_files(
     return inputs
 
 
-def read_defect_species(pure_readin: str, ndefects: int) -> list:
+def read_defect_species(
+    pure_readin: str, ndefects: int
+) -> list["py_sc_fermi.defect_species.DefectSpecies"]:
     """
     read defect data from SC-Fermi input file and return a list of DefectSpecies.
     Typically will only be called by `read_input_data()`
-    
+
     Args:
         pure_readin (string): SC_Fermi input "free" defect data
         ndefects (int): number of defect species in the input file
@@ -156,11 +161,11 @@ def read_defect_species(pure_readin: str, ndefects: int) -> list:
 
 def update_frozen_defect_species(
     pure_readin: str, defect_species: list, volume: float, nfrozen_defects: int
-):
+) -> None:
     """
     read frozen DefectSpecies data from SC-Fermi input file and update a list of "free" DefectSpecies
     objects. Typically will only be called by `read_input_data()`.
-    
+
     Args:
         pure_readin (string): SC_Fermi input frozen defect data
         defect_species (list): list of defect_species to update
@@ -181,11 +186,11 @@ def update_frozen_defect_species(
 
 def update_frozen_chgstates(
     pure_readin: str, defect_species: list, volume: float, nfrozen_chgstates: int
-):
+) -> None:
     """
     read frozen DefectChgStates data from SC-Fermi input file and update a list of "free" DefectSpecies
     objects. Typically will only be called by `read_input_data()`.
-    
+
     Args:
         pure_readin (string): SC_Fermi input frozen defect data
         defect_species (list): list of defect_species to update

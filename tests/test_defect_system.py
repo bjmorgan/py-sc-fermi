@@ -8,6 +8,7 @@ from py_sc_fermi.dos import DOS
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 
+
 class TestDefectSystemInit(unittest.TestCase):
     def test_defect_system_is_initialised(self):
         volume = 100
@@ -88,17 +89,26 @@ class TestDefectSystem(unittest.TestCase):
 
     def test__collect_defect_species_with_fixed_chg_states(self):
         toy_defect_species = [DefectChargeState(1, 1, 1, 1)]
-        self.defect_system.defect_species[0].fixed_conc_charge_states = toy_defect_species
+        self.defect_system.defect_species[
+            0
+        ].fixed_conc_charge_states = toy_defect_species
         self.defect_system.defect_species[1].fixed_conc_charge_states = {}
-        self.assertEqual(self.defect_system._collect_defect_species_with_fixed_chg_states(), {'v_O': toy_defect_species})
+        self.assertEqual(
+            self.defect_system._collect_defect_species_with_fixed_chg_states(),
+            {"v_O": toy_defect_species},
+        )
 
     def test__get_input_string(self):
-        
+
         self.defect_system.defect_species[0].name = "v_O"
         self.defect_system.defect_species[0].nsites = 1
-        self.defect_system.defect_species[0].variable_conc_charge_states = {1: Mock(spec=DefectChargeState)}
+        self.defect_system.defect_species[0].variable_conc_charge_states = {
+            1: Mock(spec=DefectChargeState)
+        }
         self.defect_system.defect_species[0].variable_conc_charge_states[1].energy = 1
-        self.defect_system.defect_species[0].variable_conc_charge_states[1].degeneracy = 1
+        self.defect_system.defect_species[0].variable_conc_charge_states[
+            1
+        ].degeneracy = 1
         self.defect_system.defect_species[0]._fixed_concentration = None
 
         self.defect_system.defect_species[1].name = "O_i"
@@ -106,8 +116,10 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.defect_species[1].variable_conc_charge_states = {}
         self.defect_system.defect_species[1]._fixed_concentration = 1
 
-        self.defect_system._collect_defect_species_with_fixed_chg_states = {'O_i' : [DefectChargeState(1, 1, 1, 1)]}
-        self.assertEqual(self.defect_system._get_input_string(),input_string)
+        self.defect_system._collect_defect_species_with_fixed_chg_states = {
+            "O_i": [DefectChargeState(1, 1, 1, 1)]
+        }
+        self.assertEqual(self.defect_system._get_input_string(), input_string)
 
 
 if __name__ == "__main__":

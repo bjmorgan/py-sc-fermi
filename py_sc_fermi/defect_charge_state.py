@@ -1,5 +1,7 @@
 import numpy as np
-from py_sc_fermi.constants import kboltz
+from scipy.constants import physical_constants  # type: ignore
+
+kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
 class DefectChargeState:
@@ -58,9 +60,8 @@ class DefectChargeState:
     @property
     def fixed_concentration(self) -> float:
         """The fixed net concentration (per unit cell) of this defect species,
-           or `None` if the defect concentrations are free to change"""
+        or `None` if the defect concentrations are free to change"""
         return self._fixed_concentration
-
 
     def get_formation_energy(self, e_fermi: float) -> float:
         """Calculate the formation energy of this charge state at a
@@ -78,7 +79,7 @@ class DefectChargeState:
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this charge state at a
         specified Fermi energy and temperature, per site in the unit
-        cell..
+        cell.
 
         Args:
             e_fermi (float): Fermi energy relative to the VBM (in eV).
