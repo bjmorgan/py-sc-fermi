@@ -8,26 +8,19 @@ import os, yaml, argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "-i", "--input_file", type=str, help="input file defining the defect system"
+    "-i", "--input_file", type=str, help="Path to input file defining the defect system"
 )
 parser.add_argument(
     "-s",
     "--structure_file",
-    help="Structure file giving the volume of a defect system",
+    help="Path to structure file giving the volume of a defect system",
     default="unitcell.dat",
 )
 parser.add_argument(
     "-d",
     "--dos_file",
-    help="File specifying the totdos of the system",
+    help="Path to file specifying the totdos of the system",
     default="totdos.dat",
-)
-parser.add_argument(
-    "-c",
-    "--convergence_tolerance",
-    help="convergence tolerance for sc-Fermi search",
-    default=1e-20,
-    type=float,
 )
 parser.add_argument(
     "-f",
@@ -35,6 +28,13 @@ parser.add_argument(
     help="frozen defects present in the defect system",
     type=bool,
 )
+parser.add_argument(
+    "-c", "--convergence_tol", help="convergence tolerance", type=float, default=1e-19
+)
+parser.add_argument(
+    "-n", "--n_trial", help="maximum number of trial steps", type=int, default=1500
+)
+args = parser.parse_args()
 parser.add_argument("-b", "--band_gap", help="band gap of bulk system")
 args = parser.parse_args()
 
@@ -48,6 +48,8 @@ def main():
     structure = args.structure_file
     totdos = args.dos_file
     frozen = args.frozen_defects
+    conv = args.convergence_tol
+    n_trial = args.n_trial
 
     if input.endswith(".yaml"):
         defect_system = defect_system_from_yaml(input)
@@ -63,8 +65,10 @@ def main():
             dos=input_data["dos"],
             volume=input_data["volume"],
             temperature=input_data["temperature"],
+            convergence_tolerance=conv,
+            n_trial_steps=n_trial,
         )
-    defect_system.report(conv=args.convergence_tolerance)
+    defect_system.report()
 
 
 if __name__ == "__main__":

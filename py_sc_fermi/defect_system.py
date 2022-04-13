@@ -12,6 +12,8 @@ class DefectSystem(object):
         dos: "py_sc_fermi.dos.DOS",
         volume: float,
         temperature: float,
+        convergence_tolerance: float = 1e-19,
+        n_trial_steps: int = 1500,
     ):
         """Initialise a DefectSystem instance.
         Args:
@@ -27,6 +29,8 @@ class DefectSystem(object):
         self.volume = volume
         self.dos = dos
         self.temperature = temperature
+        self.convergence_tolerance = convergence_tolerance
+        self.n_trial_steps = n_trial_steps
 
     def __repr__(self):
         to_return = [
@@ -57,7 +61,7 @@ class DefectSystem(object):
         return [ds for ds in self.defect_species if ds.name == name][0]
 
     def get_sc_fermi(
-        self, conv: float = 1e-20, n_trial_steps: int = 1000
+        self,
     ) -> tuple[float, dict[str, Union[float, bool]]]:
         """
         Solve to find value of E_fermi for which the DefectSystem is
@@ -86,7 +90,7 @@ class DefectSystem(object):
         reached_e_max = False
 
         # loop until convergence or max number of steps reached
-        for i in range(n_trial_steps):
+        for i in range(self.n_trial_steps):
             q_tot = self.q_tot(e_fermi=e_fermi)
             if e_fermi > emax:
                 if reached_e_min or reached_e_max:
@@ -98,7 +102,7 @@ class DefectSystem(object):
                     raise RuntimeError(f"No solution found between {emin} and {emax}")
                 reached_e_min = True
                 direction = +1.0
-            if abs(q_tot) < conv:
+            if abs(q_tot) < self.convergence_tolerance:
                 converged = True
                 break
             if q_tot > 0.0:
@@ -117,7 +121,7 @@ class DefectSystem(object):
         ) / 2.0
         if not converged:
             warnings.warn(
-                f"residual greater than {conv} after {n_trial_steps} steps, increase n_trial_steps, or relax convergence tolerance"
+                f"residual ({abs(q_tot)}) greater than {self.convergence_tolerance} after {self.n_trial_steps} steps, increase n_trial_steps, or relax convergence tolerance"
             )
         report = {
             "converged": converged,
@@ -126,7 +130,9 @@ class DefectSystem(object):
         }
         return e_fermi, report
 
-    def report(self, conv: float = 1e-20, n_trial_steps: int = 1000) -> None:
+    def report(
+        self,
+    ) -> None:
         """
         print a report in the style of SC-FERMI which summarises key properties of
         the defect system.
@@ -139,7 +145,7 @@ class DefectSystem(object):
             None
 
         """
-        e_fermi = self.get_sc_fermi(conv=conv, n_trial_steps=n_trial_steps)[0]
+        e_fermi = self.get_sc_fermi()[0]
         print(f"SC Fermi level :      {e_fermi}  (eV)\n")
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         print("Concentrations:")
@@ -229,7 +235,9 @@ class DefectSystem(object):
         return transition_levels
 
     def as_dict(
-        self, conv: float = 1e-20, decomposed: bool = False, per_volume: bool = True
+        self,
+        decomposed: bool = False,
+        per_volume: bool = True,
     ) -> dict[str, float]:
         """
         returns a dictionary of relevent properties of the DefectSystem
@@ -252,7 +260,7 @@ class DefectSystem(object):
             scale = 1e24 / self.volume
         else:
             scale = 1
-        e_fermi = self.get_sc_fermi(conv=conv)[0]
+        e_fermi = self.get_sc_fermi()[0]
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         concs = {}
         for ds in self.defect_species:

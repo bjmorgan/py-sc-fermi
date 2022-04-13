@@ -122,9 +122,7 @@ def read_input_data(
 
 
 def read_dos_data(
-    bandgap: float,
-    nelect: int,
-    filename: str = "totdos.dat",
+    bandgap: float, nelect: int, filename: str = "totdos.dat",
 ) -> "py_sc_fermi.dos.DOS":
     """
     return dos information from a `totdos.dat` file.
@@ -246,9 +244,7 @@ def defect_species_from_dict(
         )
     else:
         return DefectSpecies(
-            name,
-            defect_species_dict[name]["nsites"],
-            charge_states=charge_states,
+            name, defect_species_dict[name]["nsites"], charge_states=charge_states,
         )
 
 
@@ -284,9 +280,16 @@ def defect_system_from_yaml(filename: str) -> "py_sc_fermi.defect_system.DefectS
         defect_species_from_dict(d, volume) for d in data["defect_species"]
     ]
 
+    # if "convergence_tolerance" not in list(data.keys()):
+    #     data["convergence_tolerance"] = 1e-19
+    # if "max_iterations" not in list(data.keys()):
+    #     data["max_iterations"] = 1500
+
     return DefectSystem(
         dos=dos,
         volume=volume,
         defect_species=defect_species,
         temperature=data["temperature"],
+        convergence_tolerance=float(data["convergence_tolerance"]),
+        n_trial_steps=int(data["n_trial_steps"]),
     )
