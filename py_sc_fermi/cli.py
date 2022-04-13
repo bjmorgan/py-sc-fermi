@@ -1,9 +1,4 @@
-from ast import Pass
 from py_sc_fermi.inputs import (
-    read_input_data,
-    read_unitcell_data,
-    volume_from_structure,
-    read_dos_data,
     inputs_from_files,
     defect_system_from_yaml,
 )
@@ -63,13 +58,12 @@ def main():
             totdos_filename=totdos,
             frozen=frozen,
         )
-
-    defect_system = DefectSystem(
-        defect_species=input_data["defect_species"],
-        dos=input_data["dos"],
-        volume=input_data["volume"],
-        temperature=input_data["temperature"],
-    )
+        defect_system = DefectSystem(
+            defect_species=input_data["defect_species"],
+            dos=input_data["dos"],
+            volume=input_data["volume"],
+            temperature=input_data["temperature"],
+        )
     defect_system.report(conv=args.convergence_tolerance)
 
 

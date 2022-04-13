@@ -16,7 +16,13 @@ class DefectSpecies(object):
 
     """
 
-    def __init__(self, name: str, nsites: int, charge_states: list):
+    def __init__(
+        self,
+        name: str,
+        nsites: int,
+        charge_states: list,
+        fixed_concentration: float = None,
+    ):
         """Instantiate a DefectSpecies object.
 
         Args:
@@ -35,7 +41,7 @@ class DefectSpecies(object):
         self._name = name
         self._nsites = nsites
         self._charge_states = {cs.charge: cs for cs in charge_states}
-        self._fixed_concentration = None
+        self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration):
         """fixed the net concentration (per unit cell) of this defect species"""

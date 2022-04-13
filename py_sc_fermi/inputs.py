@@ -5,7 +5,7 @@ from .defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
 from typing import Union
-import yaml
+import yaml, os
 
 
 def read_unitcell_data(filename: str) -> float:
@@ -84,21 +84,26 @@ def read_input_data(
 
     # read in frozen defect concentrations
     if frozen == True:
+
+        # fix defect concentrations
         n_frozen_defects = int(pure_readin.pop(0))
         for n in range(n_frozen_defects):
             l = pure_readin.pop(0).split()
             name, concentration = l[0], float(l[1])
             for defect in defect_species:
-                if defect.name == name:
+                if name == defect.name:
                     defect.fix_concentration(concentration / 1e24 * volume)
+
+        # read fixed concentration charge states
         n_frozen_charge_states = int(pure_readin.pop(0))
         for n in range(n_frozen_charge_states):
             l = pure_readin.pop(0).split()
             name, charge_state, concentration = l[0], int(l[1]), float(l[2])
-            if name in [defect.name for defect in defect_species]:
-                defect.charge_states[charge_state].fix_concentration(
-                    concentration / 1e24 * volume
-                )
+            for defect in defect_species:
+                if name == defect.name:
+                    defect.charge_states[charge_state].fix_concentration(
+                        concentration / 1e24 * volume
+                    )
             else:
                 defect_charge_state = DefectChargeState(
                     charge=charge_state,
@@ -206,26 +211,43 @@ def defect_species_from_dict(
     """
     return a DefectSpecies object from a dictionary
     """
-
     charge_states = []
-    for n, c in defect_species_dict["charge_states"].items():
+    name = list(defect_species_dict.keys())[0]
+    for n, c in defect_species_dict[name]["charge_states"].items():
+        if "fixed_concentration" not in list(c.keys()):
+            fixed_concentration = None
+        else:
+            fixed_concentration = float(c["fixed_concentration"]) / 1e24 * volume
+        if "formation_energy" not in list(c.keys()):
+            formation_energy = None
+        else:
+            formation_energy = float(c["formation_energy"])
+        if formation_energy == None and fixed_concentration == None:
+            raise ValueError(
+                f"{name, n} must have one or both fixed concentration or formation energy"
+            )
         charge_state = DefectChargeState(
-            charge=n, energy=c["formation_energy"], degeneracy=c["degeneracy"]
+            charge=n,
+            energy=formation_energy,
+            degeneracy=c["degeneracy"],
+            fixed_concentration=fixed_concentration,
         )
         charge_states.append(charge_state)
 
-    if fixed_concentration in defect_species_dict.keys():
-        fixed_concentration = defect_species_dict["fixed_concentration"] / 1e24 * volume
+    if "fixed_concentration" in defect_species_dict[name].keys():
+        fixed_concentration = (
+            float(defect_species_dict[name]["fixed_concentration"]) / 1e24 * volume
+        )
         return DefectSpecies(
-            defect_species_dict["name"],
-            defect_species_dict["nsites"],
+            name,
+            defect_species_dict[name]["nsites"],
             charge_states=charge_states,
             fixed_concentration=fixed_concentration,
         )
     else:
         return DefectSpecies(
-            defect_species_dict["name"],
-            defect_species_dict["nsites"],
+            name,
+            defect_species_dict[name]["nsites"],
             charge_states=charge_states,
         )
 
@@ -239,7 +261,7 @@ def defect_system_from_yaml(filename: str) -> "py_sc_fermi.defect_system.DefectS
 
     if "volume" not in data.keys():
         if "unitcell.dat" in os.listdir("."):
-            volume = read_unitcell_data(data["unitcell_filename"])
+            volume = read_unitcell_data("unitcell.dat")
         elif "POSCAR" in os.listdir("."):
             volume = volume_from_structure("POSCAR")
         else:
