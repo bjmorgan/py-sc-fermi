@@ -20,14 +20,8 @@ def read_unitcell_data(filename: str) -> float:
     factor = float(readin[0])
     lattvec = np.array([[float(s) for s in l.split()] for l in readin[1:4]], order="F")
     lattvec *= factor
-    volume = (
-        lattvec[0, 0] * (lattvec[1, 1] * lattvec[2, 2] - lattvec[1, 2] * lattvec[2, 1])
-        + lattvec[0, 1]
-        * (lattvec[1, 2] * lattvec[2, 0] - lattvec[1, 0] * lattvec[2, 2])
-        + lattvec[0, 2]
-        * (lattvec[1, 0] * lattvec[2, 1] - lattvec[1, 1] * lattvec[2, 0])
-    )
-    return float(volume)
+    volume = np.linalg.det(lattvec)
+    return volume
 
 
 def read_input_data(
