@@ -24,7 +24,7 @@ class DOS(object):
             dos (np.array): Density of states data.
             edos (np.array): Energies for the density of states (in eV).
             egap (float): Width of the band gap (in eV).
-            nelect (int): Number of electrons.
+            nelect (int): Number of electrons in the DOS calculation cell.
             spin_polarised (`bool`, optional): is the calculated DOS spin polarisised? Default
                 is `False`
             normalise (:obj:`bool`, optional): Normalise the DOS so that the integral
@@ -37,10 +37,6 @@ class DOS(object):
             ValueError: If `egap` > `max(edos)`.
 
         """
-        if egap > edos[-1]:
-            raise ValueError(
-                "ERROR: Your conduction band minimum is not accounted for in your DOS \n, increase the number of bands in your DOS calculation)"
-            )
         self._dos = dos
         self._edos = edos
         self._egap = egap
@@ -105,7 +101,7 @@ class DOS(object):
         dos = np.sum(tdos_data[:, 1:], axis=1)
         if bandgap == None:
             bandgap = vr.eigenvalue_band_properties[0]
-        return cls(dos, edos, nelect, bandgap)
+        return cls(dos = dos, edos = edos, nelect = nelect, egap = bandgap)
 
     def sum_dos(self) -> np.array:
         """get integrated density of states"""

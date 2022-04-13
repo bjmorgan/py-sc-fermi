@@ -97,9 +97,9 @@ def read_dos_data(filename: str, egap: float, nelect: int) -> "py_sc_fermi.dos.D
 
 
 def inputs_from_files(
-    unitcell_filename: str,
-    totdos_filename: str,
-    input_fermi_filename: str,
+    unitcell_filename: str = 'unitcell.dat',
+    totdos_filename: str = 'totdos.dat',
+    input_fermi_filename: str = 'input-fermi.dat',
     frozen: bool = False,
 ) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
     """

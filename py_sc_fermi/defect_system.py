@@ -154,7 +154,7 @@ class DefectSystem(object):
                 continue
             print(f"{ds.name:11}: Charge Concentration(cm^-3) Total")
             for q, conc in charge_state_concentrations.items():
-                if ds.charge_states[q].concentration_is_fixed:
+                if ds.charge_states[q].fixed_concentration:
                     fix_str = " [fixed]"
                 else:
                     fix_str = ""
@@ -240,7 +240,7 @@ class DefectSystem(object):
             scale = 1e24 / self.volume
         else:
             scale = 1
-        e_fermi = self.get_sc_fermi(verbose=False, conv=conv)[0]
+        e_fermi = self.get_sc_fermi(conv=conv)[0]
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         concs = {}
         for ds in self.defect_species:
