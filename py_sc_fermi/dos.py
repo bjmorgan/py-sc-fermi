@@ -13,37 +13,33 @@ class DOS(object):
         self,
         dos: np.array,
         edos: np.array,
-        egap: float,
+        bandgap: float,
         nelect: int,
         spin_polarised=False,
-        normalise=True,
     ):
         """Initialise a DOS instance.
 
         Args:
             dos (np.array): Density of states data.
             edos (np.array): Energies for the density of states (in eV).
-            egap (float): Width of the band gap (in eV).
+            bandgap (float): Width of the band gap (in eV).
             nelect (int): Number of electrons in the DOS calculation cell.
             spin_polarised (`bool`, optional): is the calculated DOS spin polarisised? Default
                 is `False`
-            normalise (:obj:`bool`, optional): Normalise the DOS so that the integral
-                from e_min --> 0.0 is equal to the `nelect`. Default is `True`.
 
         Returns:
             None
 
         Raises:
-            ValueError: If `egap` > `max(edos)`.
+            ValueError: If `bandgap` > `max(edos)`.
 
         """
         self._dos = dos
         self._edos = edos
-        self._egap = egap
+        self._bandgap = bandgap
         self._nelect = nelect
         self._spin_polarised = spin_polarised
-        if normalise:
-            self.normalise_dos()
+        self.normalise_dos()
 
     @property
     def dos(self) -> np.array:
@@ -56,9 +52,9 @@ class DOS(object):
         return self._edos
 
     @property
-    def egap(self) -> float:
+    def bandgap(self) -> float:
         """Get the bandgap."""
-        return self._egap
+        return self._bandgap
 
     @property
     def spin_polarised(self) -> bool:
@@ -93,15 +89,15 @@ class DOS(object):
         edos = vr.complete_dos.energies - cbm
         if len(densities) == 2:
             tdos_data = np.stack(
-                [edos, densities[Spin.up], densities[Spin.down]], axis=1
+                [edos, np.abs(densities[Spin.up]), np.abs(densities[Spin.down])], axis=1
             )
         else:
-            tdos_data = np.stack([edos, densities[Spin.up]], axis=1)
+            tdos_data = np.stack([edos, np.abs(densities[Spin.up])], axis=1)
         edos = tdos_data[:, 0]
         dos = np.sum(tdos_data[:, 1:], axis=1)
         if bandgap == None:
             bandgap = vr.eigenvalue_band_properties[0]
-        return cls(dos = dos, edos = edos, nelect = nelect, egap = bandgap)
+        return cls(dos=dos, edos=edos, nelect=nelect, bandgap=bandgap)
 
     def sum_dos(self) -> np.array:
         """get integrated density of states"""
@@ -128,7 +124,7 @@ class DOS(object):
 
     def _n0_index(self) -> int:
         """get index of the cbm in self._edos"""
-        return np.where(self._edos > self.egap)[0][0]
+        return np.where(self._edos > self.bandgap)[0][0]
 
     def carrier_concentrations(
         self, e_fermi: float, temperature: float

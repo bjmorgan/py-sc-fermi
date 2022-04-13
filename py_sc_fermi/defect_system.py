@@ -1,6 +1,7 @@
 from typing import Union
 import numpy as np
-from py_sc_fermi.defect_species import DefectSpecies
+
+# from .inputs import defect_system_from_yaml
 import warnings
 
 
@@ -31,7 +32,7 @@ class DefectSystem(object):
         to_return = [
             f"DefectSystem\n",
             f"  nelect: {self.dos.nelect} e\n",
-            f"  egap:   {self.dos.egap} eV\n",
+            f"  bandgap:   {self.dos.bandgap} eV\n",
             f"  volume: {self.volume} A^3\n",
             f"  temperature: {self.temperature} K\n",
             f"\nContains defect species:\n",
@@ -40,14 +41,20 @@ class DefectSystem(object):
             to_return.append(str(ds))
         return "".join(to_return)
 
-    def defect_species_by_name(
-        self, name: str
-    ) -> "py_sc_fermi.defect_species.DefectSpecies":
-        return [ds for ds in self.defect_species if ds.name == name][0]
+    # @classmethod
+    # def from_yaml(
+    #     cls, path_to_yaml: str) -> "py_sc_fermi.defect_system.DefectSystem":
+    #     """
+    #     generate a DefectSystem instance from a yaml file
+    #     """
+    #     return defect_system_from_yaml(path_to_yaml)
 
     @property
-    def defect_species_names(self) -> list[str]:
+    def defect_species_by_names(self) -> list[str]:
         return [ds.name for ds in self.defect_species]
+
+    def defect_species_by_name(self, name):
+        return [ds for ds in self.defect_species if ds.name == name][0]
 
     def get_sc_fermi(
         self, conv: float = 1e-20, n_trial_steps: int = 1000
@@ -140,7 +147,12 @@ class DefectSystem(object):
         print(f"p (holes)      : {p0 * 1e24 / self.volume} cm^-3")
         for ds in self.defect_species:
             concall = ds.get_concentration(e_fermi, self.temperature)
-            print(f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3")
+            if ds.fixed_concentration == None:
+                print(f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3")
+            else:
+                print(
+                    f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3 [fixed]"
+                )
         print()
         print("Breakdown of concentrations for each defect charge state:")
         for ds in self.defect_species:
@@ -246,16 +258,20 @@ class DefectSystem(object):
         for ds in self.defect_species:
             conc = ds.get_concentration(e_fermi, self.temperature)
             if decomposed == True:
-                chg_states = ds.charge_state_concentrations(e_fermi, self.temperature)
-                all_chg_states = {str(k): v * scale for k, v in chg_states.items()}
-                concs.update({ds.name: all_chg_states})
+                charge_states = ds.charge_state_concentrations(
+                    e_fermi, self.temperature
+                )
+                all_charge_states = {
+                    str(k): v * scale for k, v in charge_states.items()
+                }
+                concs.update({ds.name: all_charge_states})
             else:
                 concs.update({ds.name: conc * scale})
         run_stats = {"Fermi Energy": e_fermi, "p0": p0 * scale, "n0": n0 * scale}
 
         return {**run_stats, **concs}
 
-    def _collect_defect_species_with_fixed_chg_states(
+    def _collect_defect_species_with_fixed_charge_states(
         self,
     ) -> dict[str, "py_sc_fermi.defect_species.DefectSpecies"]:
         """
@@ -282,7 +298,7 @@ class DefectSystem(object):
         else:
             input_string += "0\n"
         input_string += f"{self.dos._nelect}\n"
-        input_string += f"{self.dos._egap}\n"
+        input_string += f"{self.dos._bandgap}\n"
         input_string += f"{self.temperature}\n"
 
         # count number of variable concentration DefectSpecies and write their information to file
@@ -291,8 +307,8 @@ class DefectSystem(object):
         ]
         input_string += str(len(free_defect_species)) + "\n"
         for d in free_defect_species:
-            free_chg_states = d.variable_conc_charge_states
-            input_string += f"{d.name} {len(free_chg_states)} {d.nsites}\n"
+            free_charge_states = d.variable_conc_charge_states
+            input_string += f"{d.name} {len(free_charge_states)} {d.nsites}\n"
 
             for k, v in d.variable_conc_charge_states.items():
                 input_string += f" {k} {v.energy} {v.degeneracy}\n"
@@ -307,7 +323,7 @@ class DefectSystem(object):
 
         # count the number of fixed concentration DefectChargeStates and write their information to file
 
-        all_fixed_charge_states = self._collect_defect_species_with_fixed_chg_states
+        all_fixed_charge_states = self._collect_defect_species_with_fixed_charge_states
         input_string += (
             str(sum([len(v) for v in all_fixed_charge_states.values()])) + "\n"
         )

@@ -1,9 +1,11 @@
 import numpy as np
+from .defect_system import DefectSystem
 from .defect_species import DefectSpecies
 from .defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
 from typing import Union
+import yaml
 
 
 def read_unitcell_data(filename: str) -> float:
@@ -15,6 +17,7 @@ def read_unitcell_data(filename: str) -> float:
     Returns:
         volume (float): cell volume in A^3
     """
+
     with open(filename, "r") as f:
         readin = [l for l in f.readlines() if l[0] != "#"]
     factor = float(readin[0])
@@ -39,42 +42,91 @@ def read_input_data(
         input_data (dict): a dictionary of data required to initialise a defect system
     """
 
+    if volume == None and frozen == True:
+        raise ValueError("Volume must be specified if frozen is True")
+
     with open(filename, "r") as f:
         readin = f.readlines()
-        pure_readin = [line for line in readin if line[0] != "#"]
-    nspinpol = int(pure_readin.pop(0))
-    nelect = int(pure_readin.pop(0))
-    egap = float(pure_readin.pop(0))
-    temperature = float(pure_readin.pop(0))
+        pure_readin = [line.strip() for line in readin if line[0] != "#"]
+
+    input_data = {}
+
+    # read in general defect system information
+    input_data["spinpol"] = int(pure_readin.pop(0))
+    input_data["nelect"] = int(pure_readin.pop(0))
+    input_data["bandgap"] = float(pure_readin.pop(0))
+    input_data["temperature"] = int(pure_readin.pop(0))
+
+    # read in defect species information
+    defect_species = []
     ndefects = int(pure_readin.pop(0))
-
-    defect_species = read_defect_species(pure_readin, ndefects)
-    if frozen == True:
-        nfrozen_defects = int(pure_readin.pop(0))
-        update_frozen_defect_species(
-            pure_readin, defect_species, volume, nfrozen_defects
+    for i in range(ndefects):
+        defect_description = pure_readin.pop(0).split()
+        defect_name = defect_description[0]
+        n_charge_states = int(defect_description[1])
+        nsites = int(defect_description[2])
+        charge_states = []
+        for charge_state in range(n_charge_states):
+            charge_state_description = pure_readin.pop(0).split()
+            charge_state = int(charge_state_description[0])
+            charge_state_formation_energy = float(charge_state_description[1])
+            charge_state_degeneracy = int(charge_state_description[2])
+            charge_states.append(
+                DefectChargeState(
+                    charge=charge_state,
+                    energy=charge_state_formation_energy,
+                    degeneracy=charge_state_degeneracy,
+                )
+            )
+        defect_species.append(
+            DefectSpecies(name=defect_name, charge_states=charge_states, nsites=nsites)
         )
-        nfrozen_chgstates = int(pure_readin.pop(0))
-        update_frozen_chgstates(pure_readin, defect_species, volume, nfrozen_chgstates)
 
-    input_data = {
-        "defect_species": defect_species,
-        "egap": egap,
-        "temperature": temperature,
-        "nspinpol": nspinpol,
-        "nelect": nelect,
-    }
+    # read in frozen defect concentrations
+    if frozen == True:
+        n_frozen_defects = int(pure_readin.pop(0))
+        for n in range(n_frozen_defects):
+            l = pure_readin.pop(0).split()
+            name, concentration = l[0], float(l[1])
+            for defect in defect_species:
+                if defect.name == name:
+                    defect.fix_concentration(concentration / 1e24 * volume)
+        n_frozen_charge_states = int(pure_readin.pop(0))
+        for n in range(n_frozen_charge_states):
+            l = pure_readin.pop(0).split()
+            name, charge_state, concentration = l[0], int(l[1]), float(l[2])
+            if name in [defect.name for defect in defect_species]:
+                defect.charge_states[charge_state].fix_concentration(
+                    concentration / 1e24 * volume
+                )
+            else:
+                defect_charge_state = DefectChargeState(
+                    charge=charge_state,
+                    fixed_concentration=concentration / 1e24 * volume,
+                    degeneracy=1,
+                )
+                defect_species.append(
+                    DefectSpecies(
+                        name=name, charge_states=[defect_charge_state], nsites=1
+                    )
+                )
+
+    input_data.update({"defect_species": defect_species})
 
     return input_data
 
 
-def read_dos_data(filename: str, egap: float, nelect: int) -> "py_sc_fermi.dos.DOS":
+def read_dos_data(
+    bandgap: float,
+    nelect: int,
+    filename: str = "totdos.dat",
+) -> "py_sc_fermi.dos.DOS":
     """
     return dos information from a `totdos.dat` file.
 
     Args:
         filename (str): path to `totdos.dat` to parse
-        egap (float): bandgap of host material
+        bandgap (float): bandgap of host material
         nelect (int): number of the electrons in host material calculation
     Returns:
         dos (DOS): py_sc_fermi.DOS object
@@ -83,146 +135,39 @@ def read_dos_data(filename: str, egap: float, nelect: int) -> "py_sc_fermi.dos.D
     edos = data[:, 0]
     dos = np.sum(data[:, 1:], axis=1)
     if np.any(data[:, 1:] < 0.0):
-        print("WARNING: Found negative value(s) of DOS!")
-        print("         Do you know what you are doing?")
-        print("         These may cause serious problems...")
-    dos = DOS(dos=dos, edos=edos, nelect=nelect, egap=egap)
+        raise ValueError("Negative DOS values found")
+    dos = DOS(dos=dos, edos=edos, nelect=nelect, bandgap=bandgap)
     return dos
 
 
 def inputs_from_files(
-    unitcell_filename: str = 'unitcell.dat',
-    totdos_filename: str = 'totdos.dat',
-    input_fermi_filename: str = 'input-fermi.dat',
+    structure_filename: str = "unitcell.dat",
+    totdos_filename: str = "totdos.dat",
+    input_fermi_filename: str = "input-fermi.dat",
     frozen: bool = False,
 ) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
     """
     return a set of inputs descrbing a full defect system from py_sc_fermi input files
 
     Args:
-        unitcell_filename (str): path to `unitcell.dat` to parse
+        structure_filename (str): path to `unitcell.dat` to parse
         totdos_filename (str): path to `totdos.dat` to parse
         input_fermi_filename (str): path to `SC-Fermi` to parse
     Returns:
         inputs (dict): set of input data for py_sc_fermi.DefectSystem
     """
     inputs = {}
-    inputs["volume"] = read_unitcell_data(unitcell_filename)
+    try:
+        inputs["volume"] = read_unitcell_data(structure_filename)
+    except:
+        inputs["volume"] = volume_from_structure(structure_filename)
     inputs.update(
         read_input_data(input_fermi_filename, frozen=frozen, volume=inputs["volume"])
     )
     inputs["dos"] = read_dos_data(
-        totdos_filename, egap=inputs["egap"], nelect=inputs["nelect"]
+        filename=totdos_filename, bandgap=inputs["bandgap"], nelect=inputs["nelect"]
     )
     return inputs
-
-
-def read_defect_species(
-    pure_readin: str, ndefects: int
-) -> list["py_sc_fermi.defect_species.DefectSpecies"]:
-    """
-    read defect data from SC-Fermi input file and return a list of DefectSpecies.
-    Typically will only be called by `read_input_data()`
-
-    Args:
-        pure_readin (string): SC_Fermi input "free" defect data
-        ndefects (int): number of defect species in the input file
-    Returns:
-        defect_species (list): list of `py_sc_fermi.DefectSpecies` objects
-    """
-    defect_species = []
-    for i in range(ndefects):
-        l = pure_readin.pop(0).split()
-        name = l[0]
-        ncharge = int(l[1])
-        nsites = int(l[2])
-        charges = []
-        energies = []
-        degs = []
-        for j in range(ncharge):
-            l = pure_readin.pop(0).split()
-            charges.append(float(l[0]))
-            energies.append(float(l[1]))
-            degs.append(int(l[2]))
-        charge_states = [
-            DefectChargeState(charge=c, energy=e, degeneracy=d)
-            for c, e, d in zip(charges, energies, degs)
-        ]
-        defect_species.append(DefectSpecies(name, nsites, charge_states))
-
-    return defect_species
-
-
-def update_frozen_defect_species(
-    pure_readin: str, defect_species: list, volume: float, nfrozen_defects: int
-) -> None:
-    """
-    read frozen DefectSpecies data from SC-Fermi input file and update a list of "free" DefectSpecies
-    objects. Typically will only be called by `read_input_data()`.
-
-    Args:
-        pure_readin (string): SC_Fermi input frozen defect data
-        defect_species (list): list of defect_species to update
-        volume (float): volume of unit cell for coverting between concentration units
-        nfrozen_defects (int): number of frozen concentration DefectSpecies
-    """
-
-    if nfrozen_defects > 0:
-        frozen_defects = {}
-        for i in range(nfrozen_defects):
-            l = pure_readin.pop(0).split()
-            frozen_defects.update({l[0]: l[1]})
-        for k, v in frozen_defects.items():
-            for defect in defect_species:
-                if defect.name == k:
-                    defect.fix_concentration(float(v) / 1e24 * volume)
-
-
-def update_frozen_chgstates(
-    pure_readin: str, defect_species: list, volume: float, nfrozen_chgstates: int
-) -> None:
-    """
-    read frozen DefectChgStates data from SC-Fermi input file and update a list of "free" DefectSpecies
-    objects. Typically will only be called by `read_input_data()`.
-
-    Args:
-        pure_readin (string): SC_Fermi input frozen defect data
-        defect_species (list): list of defect_species to update
-        volume (float): volume of unit cell for coverting between concentration units
-        nfrozen_defects (int): number of frozen concentration DefectChgStates
-    """
-    if nfrozen_chgstates > 0:
-        frozen_chgstates = []
-        for i in range(nfrozen_chgstates):
-            l = pure_readin.pop(0).split()
-            frozen_chgstates.append(
-                {"Name": l[0], "Chg_state": l[1], "Con": l[2].split()[0]}
-            )
-        defect_labels = [i.name for i in defect_species]
-        for defect in frozen_chgstates:
-            if defect["Name"] in defect_labels:
-                defect_to_freeze = [
-                    i for i in defect_species if defect["Name"] == i.name
-                ][0]
-                defect_to_freeze.charge_states[defect["Chg_state"]] = DefectChargeState(
-                    charge=int(defect["Chg_state"]),
-                    fixed_concentration=float(defect["Con"]) / 1e24 * volume,
-                )
-            else:
-                defect_species.append(
-                    DefectSpecies(
-                        defect["Name"],
-                        1,
-                        [
-                            DefectChargeState(
-                                charge=int(defect["Chg_state"]),
-                                fixed_concentration=float(defect["Con"])
-                                / 1e24
-                                * volume,
-                            )
-                        ],
-                    )
-                )
 
 
 def volume_from_structure(structure_file: str) -> float:
@@ -239,3 +184,87 @@ def volume_from_structure(structure_file: str) -> float:
     structure = Structure.from_file(structure_file)
     volume = structure.volume
     return float(volume)
+
+
+def dos_from_dict(dos_dict: dict) -> "py_sc_fermi.dos.DOS":
+    """
+    return a DOS object from a dictionary
+    """
+    nelect = dos_dict["nelect"]
+    bandgap = dos_dict["bandgap"]
+    edos = dos_dict["edos"]
+    if type(dos) == dict:
+        dos = dos["up"] + dos["down"]
+    else:
+        dos = dos
+    return DOS(nelect=nelect, bandgap=bandgap, edos=edos, dos=dos)
+
+
+def defect_species_from_dict(
+    defect_species_dict: dict, volume: float
+) -> list["py_sc_fermi.defect_species.DefectSpecies"]:
+    """
+    return a DefectSpecies object from a dictionary
+    """
+
+    charge_states = []
+    for n, c in defect_species_dict["charge_states"].items():
+        charge_state = DefectChargeState(
+            charge=n, energy=c["formation_energy"], degeneracy=c["degeneracy"]
+        )
+        charge_states.append(charge_state)
+
+    if fixed_concentration in defect_species_dict.keys():
+        fixed_concentration = defect_species_dict["fixed_concentration"] / 1e24 * volume
+        return DefectSpecies(
+            defect_species_dict["name"],
+            defect_species_dict["nsites"],
+            charge_states=charge_states,
+            fixed_concentration=fixed_concentration,
+        )
+    else:
+        return DefectSpecies(
+            defect_species_dict["name"],
+            defect_species_dict["nsites"],
+            charge_states=charge_states,
+        )
+
+
+def defect_system_from_yaml(filename: str) -> "py_sc_fermi.defect_system.DefectSystem":
+    """
+    return a DefectSystem object from a yaml file
+    """
+    with open(filename, "r") as f:
+        data = yaml.load(f, Loader=yaml.SafeLoader)
+
+    if "volume" not in data.keys():
+        if "unitcell.dat" in os.listdir("."):
+            volume = read_unitcell_data(data["unitcell_filename"])
+        elif "POSCAR" in os.listdir("."):
+            volume = volume_from_structure("POSCAR")
+        else:
+            raise ValueError(
+                "No volume found in input file and no file defining the structure detected in this directory"
+            )
+    else:
+        volume = data["volume"]
+
+    if "edos" in data.keys() and "dos" in data.keys():
+        dos = dos_from_dict(data)
+    elif "totdos.dat" in os.listdir("."):
+        dos = read_dos_data(bandgap=data["bandgap"], nelect=data["nelect"])
+    elif "vasprun.xml" in os.listdir("."):
+        dos = DOS.from_vasprun(nelect=data["nelect"])
+    else:
+        raise ValueError("No DOS data found")
+
+    defect_species = [
+        defect_species_from_dict(d, volume) for d in data["defect_species"]
+    ]
+
+    return DefectSystem(
+        dos=dos,
+        volume=volume,
+        defect_species=defect_species,
+        temperature=data["temperature"],
+    )

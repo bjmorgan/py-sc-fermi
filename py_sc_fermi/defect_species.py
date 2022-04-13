@@ -52,7 +52,9 @@ class DefectSpecies(object):
         return self._nsites
 
     @property
-    def charge_states(self) -> dict[int, "py_sc_fermi.defect_charge_state.DefectChargeState"]:
+    def charge_states(
+        self,
+    ) -> dict[int, "py_sc_fermi.defect_charge_state.DefectChargeState"]:
         """The charge states for this defect species as s dictionary of
         charge: defect_state key-value pairs"""
         return self._charge_states
