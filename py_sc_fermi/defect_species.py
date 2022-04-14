@@ -262,28 +262,31 @@ class DefectSpecies(object):
             cs_concentrations (Dict): a dictionary of charge state (int)
             concentration (float) pairs.
         """
-        cs_concentrations = {}
-        for cs in self.charge_states.values():
-            cs_concentrations[cs.charge] = (
-                cs.get_concentration(e_fermi, temperature) * self.nsites
-            )
+        
+        var_concs = self.variable_conc_charge_states()
+        fixed_concs = self.fixed_conc_charge_states()
+
+        cs_concentrations = {cs.charge : cs.get_concentration(e_fermi, temperature) * self.nsites for cs in var_concs.values()}
+        for q, cs in fixed_concs.items():
+            cs_concentrations[q] = cs.get_concentration(e_fermi, temperature)
+        
         if self.fixed_concentration != None:
-            fixed_conc = sum(
+            fixed_conc_chg_states = sum(
                 [
                     c
                     for q, c in cs_concentrations.items()
                     if q in self.fixed_conc_charge_states()
                 ]
             )
-            variable_conc = sum(
+            variable_conc_chg_states = sum(
                 [
                     c
                     for q, c in cs_concentrations.items()
                     if q in self.variable_conc_charge_states()
                 ]
             )
-            constrained_conc = self.fixed_concentration - fixed_conc
-            scaling = constrained_conc / variable_conc
+            constrained_conc = self.fixed_concentration - fixed_conc_chg_states
+            scaling = constrained_conc / variable_conc_chg_states
             for q in cs_concentrations:
                 if q in self.variable_conc_charge_states():
                     cs_concentrations[q] *= scaling

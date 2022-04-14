@@ -25,6 +25,8 @@ class TestDefectSystemInit(unittest.TestCase):
             volume=volume,
             dos=dos,
             temperature=temperature,
+            convergence_tolerance=1e-6,
+            n_trial_steps=100
         )
         self.assertEqual(defect_system.volume, volume)
         self.assertEqual(defect_system.dos, dos)

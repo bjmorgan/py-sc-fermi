@@ -198,6 +198,9 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
     def test_charge_state_concentrations(self):
+        self.defect_species.charge_states[0].fixed_concentration = None
+        self.defect_species.charge_states[1].fixed_concentration = None
+        self.defect_species.charge_states[2].fixed_concentration = None
         self.defect_species.charge_states[0].get_concentration = Mock(
             return_value=0.1234
         )
@@ -213,6 +216,29 @@ class TestDefectSpecies(unittest.TestCase):
                 0: 0.1234 * self.defect_species.nsites,
                 1: 0.1234 * self.defect_species.nsites,
                 2: 0.1234 * self.defect_species.nsites,
+            },
+        )
+
+    def test_charge_state_concentrations_with_fixed_concentration(self):
+        self.defect_species.charge_states[0].fixed_concentration = None
+        self.defect_species.charge_states[1].fixed_concentration = None
+        self.defect_species.charge_states[2].fixed_concentration = None
+        self.defect_species.charge_states[0].get_concentration = Mock(
+            return_value=0.1234/3
+        )
+        self.defect_species.charge_states[1].get_concentration = Mock(
+            return_value=0.1234/3
+        )
+        self.defect_species.charge_states[2].get_concentration = Mock(
+            return_value=0.1234/3
+        )
+        self.defect_species._fixed_concentration = 0.1234
+        self.assertEqual(
+            self.defect_species.charge_state_concentrations(1.5, 298),
+            {
+                0: 0.04113333333333333,
+                1: 0.04113333333333333,
+                2: 0.04113333333333333,
             },
         )
 
@@ -235,6 +261,13 @@ class TestDefectSpecies(unittest.TestCase):
         charge_state_2 = DefectChargeState(2, energy=-1, degeneracy=1)
         defect = DefectSpecies("foo", 1, [charge_state_1, charge_state_2])
         assert_equal(defect.tl_profile(0, 5), [[0, -1], [1.5, 2], [5, 2]])
+
+    def test__repr__(self):
+        self.defect_species._charge_states = {2 : DefectChargeState(2, energy=-1, degeneracy=1)}
+        self.assertEqual(
+            str(self.defect_species),
+            "\nV_O, nsites=2\n  q=+2, e=-1, deg=1\n"
+        )
 
 
 if __name__ == "__main__":

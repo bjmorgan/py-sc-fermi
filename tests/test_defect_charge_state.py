@@ -62,6 +62,21 @@ class TestDefectChargeState(unittest.TestCase):
         )
         self.assertEqual(conc, 8.311501552630706e-23)
 
+    def test_get_concentration_with_fixed_concentration(self):
+        e_fermi = 1.2
+        temperature = 298.0
+        self.defect_charge_state.fix_concentration(1.0)
+        conc = self.defect_charge_state.get_concentration(
+            e_fermi=e_fermi, temperature=temperature
+        )
+        self.assertEqual(conc, 1.0)
+
+    def test__repr__(self):
+        self.assertEqual(
+            str(self.defect_charge_state),
+            "q=+1.0, e=0.1234, deg=2",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
