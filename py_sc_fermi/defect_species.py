@@ -73,7 +73,7 @@ class DefectSpecies(object):
 
     def __repr__(self):
         to_return = f"\n{self.name}, nsites={self.nsites}"
-        if self.fixed_concentration:
+        if self.fixed_concentration != None:
             to_return += f"\nfixed [c] = {self.fixed_concentration}"
         to_return += "\n" + "".join(
             [f"  {cs.__repr__()}\n" for cs in self.charge_states.values()]

@@ -81,6 +81,16 @@ class TestInputs(unittest.TestCase):
         np.testing.assert_equal(np.ones(101), dos.dos)
         np.testing.assert_equal(np.linspace(-10.0, 10.0, 101), dos.edos)
 
+    def test_spinpol_dos_from_dict(self):
+        dos_dict = {
+            "dos": {"up": np.ones(101), "down": np.ones(101)},
+            "edos": np.linspace(-10.0, 10.0, 101),
+            "bandgap": 1,
+            "nelect": 10,
+        }
+        dos = dos_from_dict(dos_dict)
+        self.assertEqual(dos.spin_polarised, True)
+
     def test_defect_species_from_dict(self):
         defect_dict = {
             "V_O": {
@@ -93,6 +103,11 @@ class TestInputs(unittest.TestCase):
         self.assertEqual(defect_species.nsites, 1)
         self.assertEqual(defect_species.charge_states[0].degeneracy, 1)
         self.assertEqual(defect_species.charge_states[0].energy, 1)
+
+    def test_defect_species_from_dict_raises_no_e_no_c_error(self):
+        defect_dict = {"V_O": {"nsites": 1, "charge_states": {0: {"degeneracy": 1}}}}
+        with self.assertRaises(ValueError):
+            defect_species_from_dict(defect_dict, 1)
 
     def test_defect_system_from_yaml(self):
         defect_system = defect_system_from_yaml(test_defect_system_yaml_filename)

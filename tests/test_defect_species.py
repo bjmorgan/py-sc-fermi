@@ -264,9 +264,10 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test__repr__(self):
         self.defect_species._charge_states = {2 : DefectChargeState(2, energy=-1, degeneracy=1)}
+        self.defect_species._fixed_concentration = 100
         self.assertEqual(
             str(self.defect_species),
-            "\nV_O, nsites=2\n  q=+2, e=-1, deg=1\n"
+            "\nV_O, nsites=2\nfixed [c] = 100\n  q=+2, e=-1, deg=1\n"
         )
 
 
