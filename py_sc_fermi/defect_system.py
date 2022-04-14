@@ -124,48 +124,49 @@ class DefectSystem(object):
         print a report in the style of SC-FERMI which summarises key properties of
         the defect system.
 
-        Args:
-            conv: convergence tolerance for charge neutrality condition
-            n_trial_steps: number of steps to try to find a solution for SC-Fermi level
-
-        Returns:
-            None
-
         """
+        print(self._get_report_string())
+
+    def _get_report_string(
+        self,
+    ) -> None:
+        """
+        generate a string specifying a report in the style of SC-FERMI which summarises key properties of
+        the defect system.
+        """
+        string = ""
         e_fermi = self.get_sc_fermi()[0]
-        print(f"SC Fermi level :      {e_fermi}  (eV)\n")
+        string += f"SC Fermi level :      {e_fermi}  (eV)\n"
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-        print("Concentrations:")
-        print(f"n (electrons)  : {n0 * 1e24 / self.volume} cm^-3")
-        print(f"p (holes)      : {p0 * 1e24 / self.volume} cm^-3")
+        string += "Concentrations:\n"
+        string += f"n (electrons)  : {n0 * 1e24 / self.volume} cm^-3\n"
+        string += f"p (holes)      : {p0 * 1e24 / self.volume} cm^-3\n"
         for ds in self.defect_species:
             concall = ds.get_concentration(e_fermi, self.temperature)
             if ds.fixed_concentration == None:
-                print(f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3")
+                string += f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3\n"
             else:
-                print(
-                    f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3 [fixed]"
+                string += (
+                    f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3 [fixed]\n"
                 )
-        print()
-        print("Breakdown of concentrations for each defect charge state:")
+        string += "\nBreakdown of concentrations for each defect charge state:\n"
         for ds in self.defect_species:
-            charge_state_concentrations = ds.charge_state_concentrations(
-                e_fermi, self.temperature
-            )
             concall = ds.get_concentration(e_fermi, self.temperature)
-            print("---------------------------------------------------------")
+            string += "---------------------------------------------------------\n"
             if concall == 0.0:
-                print(f"{ds.name:11}: Zero total - cannot give breakdown")
+                string += f"{ds.name:11}: Zero total - cannot give breakdown\n"
                 continue
-            print(f"{ds.name:11}: Charge Concentration(cm^-3) Total")
-            for q, conc in charge_state_concentrations.items():
+            string += f"{ds.name:11}: Charge Concentration(cm^-3) Total\n"
+            for q, conc in ds.charge_state_concentrations(
+                e_fermi, self.temperature
+            ).items():
                 if ds.charge_states[q].fixed_concentration:
                     fix_str = " [fixed]"
                 else:
                     fix_str = ""
-                print(
-                    f"           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}"
-                )
+
+                string += f"           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}\n"
+        return string
 
     def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float, float]:
         """
@@ -253,12 +254,15 @@ class DefectSystem(object):
                 for ds in self.defect_species
             }
         else:
-            concs = {}
-            charge_states = ds.charge_state_concentrations(e_fermi, self.temperature)
-            all_charge_states = {
-                str(k): float(v * scale) for k, v in charge_states.items()
-            }
-            concs[ds.name] = all_charge_states
+            for ds in self.defect_species:
+                concs = {}
+                charge_states = ds.charge_state_concentrations(
+                    e_fermi, self.temperature
+                )
+                all_charge_states = {
+                    str(k): float(v * scale) for k, v in charge_states.items()
+                }
+                concs[ds.name] = all_charge_states
         run_stats = {
             "Fermi Energy": float(e_fermi),
             "p0": float(p0 * scale),

@@ -1,0 +1,14 @@
+SC Fermi level :      0.5  (eV)
+Concentrations:
+n (electrons)  : 1e+24 cm^-3
+p (holes)      : 1e+24 cm^-3
+v_O            : 1e+25 cm^-3 [fixed]
+O_i            : 1e+25 cm^-3 [fixed]
+
+Breakdown of concentrations for each defect charge state:
+---------------------------------------------------------
+v_O        : Charge Concentration(cm^-3) Total
+           :  1  1.000000e+25          100.00  [fixed]
+---------------------------------------------------------
+O_i        : Charge Concentration(cm^-3) Total
+           : -1  1.000000e+25          100.00  [fixed]

@@ -203,7 +203,13 @@ def dos_from_dict(dos_dict: dict) -> "py_sc_fermi.dos.DOS":
     else:
         dos = dos
         spin_pol = False
-    return DOS(nelect=nelect, bandgap=bandgap, edos=np.array(edos), dos=np.array(dos), spin_polarised=spin_pol)
+    return DOS(
+        nelect=nelect,
+        bandgap=bandgap,
+        edos=np.array(edos),
+        dos=np.array(dos),
+        spin_polarised=spin_pol,
+    )
 
 
 def defect_species_from_dict(

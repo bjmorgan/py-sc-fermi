@@ -26,7 +26,7 @@ parser.add_argument(
     "-f",
     "--frozen_defects",
     help="frozen defects present in the defect system",
-    action="store_true"
+    action="store_true",
 )
 parser.add_argument(
     "-c", "--convergence_tol", help="convergence tolerance", type=float, default=1e-19
@@ -69,11 +69,12 @@ def main():
             n_trial_steps=n_trial,
         )
     defect_system.report()
-    
+
     dump_dict = defect_system.as_dict(decomposed=True)
     dump_dict["temperature"] = defect_system.temperature
     with open("py_sc_fermi_out.yaml", "w") as f:
         yaml.dump(dump_dict, f)
+
 
 if __name__ == "__main__":
     main()

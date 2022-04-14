@@ -1,12 +1,17 @@
 import unittest
 from unittest.mock import Mock, PropertyMock, patch
 
+import os
 from py_sc_fermi.defect_system import DefectSystem
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
+test_data_dir = "inputs/"
+test_report_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "report_string.txt"
+)
 
 
 class TestDefectSystemInit(unittest.TestCase):
@@ -100,6 +105,33 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(
             self.defect_system._collect_defect_species_with_fixed_charge_states(),
             {"v_O": toy_defect_species},
+        )
+
+    def test__get_report_string(self):
+        self.defect_system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        self.defect_system.dos.carrier_concentrations = Mock(return_value=(100, 100))
+        self.defect_system.defect_species[0].name = "v_O"
+        self.defect_system.defect_species[0].charge_state_concentrations = Mock(
+            return_value={+1: 1000}
+        )
+        self.defect_system.defect_species[0].charge_states = {
+            1: DefectChargeState(charge=1, fixed_concentration=1000)
+        }
+        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1000)
+        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1000)
+        self.defect_system.defect_species[1].name = "O_i"
+        self.defect_system.defect_species[1].charge_states = {
+            -1: DefectChargeState(charge=-1, fixed_concentration=1000)
+        }
+        self.defect_system.defect_species[1].charge_state_concentrations = Mock(
+            return_value={-1: 1000}
+        )
+
+        with open(test_report_filename, "r") as tst_string:
+            test_string = tst_string.read()
+
+        self.assertEqual(
+            self.defect_system._get_report_string().strip(), test_string.strip()
         )
 
     def test__get_input_string(self):
