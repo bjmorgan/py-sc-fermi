@@ -34,7 +34,8 @@ class TestDos(unittest.TestCase):
         edos = np.linspace(-10.0, 10.0, 101)
         bandgap = 3.0
         nelect = 10
-        self.dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=nelect)
+        spin_polarised = True
+        self.dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=nelect, spin_polarised=spin_polarised)
 
     def test_dos_property(self):
         np.testing.assert_equal(self.dos.dos, self.dos._dos)
@@ -48,12 +49,27 @@ class TestDos(unittest.TestCase):
     def test_nelect_property(self):
         self.assertEqual(self.dos.nelect, self.dos._nelect)
 
+    def test_spin_polarised_property(self):
+        self.assertTrue(self.dos.spin_polarised)
+
     def test_normalise_dos(self):
         # The integral of rho(E) = 1, from -10.0 to 0, is equal to 10.0
         # With nelect = 10.0, the normaliss_dos() method should leave
         # all dos values = 1.0
         dos_data = np.ones(101)
         np.testing.assert_equal(self.dos.dos, dos_data)
+    
+    def test_sum_dos(self):
+        dos_data = np.ones(101)
+        dos = DOS(dos=dos_data, edos=np.linspace(-10.0, 10.0, 101), bandgap = 1, nelect = 10)
+        dos.sum_dos()
+        np.testing.assert_equal(dos.dos, dos_data)
+
+    def test__p0_index(self):
+        self.assertEqual(self.dos._p0_index(), 50)
+    
+    def test__n0_index(self):
+        self.assertEqual(self.dos._n0_index(), 66)
 
     def test_emin(self):
         self.assertEqual(self.dos.emin(), -10)
