@@ -195,12 +195,15 @@ def dos_from_dict(dos_dict: dict) -> "py_sc_fermi.dos.DOS":
     """
     nelect = dos_dict["nelect"]
     bandgap = dos_dict["bandgap"]
+    dos = dos_dict["dos"]
     edos = dos_dict["edos"]
     if type(dos) == dict:
-        dos = dos["up"] + dos["down"]
+        dos = np.array(dos["up"]) + np.array(dos["down"])
+        spin_pol = True
     else:
         dos = dos
-    return DOS(nelect=nelect, bandgap=bandgap, edos=edos, dos=dos)
+        spin_pol = False
+    return DOS(nelect=nelect, bandgap=bandgap, edos=np.array(edos), dos=np.array(dos), spin_polarised=spin_pol)
 
 
 def defect_species_from_dict(
