@@ -3,6 +3,7 @@ from py_sc_fermi import __version__ as VERSION
 
 readme = 'README.md'
 long_description = open( readme ).read()
+scripts = ['sc_fermi_solve']
 
 config = {
     'description': 'Self-consistent Fermi Analysis',
@@ -17,9 +18,9 @@ config = {
     'install_requires': open('requirements.txt').read(),
     'python_requires': '>=3.5',
     'license': 'MIT',
-    'packages': [ 'py_sc_fermi' ],
-    'scripts': [],
-    'name': 'py-sc-fermi'
+    'packages': [ 'py_sc_fermi' ], 
+    'name': 'py-sc-fermi',
+    'entry_points' :{"console_scripts": [f"{s} = cli.{s}:main" for s in scripts]}
 }
 
 setup(**config)

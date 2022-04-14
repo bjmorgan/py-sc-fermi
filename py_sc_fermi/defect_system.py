@@ -1,7 +1,5 @@
 from typing import Union
 import numpy as np
-
-# from .inputs import defect_system_from_yaml
 import warnings
 
 
@@ -12,7 +10,7 @@ class DefectSystem(object):
         dos: "py_sc_fermi.dos.DOS",
         volume: float,
         temperature: float,
-        convergence_tolerance: float = 1e-19,
+        convergence_tolerance: float = 1e-18,
         n_trial_steps: int = 1500,
     ):
         """Initialise a DefectSystem instance.
@@ -45,14 +43,6 @@ class DefectSystem(object):
             to_return.append(str(ds))
         return "".join(to_return)
 
-    # @classmethod
-    # def from_yaml(
-    #     cls, path_to_yaml: str) -> "py_sc_fermi.defect_system.DefectSystem":
-    #     """
-    #     generate a DefectSystem instance from a yaml file
-    #     """
-    #     return defect_system_from_yaml(path_to_yaml)
-
     @property
     def defect_species_by_names(self) -> list[str]:
         return [ds.name for ds in self.defect_species]
@@ -68,13 +58,10 @@ class DefectSystem(object):
         charge neutral
 
         args:
-            conv (float): convergence tolerance for total charge when
-            assessing the condition of charge neutrality
-            n_trial_steps (int): number of steps to try to find a solution
-            full_report (bool): if True, return full report of the convergence performance
+            None
 
         returns:
-            Tuple[e_fermi (float), report (dict)]:
+            tuple[float, dict[str, Union[float, bool]]]:
                 e_fermi = self consistent Fermi energy in electron volts
                 report : dictionary of convergence information
 
@@ -244,9 +231,6 @@ class DefectSystem(object):
         concentrations are reported per cell
 
         args:
-            emin (float): minimum energy for the Fermi energy search
-            emax (float): maximum energy for the Fermi energy search
-            conv (float): convergence tolerance for the charge neutrality condition
             decomposed (bool): False (default) returns concentrations of defect species,
             true returns the concentraion of individual charge states.
 
@@ -270,12 +254,12 @@ class DefectSystem(object):
                     e_fermi, self.temperature
                 )
                 all_charge_states = {
-                    str(k): v * scale for k, v in charge_states.items()
+                    str(k): float(v * scale) for k, v in charge_states.items()
                 }
                 concs.update({ds.name: all_charge_states})
             else:
-                concs.update({ds.name: conc * scale})
-        run_stats = {"Fermi Energy": e_fermi, "p0": p0 * scale, "n0": n0 * scale}
+                concs.update({ds.name: float(conc * scale)})
+        run_stats = {"Fermi Energy": float(e_fermi), "p0": float(p0 * scale), "n0": float(n0 * scale)}
 
         return {**run_stats, **concs}
 

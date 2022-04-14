@@ -280,16 +280,16 @@ def defect_system_from_yaml(filename: str) -> "py_sc_fermi.defect_system.DefectS
         defect_species_from_dict(d, volume) for d in data["defect_species"]
     ]
 
-    # if "convergence_tolerance" not in list(data.keys()):
-    #     data["convergence_tolerance"] = 1e-19
-    # if "max_iterations" not in list(data.keys()):
-    #     data["max_iterations"] = 1500
+    if "convergence_tol" not in list(data.keys()):
+        data["convergence_tol"] = 1e-18
+    if "n_trial_steps" not in list(data.keys()):
+        data["n_trial_steps"] = 1500
 
     return DefectSystem(
         dos=dos,
         volume=volume,
         defect_species=defect_species,
         temperature=data["temperature"],
-        convergence_tolerance=float(data["convergence_tolerance"]),
+        convergence_tolerance=float(data["convergence_tol"]),
         n_trial_steps=int(data["n_trial_steps"]),
     )

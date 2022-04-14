@@ -3,12 +3,12 @@ from py_sc_fermi.inputs import (
     defect_system_from_yaml,
 )
 from py_sc_fermi.defect_system import DefectSystem
-from py_sc_fermi.dos import DOS
-import os, yaml, argparse
+import argparse
+import yaml
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "-i", "--input_file", type=str, help="Path to input file defining the defect system"
+    "input_file", type=str, help="Path to input file defining the defect system"
 )
 parser.add_argument(
     "-s",
@@ -26,7 +26,7 @@ parser.add_argument(
     "-f",
     "--frozen_defects",
     help="frozen defects present in the defect system",
-    type=bool,
+    action="store_true"
 )
 parser.add_argument(
     "-c", "--convergence_tol", help="convergence tolerance", type=float, default=1e-19
@@ -69,7 +69,11 @@ def main():
             n_trial_steps=n_trial,
         )
     defect_system.report()
-
+    
+    dump_dict = defect_system.as_dict(decomposed=True)
+    dump_dict["temperature"] = defect_system.temperature
+    with open("py_sc_fermi_out.yaml", "w") as f:
+        yaml.dump(dump_dict, f)
 
 if __name__ == "__main__":
     main()
