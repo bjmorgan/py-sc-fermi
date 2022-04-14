@@ -249,7 +249,7 @@ class DefectSystem(object):
 
         if decomposed == False:
             concs = {
-                ds.name: get_concentration(e_fermi, self.temperature) * scale
+                ds.name: ds.get_concentration(e_fermi, self.temperature) * scale
                 for ds in self.defect_species
             }
         else:
