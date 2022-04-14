@@ -44,7 +44,7 @@ class DefectSystem(object):
         return "".join(to_return)
 
     @property
-    def defect_species_by_names(self) -> list[str]:
+    def defect_species_names(self) -> list[str]:
         return [ds.name for ds in self.defect_species]
 
     def defect_species_by_name(self, name):

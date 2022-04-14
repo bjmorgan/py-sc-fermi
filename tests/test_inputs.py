@@ -11,7 +11,7 @@ from py_sc_fermi.inputs import (
     inputs_from_files,
     dos_from_dict,
     defect_species_from_dict,
-    defect_system_from_yaml
+    defect_system_from_yaml,
 )
 from pymatgen.core.structure import Structure
 
@@ -27,7 +27,9 @@ test_frozen_sc_fermi_input_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "frozen_charge_states.dat"
 )
 test_dos_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "totdos.dat")
-test_defect_system_yaml_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "defect_system.yaml")
+test_defect_system_yaml_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
+)
 
 structure = Structure.from_file(test_poscar_filename)
 volume = structure.volume
@@ -80,12 +82,17 @@ class TestInputs(unittest.TestCase):
         np.testing.assert_equal(np.linspace(-10.0, 10.0, 101), dos.edos)
 
     def test_defect_species_from_dict(self):
-         defect_dict = {"V_O" : {"nsites" :1, "charge_states" : {0 : {"degeneracy" : 1 , "formation_energy": 1}}}}
-         defect_species = defect_species_from_dict(defect_dict, volume = 1)
-         self.assertEqual(defect_species.name, "V_O")
-         self.assertEqual(defect_species.nsites, 1)
-         self.assertEqual(defect_species.charge_states[0].degeneracy, 1)
-         self.assertEqual(defect_species.charge_states[0].energy, 1) 
+        defect_dict = {
+            "V_O": {
+                "nsites": 1,
+                "charge_states": {0: {"degeneracy": 1, "formation_energy": 1}},
+            }
+        }
+        defect_species = defect_species_from_dict(defect_dict, volume=1)
+        self.assertEqual(defect_species.name, "V_O")
+        self.assertEqual(defect_species.nsites, 1)
+        self.assertEqual(defect_species.charge_states[0].degeneracy, 1)
+        self.assertEqual(defect_species.charge_states[0].energy, 1)
 
     def test_defect_system_from_yaml(self):
         defect_system = defect_system_from_yaml(test_defect_system_yaml_filename)
@@ -93,7 +100,7 @@ class TestInputs(unittest.TestCase):
         self.assertEqual(defect_system.dos.nelect, 18)
         self.assertEqual(defect_system.volume, 59)
         self.assertEqual(defect_system.temperature, 300)
-        self.assertEqual(len(defect_system.defect_species),3)
+        self.assertEqual(len(defect_system.defect_species), 3)
 
 
 if __name__ == "__main__":

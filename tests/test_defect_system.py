@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 from py_sc_fermi.defect_system import DefectSystem
 from py_sc_fermi.defect_species import DefectSpecies
@@ -52,6 +52,9 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.defect_species_by_name("v_O"),
             self.defect_system.defect_species[0],
         )
+
+    def test_defect_species_names(self):
+        self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
     def test_total_defect_charge_contributions(self):
         self.defect_system.defect_species[0].defect_charge_contributions = Mock(
@@ -121,6 +124,28 @@ class TestDefectSystem(unittest.TestCase):
             "O_i": [DefectChargeState(1, 1, 1, 1)]
         }
         self.assertEqual(self.defect_system._get_input_string(), input_string)
+
+    def test_get_sc_fermi(self):
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1)
+        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        self.defect_system.q_tot = Mock(return_value=0)
+        self.assertEqual(
+            self.defect_system.get_sc_fermi(),
+            (0.5, {"converged": True, "residual": 0, "e_fermi_err": 0}),
+        )
+
+    def test_get_transition_levels(self):
+        self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
+            return_value=[[1, 2], [1, 2]]
+        )
+        self.defect_system.defect_species_by_name("O_i").tl_profile = Mock(
+            return_value=[[1, 2], [1, 2]]
+        )
+        self.assertEqual(
+            self.defect_system.get_transition_levels(),
+            {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
+        )
 
 
 if __name__ == "__main__":
