@@ -1,7 +1,5 @@
 import unittest
-
 from py_sc_fermi.defect_charge_state import DefectChargeState
-from py_sc_fermi.defect_charge_state import FrozenDefectChargeState
 
 
 class TestDefectChargeStateInit(unittest.TestCase):
@@ -15,7 +13,11 @@ class TestDefectChargeStateInit(unittest.TestCase):
         self.assertEqual(defect_charge_state._charge, charge)
         self.assertEqual(defect_charge_state._energy, energy)
         self.assertEqual(defect_charge_state._degeneracy, degeneracy)
-        self.assertEqual(defect_charge_state._fixed_concentration, False)
+        self.assertEqual(defect_charge_state.fixed_concentration, None)
+
+    def test_bad_energy_and_concentration(self):
+        with self.assertRaises(ValueError):
+            DefectChargeState(1, None, None)
 
 
 class TestDefectChargeState(unittest.TestCase):
@@ -42,11 +44,10 @@ class TestDefectChargeState(unittest.TestCase):
             self.defect_charge_state.degeneracy, self.defect_charge_state._degeneracy
         )
 
-    def test_concentration_is_fixed_property(self):
-        self.assertEqual(
-            self.defect_charge_state.concentration_is_fixed,
-            self.defect_charge_state._fixed_concentration,
-        )
+    def test_fix_concentration(self):
+        self.assertEqual(self.defect_charge_state.fixed_concentration, None)
+        self.defect_charge_state.fix_concentration(1)
+        self.assertEqual(self.defect_charge_state.fixed_concentration, 1)
 
     def test_get_formation_energy(self):
         e_fermi = 1.2
@@ -60,52 +61,6 @@ class TestDefectChargeState(unittest.TestCase):
             e_fermi=e_fermi, temperature=temperature
         )
         self.assertEqual(conc, 8.311501552630706e-23)
-
-
-class TestFrozenDefectChargeStateInit(unittest.TestCase):
-    def test_frozen_defect_charge_state_is_initialised(self):
-        charge = 1.0
-        concentration = 123.4
-        defect_charge_state = FrozenDefectChargeState(
-            charge=charge, concentration=concentration
-        )
-        self.assertEqual(defect_charge_state._charge, charge)
-        self.assertEqual(defect_charge_state._concentration, concentration)
-        self.assertEqual(defect_charge_state._fixed_concentration, True)
-
-
-class TestFrozenDefectChargeState(unittest.TestCase):
-    def setUp(self):
-        charge = 1.0
-        concentration = 0.1234
-        self.defect_charge_state = FrozenDefectChargeState(
-            charge=charge, concentration=concentration
-        )
-
-    def test_charge_property(self):
-        self.assertEqual(
-            self.defect_charge_state.charge, self.defect_charge_state._charge
-        )
-
-    def test_concentration_property(self):
-        self.assertEqual(
-            self.defect_charge_state.concentration,
-            self.defect_charge_state._concentration,
-        )
-
-    def test_concentration_is_fixed_property(self):
-        self.assertEqual(
-            self.defect_charge_state.concentration_is_fixed,
-            self.defect_charge_state._fixed_concentration,
-        )
-
-    def test_get_concentration(self):
-        e_fermi = 1.2
-        temperature = 298.0
-        conc = self.defect_charge_state.get_concentration(
-            e_fermi=e_fermi, temperature=temperature
-        )
-        self.assertEqual(conc, 0.1234)
 
 
 if __name__ == "__main__":

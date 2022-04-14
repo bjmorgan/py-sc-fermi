@@ -1,21 +1,28 @@
 import numpy as np
 
+
 class DefectSpecies(object):
     """Class for individual defect species.
 
     Attribute:
         name (str): An identifying string for this defect species, e.g. `V_O`.
         nsites (int): The number of sites in the unit cell where this defect may reside.
-        charge_states (dict): A dictionary of charge states. Each key-value pair 
-            is charge (int): charge-state (`DefectChargeState` or 
+        charge_states (dict): A dictionary of charge states. Each key-value pair
+            is charge (int): charge-state (`DefectChargeState` or
             `FrozenDefectChargeState`).
         fixed_concentration (optional, :obj:`float`): If set, this fixes the net
             concentration of this defect species per unit cell. If not set, the
             concentration of this defect species will depend on the system conditions.
 
     """
-    
-    def __init__(self, name, nsites, charge_states):
+
+    def __init__(
+        self,
+        name: str,
+        nsites: int,
+        charge_states: list,
+        fixed_concentration: float = None,
+    ):
         """Instantiate a DefectSpecies object.
 
         Args:
@@ -34,43 +41,48 @@ class DefectSpecies(object):
         self._name = name
         self._nsites = nsites
         self._charge_states = {cs.charge: cs for cs in charge_states}
-        self._fixed_concentration = None
+        self._fixed_concentration = fixed_concentration
 
-    def fix_concentration(self, conc):
+    def fix_concentration(self, concentration):
         """fixed the net concentration (per unit cell) of this defect species"""
-        self._fixed_concentration = conc
-    
+        self._fixed_concentration = concentration
+
     @property
-    def name(self):
+    def name(self) -> str:
         """The identifying name for this defect species."""
         return self._name
 
     @property
-    def nsites(self):
+    def nsites(self) -> int:
         """The number of sites per unit cell that this defect species may occupy."""
         return self._nsites
 
     @property
-    def charge_states(self):
+    def charge_states(
+        self,
+    ) -> dict[int, "py_sc_fermi.defect_charge_state.DefectChargeState"]:
         """The charge states for this defect species as s dictionary of
         charge: defect_state key-value pairs"""
         return self._charge_states
 
     @property
-    def fixed_concentration(self):
+    def fixed_concentration(self) -> float:
         """The fixed net concentration (per unit cell) of this defect species,
-           or `None` if the defect concentrations are free to change"""
+        or `None` if the defect concentrations are free to change"""
         return self._fixed_concentration
- 
+
     def __repr__(self):
-        to_return =  f'\n{self.name}, nsites={self.nsites}' 
+        to_return = f"\n{self.name}, nsites={self.nsites}"
         if self.fixed_concentration:
-            to_return += f'\nfixed [c] = {self.fixed_concentration}'
-        to_return += '\n'+''.join([ f'  {cs.__repr__()}\n' 
-            for cs in self.charge_states.values() ])
+            to_return += f"\nfixed [c] = {self.fixed_concentration}"
+        to_return += "\n" + "".join(
+            [f"  {cs.__repr__()}\n" for cs in self.charge_states.values()]
+        )
         return to_return
-    
-    def charge_states_by_formation_energy( self, e_fermi ):
+
+    def charge_states_by_formation_energy(
+        self, e_fermi: float
+    ) -> list["py_sc_fermi.defect_charge_state.DefectChargeState"]:
         """Returns a list of defect charge states, sorted by increasing formation energy
         at E_Fermi (relative to E(VBM)).
 
@@ -79,16 +91,20 @@ class DefectSpecies(object):
 
         Returns:
             (list(DefectChargeState)): Ordered list of all defect charge states.
-        
+
         Note:
             Defect charge states with fixed concentrations do not have a defined
             formation energy, and are not returned in the sorted list.
 
         """
-        return sorted( self.variable_conc_charge_states().values(),
-            key=lambda x: x.get_formation_energy(e_fermi) )
-    
-    def min_energy_charge_state( self, e_fermi ):
+        return sorted(
+            self.variable_conc_charge_states().values(),
+            key=lambda x: x.get_formation_energy(e_fermi),
+        )
+
+    def min_energy_charge_state(
+        self, e_fermi: float
+    ) -> "py_sc_fermi.defect_charge_state.DefectChargeState":
         """Returns the defect charge state with the minimum energy at E_Fermi
         (relative to E(VBM)).
 
@@ -99,15 +115,15 @@ class DefectSpecies(object):
             DefectChargeState: The defect charge state with the lowest formation energy.
 
         """
-        return self.charge_states_by_formation_energy( e_fermi )[0]   
-    
-    def get_formation_energies(self, e_fermi):
+        return self.charge_states_by_formation_energy(e_fermi)[0]
+
+    def get_formation_energies(self, e_fermi: float) -> dict[int, float]:
         """Returns a dictionary of formation energies for all charge states. Formation
         energies are calculated at E_Fermi relative to E_VBM.
 
         Args:
             e_fermi (float): Fermi energy relative to E(VBM) (in eV).
-        
+
         Returns:
             (dict(int:float)): Dictionary of {charge: formation_energy} pairs.
 
@@ -118,12 +134,12 @@ class DefectSpecies(object):
         """
         form_eners = {}
         for q, cs in self.variable_conc_charge_states().items():
-            form_eners[q] = cs.get_formation_energy( e_fermi )
+            form_eners[q] = cs.get_formation_energy(e_fermi)
         return form_eners
-    
-    def tl_profile(self, efermi_min,  efermi_max):
+
+    def tl_profile(self, efermi_min: float, efermi_max: float) -> "np.array":
         """
-        get transition level profile between a range of specified 
+        get transition level profile between a range of specified
         Fermi energies
 
         Args:
@@ -131,7 +147,7 @@ class DefectSpecies(object):
             efermi_max (float): maximum Fermi energy for range of interest
 
         Returns:
-            points (numpy.array): transtion levels 
+            points (numpy.array): transtion levels
         """
         cs = self.min_energy_charge_state(efermi_min)
         q1 = cs.charge
@@ -139,10 +155,10 @@ class DefectSpecies(object):
         points = [(efermi_min, form_e)]
         while q1 != min(self.charges):
             qlist = [q for q in self.charges if q < q1]
-            nextp, nextq = min(((self.get_transition_level_and_energy(
-                q1, q2),
-                q2)
-                for q2 in qlist), key=lambda p: p[0][0])
+            nextp, nextq = min(
+                ((self.get_transition_level_and_energy(q1, q2), q2) for q2 in qlist),
+                key=lambda p: p[0][0],
+            )
             if nextp[0] < efermi_max:
                 points.append(nextp)
                 q1 = nextq
@@ -152,18 +168,18 @@ class DefectSpecies(object):
         form_e = cs.get_formation_energy(efermi_max)
         points.append((efermi_max, form_e))
         return np.array(points)
-    
-    def get_transition_level_and_energy(self, q1, q2):
+
+    def get_transition_level_and_energy(self, q1: int, q2: int) -> tuple[float, float]:
         """
         Get the transition level between two charge states.
 
         Calculates the Fermi energy (relative to the host VBM) and formation
         energy for the transition level between charge states q1 and q2.
-        
+
         Args:
             q1 (int): Charge of charge state 1.
             q2 (int): Charge of charge state 2.
-        
+
         Returns:
             (tuple): Fermi energy (relative to the host VBM) and
             formation energy of the transition level as a tuple of floats
@@ -176,7 +192,7 @@ class DefectSpecies(object):
         return (trans_level, energy)
 
     @property
-    def charges(self):
+    def charges(self) -> list[int]:
         """
         Return a list of charges for the charge states of this defect.
 
@@ -188,16 +204,16 @@ class DefectSpecies(object):
 
         """
         return self.charge_states.keys()
-    
-    def get_concentration(self, e_fermi, temperature):
+
+    def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """
         Get the net concentration per unit cell for this defect species at a specific
         Fermi energy (relative to E(VBM)) and temperature.
-        
+
         Args:
             e_fermi (float): Fermi energy, relative to E(VBM) (in eV).
             temperature (float): Temperature (in K).
-       
+
         Returns:
             (float): The concentration (per unit cell), summed over all charge states.
 
@@ -205,21 +221,35 @@ class DefectSpecies(object):
             If this DefectSpecies has a fixed concentration, then this
             will be returned.
 
-        """ 
+        """
         if self.fixed_concentration:
             return self.fixed_concentration
         else:
-            return sum( self.charge_state_concentrations( e_fermi, temperature ).values() )
+            return sum(self.charge_state_concentrations(e_fermi, temperature).values())
 
-    def fixed_conc_charge_states(self):
+    def fixed_conc_charge_states(
+        self,
+    ) -> dict[int, "py_sc_fermi.defect_charge_state.DefectChargeState"]:
         """return dict of fixed concentration charge states for this DefectSpecies"""
-        return { q: cs for q, cs in self.charge_states.items() if cs.concentration_is_fixed }
+        return {
+            q: cs
+            for q, cs in self.charge_states.items()
+            if cs.fixed_concentration != None
+        }
 
-    def variable_conc_charge_states(self):
+    def variable_conc_charge_states(
+        self,
+    ) -> dict[int, "py_sc_fermi.defect_charge_state.DefectChargeState"]:
         """return dict of charge states with no fixed concentration for this defect species"""
-        return { q: cs for q, cs in self.charge_states.items() if not cs.concentration_is_fixed }
+        return {
+            q: cs
+            for q, cs in self.charge_states.items()
+            if cs.fixed_concentration == None
+        }
 
-    def charge_state_concentrations(self, e_fermi, temperature):
+    def charge_state_concentrations(
+        self, e_fermi: float, temperature: float
+    ) -> dict[int, float]:
         """
         At a given Fermi energy and temperature, calculate the concentrations
         of the different charge states of this defect species
@@ -230,30 +260,56 @@ class DefectSpecies(object):
 
         Returns:
             cs_concentrations (Dict): a dictionary of charge state (int)
-            concentration (float) pairs. 
+            concentration (float) pairs.
         """
         cs_concentrations = {}
         for cs in self.charge_states.values():
-            cs_concentrations[cs.charge] = cs.get_concentration(e_fermi, temperature) * self.nsites
-        if self.fixed_concentration:
-            fixed_conc = sum( [ c for q, c in cs_concentrations.items() 
-                                if q in self.fixed_conc_charge_states() ] )
-            variable_conc = sum( [ c for q, c in cs_concentrations.items() 
-                                   if q in self.variable_conc_charge_states() ] )
+            cs_concentrations[cs.charge] = (
+                cs.get_concentration(e_fermi, temperature) * self.nsites
+            )
+        if self.fixed_concentration != None:
+            fixed_conc = sum(
+                [
+                    c
+                    for q, c in cs_concentrations.items()
+                    if q in self.fixed_conc_charge_states()
+                ]
+            )
+            variable_conc = sum(
+                [
+                    c
+                    for q, c in cs_concentrations.items()
+                    if q in self.variable_conc_charge_states()
+                ]
+            )
             constrained_conc = self.fixed_concentration - fixed_conc
             scaling = constrained_conc / variable_conc
             for q in cs_concentrations:
                 if q in self.variable_conc_charge_states():
                     cs_concentrations[q] *= scaling
-        return cs_concentrations    
+        return cs_concentrations
 
-    def defect_charge_contributions(self, e_fermi, temperature):
+    def defect_charge_contributions(
+        self, e_fermi: float, temperature: float
+    ) -> tuple[float, float]:
         """get total charge contribution for this DefectSpecies in all charge states"""
         lhs = 0.0
         rhs = 0.0
-        for q, concd in self.charge_state_concentrations( e_fermi, temperature ).items():
+        for q, concd in self.charge_state_concentrations(e_fermi, temperature).items():
             if q < 0:
                 rhs += concd * abs(q)
             if q > 0:
                 lhs += concd * abs(q)
         return lhs, rhs
+
+    # def variable_concentration_defect(self) -> bool:
+    #     """
+    #     assesses whether this DefectSpecies has a variable concentration, if so, returns True. If the defect has fixed concentration, or any of its charge states has fixed concentration returns False
+    #     """
+    #     concentration_restrictions = []
+    #     if self.fixed_concentration != None:
+    #         concentration_restrictions.append("fixed_species_concentrations")
+    #     if len(self.fixed_conc_charge_states()) != 0:
+    #         concentration_restrictions.append("fixed_charge_state_concentrations")
+    #     else:
+    #         concentration_restrictions.append("variable_concentrations")
