@@ -246,20 +246,24 @@ class DefectSystem(object):
             scale = 1
         e_fermi = self.get_sc_fermi()[0]
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-        concs = {}
-        for ds in self.defect_species:
-            conc = ds.get_concentration(e_fermi, self.temperature)
-            if decomposed == True:
-                charge_states = ds.charge_state_concentrations(
-                    e_fermi, self.temperature
-                )
-                all_charge_states = {
-                    str(k): float(v * scale) for k, v in charge_states.items()
-                }
-                concs.update({ds.name: all_charge_states})
-            else:
-                concs.update({ds.name: float(conc * scale)})
-        run_stats = {"Fermi Energy": float(e_fermi), "p0": float(p0 * scale), "n0": float(n0 * scale)}
+
+        if decomposed == False:
+            concs = {
+                ds.name: get_concentration(e_fermi, self.temperature) * scale
+                for ds in self.defect_species
+            }
+        else:
+            concs = {}
+            charge_states = ds.charge_state_concentrations(e_fermi, self.temperature)
+            all_charge_states = {
+                str(k): float(v * scale) for k, v in charge_states.items()
+            }
+            concs[ds.name] = all_charge_states
+        run_stats = {
+            "Fermi Energy": float(e_fermi),
+            "p0": float(p0 * scale),
+            "n0": float(n0 * scale),
+        }
 
         return {**run_stats, **concs}
 

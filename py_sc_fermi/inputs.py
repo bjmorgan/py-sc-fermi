@@ -122,7 +122,9 @@ def read_input_data(
 
 
 def read_dos_data(
-    bandgap: float, nelect: int, filename: str = "totdos.dat",
+    bandgap: float,
+    nelect: int,
+    filename: str = "totdos.dat",
 ) -> "py_sc_fermi.dos.DOS":
     """
     return dos information from a `totdos.dat` file.
@@ -184,9 +186,7 @@ def volume_from_structure(structure_file: str) -> float:
     Returns:
         volume (float): volume of structure in A^3
     """
-    structure = Structure.from_file(structure_file)
-    volume = structure.volume
-    return float(volume)
+    return Structure.from_file(structure_file).volume
 
 
 def dos_from_dict(dos_dict: dict) -> "py_sc_fermi.dos.DOS":
@@ -244,7 +244,9 @@ def defect_species_from_dict(
         )
     else:
         return DefectSpecies(
-            name, defect_species_dict[name]["nsites"], charge_states=charge_states,
+            name,
+            defect_species_dict[name]["nsites"],
+            charge_states=charge_states,
         )
 
 

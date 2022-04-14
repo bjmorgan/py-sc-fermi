@@ -147,7 +147,7 @@ class DOS(object):
             self._n_func(e_fermi, temperature), self._edos[self._n0_index() :]
         )
         return p0, n0
-      
+
     def _p_func(self, e_fermi: float, temperature: float) -> float:
         return self.dos[: self._p0_index() + 1] / (
             1.0

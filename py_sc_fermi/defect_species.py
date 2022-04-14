@@ -301,15 +301,3 @@ class DefectSpecies(object):
             if q > 0:
                 lhs += concd * abs(q)
         return lhs, rhs
-
-    # def variable_concentration_defect(self) -> bool:
-    #     """
-    #     assesses whether this DefectSpecies has a variable concentration, if so, returns True. If the defect has fixed concentration, or any of its charge states has fixed concentration returns False
-    #     """
-    #     concentration_restrictions = []
-    #     if self.fixed_concentration != None:
-    #         concentration_restrictions.append("fixed_species_concentrations")
-    #     if len(self.fixed_conc_charge_states()) != 0:
-    #         concentration_restrictions.append("fixed_charge_state_concentrations")
-    #     else:
-    #         concentration_restrictions.append("variable_concentrations")
