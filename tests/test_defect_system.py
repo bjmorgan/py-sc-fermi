@@ -8,6 +8,7 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
+input_string_spin = "0\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 test_data_dir = "inputs/"
 test_report_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "report_string.txt"
@@ -97,6 +98,13 @@ class TestDefectSystem(unittest.TestCase):
                 "v_O": 1 / volume * 1e24,
             },
         )
+        self.assertEqual(self.defect_system.as_dict(per_volume=False),             {
+                "Fermi Energy": 1,
+                "p0": 1,
+                "n0": 1,
+                "O_i": 1,
+                "v_O": 1
+            },)
 
     def test__collect_defect_species_with_fixed_charge_states(self):
         toy_defect_species = [DefectChargeState(1, 1, 1, 1)]
@@ -158,6 +166,8 @@ class TestDefectSystem(unittest.TestCase):
             "O_i": [DefectChargeState(1, 1, 1, 1)]
         }
         self.assertEqual(self.defect_system._get_input_string(), input_string)
+        self.defect_system.dos.spin_polarised = False
+        self.assertEqual(self.defect_system._get_input_string(), input_string_spin)
 
     def test_get_sc_fermi(self):
         self.defect_system.dos.emin = Mock(return_value=0)
@@ -168,6 +178,28 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.get_sc_fermi(),
             (0.5, {"converged": True, "residual": 0, "e_fermi_err": 0}),
         )
+
+    def test_get_sc_fermi_bottoms_out(self):
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1)
+        self.defect_system.q_tot = Mock(return_value=(0.1))
+        with self.assertRaises(RuntimeError):
+            self.defect_system.get_sc_fermi()
+
+    def test_get_sc_fermi_tops_out(self):
+        self.defect_system.dos.emin = Mock(return_value=1)
+        self.defect_system.dos.emax = Mock(return_value=0)
+        self.defect_system.q_tot = Mock(return_value=(-0.1))
+        with self.assertRaises(RuntimeError):
+            self.defect_system.get_sc_fermi()
+
+    def test_sc_fermi_search_warns(self):
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1000)
+        self.defect_system.q_tot = Mock(return_value=0.1)
+        self.defect_system.convergence_tolerance = 1e-19
+        with self.assertWarns(Warning):
+            self.defect_system.get_sc_fermi()
 
     def test_get_transition_levels(self):
         self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
@@ -181,6 +213,14 @@ class TestDefectSystem(unittest.TestCase):
             {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
         )
 
+    def test__repr__(self):
+        self.defect_system.defect_species = []
+        self.defect_system.dos.nelect = 100
+        self.defect_system.dos.bandgap = 0.1
+        self.assertEqual(
+            str(self.defect_system).strip(),
+            f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
+        )
 
 if __name__ == "__main__":
     unittest.main()

@@ -34,7 +34,7 @@ class DefectSystem(object):
         to_return = [
             f"DefectSystem\n",
             f"  nelect: {self.dos.nelect} e\n",
-            f"  bandgap:   {self.dos.bandgap} eV\n",
+            f"  bandgap: {self.dos.bandgap} eV\n",
             f"  volume: {self.volume} A^3\n",
             f"  temperature: {self.temperature} K\n",
             f"\nContains defect species:\n",
