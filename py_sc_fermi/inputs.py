@@ -138,9 +138,9 @@ def read_dos_data(
     """
     data = np.loadtxt(filename)
     edos = data[:, 0]
-    dos = np.sum(data[:, 1:], axis=1)
-    if np.any(data[:, 1:] < 0.0):
-        raise ValueError("Negative DOS values found")
+    dos = np.sum(np.abs(data[:, 1:]), axis=1)
+    # if np.any(data[:, 1:] < 0.0):
+    #     raise ValueError("Negative DOS values found")
     dos = DOS(dos=dos, edos=edos, nelect=nelect, bandgap=bandgap)
     return dos
 
