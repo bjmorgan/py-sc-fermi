@@ -5,7 +5,22 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
 class DefectChargeState:
-    """Class for individual defect charge states"""
+    """Class for individual defect charge states
+
+    :param int charge: Charge of this charge state.
+    :param float energy: Formation energy of this charge state when
+        E_Fermi = E(VBM)
+    :param int degeneracy: Degeneracy of this charge state 
+        (e.g. spin/intrinsic degeneracy).
+    :param float fixed_concentration: the fixed concentration of the defect
+        charge state (default = None)
+
+    :raises ValueError: If `energy` and `fixed concentration` == None.
+
+    .. note:: If both a formation energy and fixed_concentration are specified,
+        the concentration of the ``DefectChargeState`` will treated as fixed.
+
+    """
 
     def __init__(
         self,
@@ -14,21 +29,8 @@ class DefectChargeState:
         fixed_concentration: float = None,
         degeneracy: int = 1,
     ):
-        """Instantiate a DefectChargeState.
+        """Initialise a ``DefectChargeState`` instance."""
 
-        Args:
-            charge (int): Charge of this charge state.
-            energy (float): Formation energy of this charge state when E_Fermi = E(VBM)
-            degeneracy (int): Degeneracy of this charge state (e.g. spin/intrinsic degeneracy).
-            fixed_concentration (float): the fixed concentration of the defect charge state (default = None)
-
-        Returns:
-            None
-
-        Raises:
-            ValueError: If `energy` and `fixed concentration` == None.
-
-        """
         if energy == None and fixed_concentration == None:
             raise ValueError(
                 "You must specify either a fixed concentration or energy for this defect! \n Note, if you specify both, the concentration will treated as fixed"
@@ -39,40 +41,42 @@ class DefectChargeState:
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration: float) -> None:
-        """fix the net concentration (per unit cell) of this defect species"""
+        """fix the net concentration (per calculation cell) of this defect
+           species
+           :param float concentration: the fixed concentration of this defect
+           """
         self._fixed_concentration = concentration
 
     @property
     def energy(self) -> float:
-        """Get the energy of this charge state at E_Fermi = E(VBM) (0)."""
+        """:return: Formation energy of this charge state when E_Fermi = E(VBM)
+        """
         return self._energy
 
     @property
     def charge(self) -> int:
-        """Get the charge of this charge state."""
+        """:return: Charge of this charge state."""
         return self._charge
 
     @property
     def degeneracy(self) -> int:
-        """Get the degeneracy of this charge state."""
+        """:return: The number of energetically degenerate states for this
+           charge state."""
         return self._degeneracy
 
     @property
     def fixed_concentration(self) -> float:
-        """The fixed net concentration (per unit cell) of this defect species,
-        or `None` if the defect concentrations are free to change"""
+        """:return: the fixed concentration of this defect charge state, or None
+           if the concentration is free to vary."""
         return self._fixed_concentration
 
     def get_formation_energy(self, e_fermi: float) -> float:
         """Calculate the formation energy of this charge state at a
         specified Fermi energy.
 
-        Args:
-            e_fermi (float): Position of the Fermi energy, relative to the VBM (in eV).
-
-        Returns:
-            (float): The charge state energy (in eV).
-
+        :param float e_fermi: Fermi energy relative to the VBM (in eV).
+        :return: Formation energy of this charge state when E_Fermi = E(VBM)
+        :rtype: float
         """
         return self.energy + self.charge * e_fermi
 
@@ -81,12 +85,11 @@ class DefectChargeState:
         specified Fermi energy and temperature, per site in the unit
         cell.
 
-        Args:
-            e_fermi (float): Fermi energy relative to the VBM (in eV).
-            temperature (float): Temperature (in K).
-
-        Returns:
-            concentration (float): Per calculation-cell concentration of this charge state.
+        :param float e_fermi: Fermi energy relative to the VBM (in eV).
+        :param float temperature: Temperature (in K).
+        :return concentration: Concentration of this charge state at the specified
+            Fermi energy and temperature.
+        :rtype: float
 
         """
         if self.fixed_concentration == None:

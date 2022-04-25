@@ -2,15 +2,20 @@
 py-sc-fermi
 =======================================
 
-:py:mod:`py-sc-fermi` is an open-source Python package focusessed on calculating the concentrations of point defects in (semiconducting) crystalline materials. Typically the inputs will be comprised of the outputs of DFT codes such as VASP, CASTEP etc. :py:mod:`py-sc-fermi` uses a numerical method to solve for the self-consistent Fermi level in a material, necessary for accurately quantifing the populations of point defects in such materials. 
+:py:mod:`py-sc-fermi` is an open-source Python package for calculating the concentration of point defects in (semiconducting) crystalline materials.
+The required inputs are the volume, density of states of the bulk material, and the formation energies and degeneracies of the point defects. 
+The outputs include the self consistent Fermi energy, defect transition levels, and concentrations of the point defects, electrons and holes at a given temperature.
+:py:mod:`py-sc-fermi` uses a numerical method to solve for the self-consistent Fermi level in a material, necessary for accurately quantifing the populations of point defects in such materials. 
 
-The approach used in this code was initially based off the algorithm used by the `FORTRAN` code [SC-Fermi](https://github.com/jbuckeridge/sc-fermi), as described in this [paper](https://www.sciencedirect.com/science/article/pii/S0010465519302048). The original intention of the python reimplementation given here was to reimplement the functionalility of SC-Fermi for ease of incoporation into common python materials modelling workflows, and to provide a flexible python API for looping over input parameters and applying various custom constraints to the self-consitent Fermi energy solution.
+The approach used in this code was initially based off the algorithm used by the ::FORTRAN code `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_, as described in this `Paper <https://www.sciencedirect.com/science/article/pii/S0010465519302048>`_.
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-
+Papers that use :py:mod:`py-sc-fermi`
+-------------------------------------
+- `10.1021/acs.inorgchem.1c00278 <https://pubs.acs.org/doi/abs/10.1021/acs.inorgchem.1c00278>`_
 
 Indices and tables
 ==================

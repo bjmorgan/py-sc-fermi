@@ -4,18 +4,17 @@ from .defect_species import DefectSpecies
 from .defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
-from typing import Union
+from typing import Union, Dict, List
 import yaml, os
 
 
 def read_unitcell_data(filename: str) -> float:
     """
-    get volume in A^3 from `unitcell.dat` file used in SC-Fermi
-
-    Args:
-        filename (str): `unitcell.dat` file to parse
-    Returns:
-        volume (float): cell volume in A^3
+    Get volume in A^3 from `unitcell.dat` file used in SC-Fermi.
+    
+    :param str filename: path to `unitcell.dat` file
+    :return: volume in A^3
+    :rtype: float
     """
 
     with open(filename, "r") as f:
@@ -29,17 +28,18 @@ def read_unitcell_data(filename: str) -> float:
 
 def read_input_data(
     filename: str, volume: float = None, frozen: bool = False
-) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
+) -> Dict[str, Union[List["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
     """
-    return all information from a input file correctly formated to work
-    for `SC-Fermi`.
+    Return all information from a input file correctly formated to work
+    for ``SC-Fermi``.
 
-    Args:
-        filename (str): path to input file to parse
-        volume (float): volume of structure in A^3
-        frozen (bool): if the file to be read contains frozen defect concentrations
-    Returns:
-        input_data (dict): a dictionary of data required to initialise a defect system
+    :param str filename: path to ``SC-Fermi` input file.
+    :param float volume: volume of unit cell in A^3.
+    :param bool frozen: whether the input file contains any fixed concentration
+        ``DefectSpecies`` or ``DefectChargeState``s. I.e. whether this is an
+        input file for ``SC-Fermi`` or ``Frozen-SC-Fermi``.
+    :return: inputs (dict): set of input data for py_sc_fermi.DefectSystem
+    :rtype: Dict[str, Union[List[:py:class:`DefectSpecies`], float, int]]
     """
 
     if volume == None and frozen == True:
@@ -122,19 +122,16 @@ def read_input_data(
 
 
 def read_dos_data(
-    bandgap: float,
-    nelect: int,
-    filename: str = "totdos.dat",
+    bandgap: float, nelect: int, filename: str = "totdos.dat",
 ) -> "py_sc_fermi.dos.DOS":
     """
-    return dos information from a `totdos.dat` file.
+    Read in total DOS from `totdos.dat` file used in SC-Fermi.
 
-    Args:
-        filename (str): path to `totdos.dat` to parse
-        bandgap (float): bandgap of host material
-        nelect (int): number of the electrons in host material calculation
-    Returns:
-        dos (DOS): py_sc_fermi.DOS object
+    :param float bandgap: bandgap of defect system in eV.
+    :param int nelect: number of electrons in defect system.
+    :param str filename: path to `totdos.dat` file.
+    :return: :py:class:`DOS`
+    :rtype: py_sc_fermi.dos.DOS
     """
     data = np.loadtxt(filename)
     edos = data[:, 0]
@@ -152,14 +149,18 @@ def inputs_from_files(
     frozen: bool = False,
 ) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
     """
-    return a set of inputs descrbing a full defect system from py_sc_fermi input files
+    Read a set of inputs descrbing a full defect system from SC-Fermi input files
+    and return them as a dictionary.
 
-    Args:
-        structure_filename (str): path to `unitcell.dat` to parse
-        totdos_filename (str): path to `totdos.dat` to parse
-        input_fermi_filename (str): path to `SC-Fermi` to parse
-    Returns:
-        inputs (dict): set of input data for py_sc_fermi.DefectSystem
+    :param str structure_filename: path to file defining the structure.
+    :param str totdos_filename: path to ``totdos.dat`` file.
+    :param str input_fermi_filename: path to ``SC-Fermi`` input file.
+    :param bool frozen: whether the input file contains any fixed concentration
+        ``DefectSpecies`` or ``DefectChargeState``s. I.e. whether this is an
+        input file for ``SC-Fermi`` or ``Frozen-SC-Fermi``.
+    :return: inputs (dict): set of input data for py_sc_fermi.DefectSystem
+    :rtype: Dict[str, Union[List[:py:class:`DefectSpecies`], float, int]]
+
     """
     inputs = {}
     try:
@@ -177,21 +178,23 @@ def inputs_from_files(
 
 def volume_from_structure(structure_file: str) -> float:
     """
-    return volume in A^3 for a given structure file. Relies on pymatgen structure parser
-    so accepts a wide range of formats inc. POSCAR, .cif, vasp output files (OUTCAR, vasprun.xml) etc.
+    Calculate the volume of a structure from any file readable by 
+    :py:mod:pymatgen.
 
-    Args:
-        structure_file (str): path to structure file to parse
-
-    Returns:
-        volume (float): volume of structure in A^3
+    :param str structure_file: path to file defining the structure.
+    :return: volume of structure in Angstrom^3
+    :rtype: float
     """
     return Structure.from_file(structure_file).volume
 
 
 def dos_from_dict(dos_dict: dict) -> "py_sc_fermi.dos.DOS":
     """
-    return a DOS object from a dictionary
+    Return a DOS object from a dictionary containing the DOS data.
+
+    :param dict dos_dict: dictionary containing the DOS data.
+    :return: :py:class:`DOS`
+    :rtype: py_sc_fermi.dos.DOS
     """
     nelect = dos_dict["nelect"]
     bandgap = dos_dict["bandgap"]
@@ -216,7 +219,14 @@ def defect_species_from_dict(
     defect_species_dict: dict, volume: float
 ) -> list["py_sc_fermi.defect_species.DefectSpecies"]:
     """
-    return a DefectSpecies object from a dictionary
+    return a DefectSpecies object from a dictionary containing the defect
+    species data.
+
+    :param dict defect_species_dict: dictionary containing the defect species
+        data.
+    :param float volume: volume of the defect system in Angstrom^3.
+    :return: :py:class:`DefectSpecies`
+    :rtype: py_sc_fermi.defect_species.DefectSpecies
     """
     charge_states = []
     name = list(defect_species_dict.keys())[0]
@@ -253,15 +263,18 @@ def defect_species_from_dict(
         )
     else:
         return DefectSpecies(
-            name,
-            defect_species_dict[name]["nsites"],
-            charge_states=charge_states,
+            name, defect_species_dict[name]["nsites"], charge_states=charge_states,
         )
 
 
 def defect_system_from_yaml(filename: str) -> "py_sc_fermi.defect_system.DefectSystem":
     """
-    return a DefectSystem object from a yaml file
+    Return a DefectSystem object from a yaml file
+
+    :param str filename: path to yaml file containing the defect system data.
+    :return: :py:class:`DefectSystem`
+    :rtype: py_sc_fermi.defect_system.DefectSystem
+
     """
     with open(filename, "r") as f:
         data = yaml.load(f, Loader=yaml.SafeLoader)
