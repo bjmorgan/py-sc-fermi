@@ -4,14 +4,6 @@ py\_sc\_fermi package
 Submodules
 ----------
 
-py\_sc\_fermi.constants module
-------------------------------
-
-.. automodule:: py_sc_fermi.constants
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 py\_sc\_fermi.defect\_charge\_state module
 ------------------------------------------
 
