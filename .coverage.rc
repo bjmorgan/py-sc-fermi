@@ -7,4 +7,6 @@ omit =
     */site-packages/ordereddict.py
     */site-packages/nose/*
     */unittest2/*
+    cli/*
+    tests/*
     examples/*
