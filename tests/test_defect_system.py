@@ -176,7 +176,7 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.q_tot = Mock(return_value=0)
         self.assertEqual(
             self.defect_system.get_sc_fermi(),
-            (0.5, {"converged": True, "residual": 0, "e_fermi_err": 0}),
+            (0.5, 0),
         )
 
     def test_get_sc_fermi_bottoms_out(self):
@@ -191,14 +191,6 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.dos.emax = Mock(return_value=0)
         self.defect_system.q_tot = Mock(return_value=(-0.1))
         with self.assertRaises(RuntimeError):
-            self.defect_system.get_sc_fermi()
-
-    def test_sc_fermi_search_warns(self):
-        self.defect_system.dos.emin = Mock(return_value=0)
-        self.defect_system.dos.emax = Mock(return_value=1000)
-        self.defect_system.q_tot = Mock(return_value=0.1)
-        self.defect_system.convergence_tolerance = 1e-19
-        with self.assertWarns(Warning):
             self.defect_system.get_sc_fermi()
 
     def test_get_transition_levels(self):
