@@ -30,11 +30,10 @@ jobs:
         - name: Test & publish code coverage
           uses: paambaati/codeclimate-action@v3.0.0
           env:
-            CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPO_TOKEN }}
+            CC_TEST_REPORTER_ID: ${{secrets.CODECLIMATE_REPO_TOKEN}}
           with: 
             coverageCommand: coverage run -m pytest
-#            coverageLocations: |
-#              ${{github.workspace}}/.coverage:coverage.py 
+            coverageLocations: ${{github.workspace}}/.coverage:coverage.py 
 #         - name: Static type checking
 #           run: |
 #             mypy py_sc_fermi
