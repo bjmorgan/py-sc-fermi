@@ -1,5 +1,6 @@
-import numpy as np
+import numpy as np  # type: ignore
 from scipy.constants import physical_constants  # type: ignore
+from typing import Optional
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -10,7 +11,7 @@ class DefectChargeState:
     :param int charge: Charge of this charge state.
     :param float energy: Formation energy of this charge state when
         E_Fermi = E(VBM)
-    :param int degeneracy: Degeneracy of this charge state 
+    :param int degeneracy: Degeneracy of this charge state
         (e.g. spin/intrinsic degeneracy).
     :param float fixed_concentration: the fixed concentration of the defect
         charge state (default = None)
@@ -42,15 +43,14 @@ class DefectChargeState:
 
     def fix_concentration(self, concentration: float) -> None:
         """fix the net concentration (per calculation cell) of this defect
-           species
-           :param float concentration: the fixed concentration of this defect
-           """
+        species
+        :param float concentration: the fixed concentration of this defect
+        """
         self._fixed_concentration = concentration
 
     @property
-    def energy(self) -> float:
-        """:return: Formation energy of this charge state when E_Fermi = E(VBM)
-        """
+    def energy(self) -> Optional[float]:
+        """:return: Formation energy of this charge state when E_Fermi = E(VBM)"""
         return self._energy
 
     @property
@@ -61,16 +61,36 @@ class DefectChargeState:
     @property
     def degeneracy(self) -> int:
         """:return: The number of energetically degenerate states for this
-           charge state."""
+        charge state."""
         return self._degeneracy
 
     @property
-    def fixed_concentration(self) -> float:
+    def fixed_concentration(self) -> Optional[float]:
         """:return: the fixed concentration of this defect charge state, or None
-           if the concentration is free to vary."""
+        if the concentration is free to vary."""
         return self._fixed_concentration
 
-    def get_formation_energy(self, e_fermi: float) -> float:
+    @classmethod
+    def from_string(
+        cls, string: str, volume: Optional[float] = None, frozen: bool = False
+    ) -> "DefectChargeState":
+        string = string.strip()
+        stripped_string = string.split()
+        if frozen == False:
+            return cls(
+                charge=int(stripped_string[0]),
+                energy=float(stripped_string[1]),
+                degeneracy=int(stripped_string[2]),
+            )
+        else:
+            if volume == None: # type: ignore
+                raise ValueError("You must specify a real, positive cell volume if passing a frozen concentration!")
+            return cls(
+                charge=int(string[1]),
+                fixed_concentration=float(string[2]) / 1e24 * volume, # type: ignore
+            )
+
+    def get_formation_energy(self, e_fermi: float) -> float: 
         """Calculate the formation energy of this charge state at a
         specified Fermi energy.
 
@@ -78,7 +98,7 @@ class DefectChargeState:
         :return: Formation energy of this charge state when E_Fermi = E(VBM)
         :rtype: float
         """
-        return self.energy + self.charge * e_fermi
+        return self.energy + self.charge * e_fermi # type: ignore
 
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this charge state at a

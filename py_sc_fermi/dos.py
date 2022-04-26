@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 from pymatgen.io.vasp import Vasprun  # type: ignore
 from pymatgen.electronic_structure.core import Spin  # type: ignore
 from scipy.constants import physical_constants  # type: ignore
@@ -9,7 +9,7 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 class DOS(object):
     """Class for handling density-of-states data and its integration.
-    
+
     :param np.array dos: Density-of-states data.
     :param np.array edos: Energies for the density-of-states (in eV).
     :param float bandgap: Width of the band gap (in eV).
@@ -21,8 +21,8 @@ class DOS(object):
 
     def __init__(
         self,
-        dos: np.array,
-        edos: np.array,
+        dos: np.ndarray,
+        edos: np.ndarray,
         bandgap: float,
         nelect: int,
         spin_polarised=False,
@@ -42,12 +42,12 @@ class DOS(object):
             )
 
     @property
-    def dos(self) -> np.array:
+    def dos(self) -> np.ndarray:
         """:return: Array representing the dos data."""
         return self._dos
 
     @property
-    def edos(self) -> np.array:
+    def edos(self) -> np.ndarray:
         """:return: Array representing the energy range data."""
         return self._edos
 
@@ -63,17 +63,16 @@ class DOS(object):
 
     @property
     def nelect(self) -> int:
-        """:return: number of electrons in the density-of-states calculation cell
-        """
+        """:return: number of electrons in the density-of-states calculation cell"""
         return self._nelect
 
     @classmethod
     def from_vasprun(
-        cls, path_to_vasprun: str, nelect: int, bandgap: float = None
-    ) -> "py_sc_fermi.dos.DOS":
+        cls, path_to_vasprun: str, nelect: int, bandgap: Optional[float] = None
+    ):
         """
-        generate ``py_sc_fermi.dos.DOS`` object from a ``VASP`` ``vasprun.xml`` 
-        file. As this is parsed using pymatgen, the number of electrons is not 
+        generate ``py_sc_fermi.dos.DOS`` object from a ``VASP`` ``vasprun.xml``
+        file. As this is parsed using pymatgen, the number of electrons is not
         contained in the vasprun data and must be passed in. On the other hand,
         If the bandgap is not passed in, it can be read from the vasprun file.
 
@@ -93,15 +92,48 @@ class DOS(object):
             tdos_data = np.stack(
                 [edos, np.abs(densities[Spin.up]), np.abs(densities[Spin.down])], axis=1
             )
+            spin_pol = True
         else:
             tdos_data = np.stack([edos, np.abs(densities[Spin.up])], axis=1)
+            spin_pol = False
         edos = tdos_data[:, 0]
         dos = np.sum(tdos_data[:, 1:], axis=1)
         if bandgap == None:
-            bandgap = vr.eigenvalue_band_properties[0]
-        return cls(dos=dos, edos=edos, nelect=nelect, bandgap=bandgap)
+            bandgap = float(vr.eigenvalue_band_properties[0])
+        return cls(
+            dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol # type: ignore
+        )
 
-    def sum_dos(self) -> np.array:
+    @classmethod
+    def from_dict(cls, dos_dict: dict):
+        """
+        return a DOS object from a dictionary containing the DOS data.
+        If the density-of-states data is spin polarised, it should
+        be stored as a list of two arrays, one for each spin.
+
+        :param dict dos_dict: dictionary containing the DOS data.
+        :return: :py:class:`DOS`
+        :rtype: py_sc_fermi.dos.DOS
+        """
+        nelect = dos_dict["nelect"]
+        bandgap = dos_dict["bandgap"]
+        dos = dos_dict["dos"]
+        edos = dos_dict["edos"]
+        if len(dos) == 2:
+            dos = np.sum(np.abs(dos[0]), np.abs(dos[1]))
+            spin_pol = True
+        else:
+            dos = dos
+            spin_pol = False
+        return cls(
+            nelect=nelect,
+            bandgap=bandgap,
+            edos=np.array(edos),
+            dos=np.array(dos),
+            spin_polarised=spin_pol,
+        )
+
+    def sum_dos(self) -> np.ndarray:
         """
         :returns: integrated density-of-states up to the valence band maximum
         :rtype: np.array
@@ -111,29 +143,29 @@ class DOS(object):
         return sum1
 
     def normalise_dos(self) -> None:
-        """normalises the density of states w.r.t. number of electrons in the 
+        """normalises the density of states w.r.t. number of electrons in the
         density-of-states calculation cell (self.nelect)"""
         integrated_dos = self.sum_dos()
         self._dos = self._dos / integrated_dos * self._nelect
 
     def emin(self) -> float:
         """:return: minimum energy in self.edos
-           :rtype: float"""
+        :rtype: float"""
         return self._edos[0]
 
     def emax(self) -> float:
         """:return: maximum energy in self.edos
-           :rtype: float"""
+        :rtype: float"""
         return self._edos[-1]
 
     def _p0_index(self) -> int:
         """:return: index of the valence band maximum in self._edos
-           :rtype: int"""
+        :rtype: int"""
         return np.where(self._edos <= 0)[0][-1]
 
     def _n0_index(self) -> int:
         """:return: index of the conduction band minimum in self._edos
-           :rtype: int"""
+        :rtype: int"""
         return np.where(self._edos > self.bandgap)[0][0]
 
     def carrier_concentrations(
@@ -142,7 +174,7 @@ class DOS(object):
         """return electron and hole carrier concentrations from the Fermi-Dirac
         distribution multiplied by the density-of-states at a given Fermi energy
         and temperature.
-           
+
         :param float e_fermi: Fermi energy in eV
         :param float temperature: temperature in K
         :return: electron and hole carrier concentrations
