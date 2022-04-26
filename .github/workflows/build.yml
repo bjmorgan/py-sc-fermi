@@ -34,7 +34,7 @@ jobs:
           with: 
             coverageCommand: coverage run -m pytest
             debug: true
-            coverageLocations: ${{github.workspace}}/.coverage:coverage.py 
+            coverageLocations: ${{github.workspace}}:coverage.py 
 #         - name: Static type checking
 #           run: |
 #             mypy py_sc_fermi
