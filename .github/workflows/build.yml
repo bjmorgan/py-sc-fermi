@@ -28,13 +28,15 @@ jobs:
             pip install pytest-cov
             pip install .
             pip list
-        - name: Run tests
-          run: |
-            pytest --cov-config=.coveragerc --cov=py_sc_fermi --cov-report xml
-        - name: Publish code coverage
-          uses: paambaati/codeclimate-action@v2.7.5
+        - name: Test & publish code coverage
+          uses: paambaati/codeclimate-action@v3.0.0
           env:
             CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPO_TOKEN }}
+          with: 
+            coverageCommand: |
+              pytest --cov-config=.coveragerc --cov=py_sc_fermi --cov-report xml
+            coverageLocations: |
+              ${{github.workspace}}/coverage.xml  
 #         - name: Static type checking
 #           run: |
 #             mypy py_sc_fermi
