@@ -33,7 +33,8 @@ jobs:
             CC_TEST_REPORTER_ID: ${{secrets.CODECLIMATE_REPO_TOKEN}}
           with: 
             coverageCommand: coverage run -m pytest
-            coverageLocations: ${{github.workspace}}/.coverage:coverage.py 
+            debug: true
+#            coverageLocations: ${{github.workspace}}/.coverage:coverage.py 
 #         - name: Static type checking
 #           run: |
 #             mypy py_sc_fermi
