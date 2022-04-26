@@ -28,13 +28,13 @@ jobs:
             pip install .
             pip list
         - name: Test & publish code coverage
-          uses: paambaati/codeclimate-action@v3.0.0
+          uses: paambaati/codeclimate-action@v2.7.1
           env:
             CC_TEST_REPORTER_ID: ${{secrets.CODECLIMATE_REPO_TOKEN}}
           with: 
             coverageCommand: coverage run -m pytest
             debug: true
-            coverageLocations: ${{github.workspace}}:coverage.py 
+#            coverageLocations: ${{github.workspace}}:coverage.py 
 #         - name: Static type checking
 #           run: |
 #             mypy py_sc_fermi
