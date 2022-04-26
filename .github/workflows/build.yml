@@ -25,7 +25,6 @@ jobs:
             pip install mypy
             pip install types-PyYAML
             pip install pytest
-            pip install pytest-cov
             pip install .
             pip list
         - name: Test & publish code coverage
@@ -34,9 +33,9 @@ jobs:
             CC_TEST_REPORTER_ID: ${{ secrets.CODECLIMATE_REPO_TOKEN }}
           with: 
             coverageCommand: |
-              pytest --cov-config=.coveragerc --cov=py_sc_fermi --cov-report xml
+              coverage run -m pytest
             coverageLocations: |
-              ${{github.workspace}}/coverage.xml  
+              ${{github.workspace}}/.coverage:coverage.py 
 #         - name: Static type checking
 #           run: |
 #             mypy py_sc_fermi
