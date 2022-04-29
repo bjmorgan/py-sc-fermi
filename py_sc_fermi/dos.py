@@ -117,19 +117,22 @@ class DOS(object):
         """
         nelect = dos_dict["nelect"]
         bandgap = dos_dict["bandgap"]
-        dos = dos_dict["dos"]
-        edos = dos_dict["edos"]
-        if len(dos) == 2:
-            dos = np.sum(np.abs(dos[0]), np.abs(dos[1]))
+        raw_dos = np.array(dos_dict["dos"])
+        edos = np.array(dos_dict["edos"])
+        shape = raw_dos.shape
+        if len(shape) == 1:
+            new_dos = raw_dos
+            spin_pol = False
+        elif shape[0] == 2:
+            new_dos = np.sum(raw_dos, axis=0)
             spin_pol = True
         else:
-            dos = dos
-            spin_pol = False
+             raise ValueError("dos_dict['dos'] is not in the correct format.")
         return cls(
             nelect=nelect,
             bandgap=bandgap,
-            edos=np.array(edos),
-            dos=np.array(dos),
+            edos=edos,
+            dos=new_dos,
             spin_polarised=spin_pol,
         )
 

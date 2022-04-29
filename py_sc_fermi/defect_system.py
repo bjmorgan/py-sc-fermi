@@ -1,5 +1,4 @@
-from typing import Dict, List, Tuple, Union, Any
-from py_sc_fermi.defect_charge_state import DefectChargeState
+from typing import Dict, List, Tuple, Any
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi import inputs

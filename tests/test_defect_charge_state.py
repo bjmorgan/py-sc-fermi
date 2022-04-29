@@ -54,6 +54,11 @@ class TestDefectChargeState(unittest.TestCase):
         formation_energy = self.defect_charge_state.get_formation_energy(e_fermi)
         self.assertEqual(formation_energy, 0.1234 + (1.0 * 1.2))
 
+    def test_get_formation_energy_raises(self):
+        with self.assertRaises(ValueError):
+            self.defect_charge_state._energy = None
+            self.defect_charge_state.get_formation_energy(0.1234)
+
     def test_get_concentration(self):
         e_fermi = 1.2
         temperature = 298.0
@@ -70,6 +75,27 @@ class TestDefectChargeState(unittest.TestCase):
             e_fermi=e_fermi, temperature=temperature
         )
         self.assertEqual(conc, 1.0)
+
+    def test_defect_charge_state_from_string(self):
+        string = "1 0.1234 2"
+        defect_charge_state = DefectChargeState.from_string(string) 
+        print(defect_charge_state)  
+        self.assertEqual(defect_charge_state.degeneracy, 2)
+        self.assertEqual(defect_charge_state.energy, 0.1234)
+        self.assertEqual(defect_charge_state.charge, 1)
+        self.assertEqual(defect_charge_state.fixed_concentration, None)
+
+    def test_defect_charge_state_from_string_with_fixed_concentration(self):
+        string = "V_O 1 0.1234"
+        defect_charge_state = DefectChargeState.from_string(string, frozen = True, volume=100)
+        self.assertEqual(defect_charge_state.fixed_concentration, 1.234e-23)
+        self.assertEqual(defect_charge_state.charge, 1)
+    
+    def test_defect_charge_state_from_string_raises(self):
+        string = "V_O 1 0.1234"
+        with self.assertRaises(ValueError):
+            DefectChargeState.from_string(string, frozen = True, volume=None)
+
 
     def test__repr__(self):
         self.assertEqual(

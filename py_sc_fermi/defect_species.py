@@ -34,7 +34,7 @@ class DefectSpecies(object):
         self._charge_states = charge_states
         self._fixed_concentration = fixed_concentration
 
-    def fix_concentration(self, concentration):
+    def fix_concentration(self, concentration: float) -> None:
         """fixed the net concentration (per calculation cell) of this defect
         species to the specified value.
 
@@ -86,7 +86,7 @@ class DefectSpecies(object):
 
     @classmethod
     def from_dict(
-        cls, defect_species_dict: dict, volume: float):
+        cls, defect_species_dict: dict, volume: Optional[float] = None):
         """
         return a DefectSpecies object from a dictionary containing the defect
         species data.
@@ -102,7 +102,7 @@ class DefectSpecies(object):
         for n, c in defect_species_dict[name]["charge_states"].items():
             if "fixed_concentration" not in list(c.keys()):
                 fixed_concentration = None
-            else:
+            elif volume is not None:
                 fixed_concentration = float(c["fixed_concentration"]) / 1e24 * volume
             if "formation_energy" not in list(c.keys()):
                 formation_energy = None
@@ -120,7 +120,7 @@ class DefectSpecies(object):
             )
             charge_states.append(charge_state)
 
-        if "fixed_concentration" in defect_species_dict[name].keys():
+        if "fixed_concentration" in defect_species_dict[name].keys() and volume is not None:
             fixed_concentration = (
                 float(defect_species_dict[name]["fixed_concentration"]) / 1e24 * volume
             )
@@ -138,7 +138,7 @@ class DefectSpecies(object):
             )
 
     @classmethod
-    def from_string(
+    def _from_list_of_strings(
         cls, defect_string: List[str]
     ):
         """ 
@@ -289,7 +289,7 @@ class DefectSpecies(object):
         return {
             q: cs
             for q, cs in self.charge_states.items()
-            if cs.fixed_concentration != None
+            if cs.fixed_concentration is not None
         }
 
     def variable_conc_charge_states(
@@ -301,7 +301,7 @@ class DefectSpecies(object):
         return {
             q: cs
             for q, cs in self.charge_states.items()
-            if cs.fixed_concentration == None
+            if cs.fixed_concentration is None
         }
 
     def charge_state_concentrations(
