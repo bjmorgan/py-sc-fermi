@@ -167,7 +167,7 @@ def read_input_fermi(
     """
 
     if volume == None and frozen == True:
-        raise ValueError("Volume must be specified if frozen is True")
+        raise ValueError("Volume must be specified if input contains 'frozen' defects.")
 
     with open(filename, "r") as f:
         readin = f.readlines()
@@ -187,8 +187,7 @@ def read_input_fermi(
         defect_species.append(ds)
 
     # read in frozen defect concentrations
-    if frozen == True:
-
+    if frozen is True and volume is not None:
         # fix defect concentrations
         n_frozen_defects = int(pure_readin.pop(0))
         for n in range(n_frozen_defects):
@@ -196,7 +195,7 @@ def read_input_fermi(
             name, concentration = l[0], float(l[1])
             try:
                 defect = [ds for ds in defect_species if ds.name == name][0]
-                defect.fix_concentration(concentration / 1e24 * volume)       # type: ignore
+                defect.fix_concentration(concentration / 1e24 * volume)     
             except ValueError:
                 raise ValueError(
                     f"Frozen defect {name} not found in defect species list"

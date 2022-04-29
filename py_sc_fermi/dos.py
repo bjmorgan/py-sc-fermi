@@ -98,10 +98,10 @@ class DOS(object):
             spin_pol = False
         edos = tdos_data[:, 0]
         dos = np.sum(tdos_data[:, 1:], axis=1)
-        if bandgap == None:
+        if bandgap is None:
             bandgap = float(vr.eigenvalue_band_properties[0])
         return cls(
-            dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol # type: ignore
+            dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol 
         )
 
     @classmethod

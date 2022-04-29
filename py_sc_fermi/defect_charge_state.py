@@ -83,12 +83,13 @@ class DefectChargeState:
                 degeneracy=int(stripped_string[2]),
             )
         else:
-            if volume == None: # type: ignore
+            if volume is None: # type: ignore
                 raise ValueError("You must specify a real, positive cell volume if passing a frozen concentration!")
-            return cls(
-                charge=int(string[1]),
-                fixed_concentration=float(string[2]) / 1e24 * volume, # type: ignore
-            )
+            else:
+                return cls(
+                    charge=int(string[1]),
+                    fixed_concentration=float(string[2]) / 1e24 * volume
+                )
 
     def get_formation_energy(self, e_fermi: float) -> float: 
         """Calculate the formation energy of this charge state at a
@@ -97,8 +98,13 @@ class DefectChargeState:
         :param float e_fermi: Fermi energy relative to the VBM (in eV).
         :return: Formation energy of this charge state when E_Fermi = E(VBM)
         :rtype: float
+
+        :raises ValueError: If `self.energy == None`.
         """
-        return self.energy + self.charge * e_fermi # type: ignore
+        if self.energy is not None:
+            return self.energy + self.charge * e_fermi
+        else:
+            raise ValueError("Cannot calculate formation energy as a function of `e_fermi` without a defined formation energy!")
 
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this charge state at a

@@ -329,7 +329,7 @@ class DefectSpecies(object):
         for q, cs in fixed_concs.items():
             cs_concentrations[q] = cs.get_concentration(e_fermi, temperature)
 
-        if self.fixed_concentration != None:
+        if self.fixed_concentration is not None:
             fixed_conc_chg_states = sum(
                 [
                     c
@@ -344,7 +344,7 @@ class DefectSpecies(object):
                     if q in self.variable_conc_charge_states()
                 ]
             )
-            constrained_conc = self.fixed_concentration - fixed_conc_chg_states # type: ignore
+            constrained_conc = self.fixed_concentration - fixed_conc_chg_states
             scaling = constrained_conc / variable_conc_chg_states
             for q in cs_concentrations:
                 if q in self.variable_conc_charge_states():
