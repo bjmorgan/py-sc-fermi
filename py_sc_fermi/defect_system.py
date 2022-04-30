@@ -82,7 +82,7 @@ class DefectSystem(object):
 
         # return the defect system
         return cls(
-            defect_species=defect_species,
+            defect_species=input_set.defect_species,
             dos=input_set.dos,
             volume=input_set.volume,
             temperature=input_set.temperature,
