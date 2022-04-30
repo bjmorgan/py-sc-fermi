@@ -71,6 +71,26 @@ class DefectSystem(object):
         return [ds.name for ds in self.defect_species]
 
     @classmethod
+    def from_input_set(cls, input_set: inputs.InputSet) -> "DefectSystem":
+        """
+        Create a defect system from an input set
+
+        :param inputs.InputSet input_set: Input set to use to create the defect system
+        :return: Defect system
+        :rtype: :py:class:`py_sc_fermi.defect_system.DefectSystem`
+        """
+
+        # return the defect system
+        return cls(
+            defect_species=defect_species,
+            dos=input_set.dos,
+            volume=input_set.volume,
+            temperature=input_set.temperature,
+            convergence_tolerance=input_set.convergence_tolerance,
+            n_trial_steps=input_set.n_trial_steps,
+        )
+
+    @classmethod
     def from_yaml(cls, filename: str):
         """
         Return a DefectSystem object from a .yaml file
