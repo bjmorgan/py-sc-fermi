@@ -71,7 +71,7 @@ class DefectSystem(object):
         return [ds.name for ds in self.defect_species]
 
     @classmethod
-    def from_input_set(cls, input_set: inputs.InputSet) -> "DefectSystem":
+    def from_input_set(cls, input_set: inputs.InputSet):
         """
         Create a defect system from an input set
 
@@ -369,83 +369,3 @@ class DefectSystem(object):
                 }
                 decomp_concs.update({ds.name : all_charge_states})
             return {**run_stats, **decomp_concs}
-
-    # def _collect_defect_species_with_fixed_charge_states(
-    #     self,
-    # ) -> Dict[str, List[DefectChargeState]]:
-    #     """returns a dictionary of defect species with any number
-    #     of fixed concentration charge statesm and their fixed concentration charge states."""
-        
-    #     all_fixed_charge_states = {}
-    #     for defect in self.defect_species:
-    #         if defect.fixed_conc_charge_states() > 0:
-    #             all_fixed_charge_states.update(
-    #                 {
-    #                     defect.name: defect.fixed_conc_charge_states()
-    #                 }
-    #             )
-    #     return all_fixed_charge_states
-
-    # def _get_input_string(self) -> str:
-    #     """
-    #     returns a string of the input file which would be used to generate
-    #     this defect system from SC-Fermi.
-    #     """
-    #     input_string = ""
-    #     # write defect system information
-    #     if self.dos.spin_polarised == True:
-    #         input_string += "1\n"
-    #     else:
-    #         input_string += "0\n"
-    #     input_string += f"{self.dos._nelect}\n"
-    #     input_string += f"{self.dos._bandgap}\n"
-    #     input_string += f"{self.temperature}\n"
-
-    #     # count number of variable concentration DefectSpecies and write their
-    #     # information to file
-    #     free_defect_species = [
-    #         d for d in self.defect_species if len(d.variable_conc_charge_states) > 0
-    #     ]
-    #     input_string += str(len(free_defect_species)) + "\n"
-    #     for d in free_defect_species:
-    #         free_charge_states = d.variable_conc_charge_states
-    #         input_string += f"{d.name} {len(free_charge_states)} {d.nsites}\n"
-
-    #         vcs = d.variable_conc_charge_states()
-    #         for k, v in vcs.items():
-    #             input_string += f" {k} {v.energy} {v.degeneracy}\n"
-
-    #     # count number of fixed concentration DefectSpecies and write their
-    #     # information to file
-    #     fixed_defect_species = [
-    #         d for d in self.defect_species if d._fixed_concentration != None
-    #     ]
-    #     input_string += str(len(fixed_defect_species)) + "\n"
-    #     for d in fixed_defect_species:
-    #         input_string += f"{d.name} {d._fixed_concentration * 1e24 / self.volume}\n" # type: ignore
-
-    #     # count the number of fixed concentration DefectChargeStates and write their information to file
-
-    #     all_fixed_charge_states = self._collect_defect_species_with_fixed_charge_states
-    #     input_string += (
-    #         str(sum([len(v) for v in all_fixed_charge_states.values()])) + "\n"
-    #     )
-    #     for k, v in all_fixed_charge_states.items():
-    #         for cs in v:
-    #             input_string += (
-    #                 f"{k} {cs.charge} {cs.fixed_concentration * 1e24 / self.volume}\n"
-    #             )
-    #     return input_string
-
-    # def write_inputs(self, filename: str = "input-fermi.dat") -> None:
-    #     """
-    #     Writes an input file which is compatible with the FORTRAN code SC-FERMI.
-
-    #     :param str filename: name of the input file to be written.
-    #     """
-
-    #     with open(filename, "w") as f:
-    #         string = self._get_input_string()
-    #         f.write(string)
-
-    #     f.close()
