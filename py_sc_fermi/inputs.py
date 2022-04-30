@@ -1,17 +1,141 @@
+from collections import namedtuple
+from dataclasses import dataclass
 import numpy as np
 from .defect_system import DefectSystem
 from .defect_species import DefectSpecies
 from .defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
-from typing import Union, Dict, List
-import yaml, os
+from typing import NamedTuple, List
+import yaml
+
+InputFermiData = namedtuple(
+        "InputFermiData",
+        "spin_pol nelect bandgap temperature defect_species",
+    )
+
+@dataclass
+class InputSet:
+    dos: DOS
+    volume: float
+    defect_species: List[DefectSpecies]
+    temperature: float
+    convergence_tolerance: float = 1e-18
+    n_trial_steps: int = 1500
+
+    @property
+    def defect_system(self):
+        return DefectSystem(
+            defect_species=self.defect_species,
+            dos=self.dos,
+            volume=self.volume,
+            temperature=self.temperature,
+            convergence_tolerance=self.convergence_tolerance,
+            n_trial_steps=self.n_trial_steps,
+        )
+
+    @classmethod
+    def from_yaml(
+        cls, input_file: str, structure_file: str = '', dos_file: str = ''
+    ):
+        """
+        Generate a ``py_sc_fermi.inputs.InputSet`` object from a yaml file.
+
+        :param str input_file: path to yaml file
+        :param str structure_file: path to structure file
+            (Default: ``None``)
+        :param str dos_file: path to dos file
+            (Default: ``None``)
+        :return: InputSet object
+        :rtype: py_sc_fermi.inputs.InputSet
+
+        .. note::
+            Only the ``.yaml`` file is required. If the structure_file and dos_file
+            are not specified, the ``.yaml`` file must contain the volume and the density-of-states data.
+        """
+        with open(input_file, "r") as f:
+            input_dict = yaml.safe_load(f)
+
+        # if edos and dos are specified in the yaml file, generate
+        # the dos object
+        if "edos" in input_dict.keys() and "dos" in input_dict.keys():
+            dos = DOS.from_dict(input_dict)
+        # if the dos is specified in the SC-Fermi format, generate
+        # from that
+        elif dos_file.endswith(".dat"):
+            dos_data = read_dos_data(input_dict["bandgap"], input_dict["nelect"], dos_file)
+            dos = DOS(
+                dos=dos_data.dos,
+                edos=dos_data.dos,
+                nelect=input_dict["nelect"],
+                bandgap=input_dict["bandgap"],
+            )
+        # or if DOS file is an .xml, try and read it as a vaspun
+        elif dos_file.endswith(".xml"):
+            dos = DOS.from_vasprun(dos_file, input_dict["nelect"], input_dict["bandgap"])
+
+        # if volume is specified in the yaml file, read it
+        if "volume" in input_dict.keys():
+            volume = input_dict["volume"]
+        # otherwise, read it from the structure file
+        else:
+            volume = read_volume_from_structure_file(structure_file)
+
+        return cls(
+            dos=dos,
+            volume=volume,
+            defect_species=input_dict["defect_species"],
+            temperature=input_dict["temperature"],
+            convergence_tolerance=input_dict["convergence_tolerance"],
+            n_trial_steps=input_dict["n_trial_steps"],
+        )
+
+    @classmethod
+    def from_sc_fermi_inputs(
+        cls, input_file: str, structure_file: str, dos_file: str, frozen: bool = False
+    ):
+        """
+        Generate an InputSet object from a SC-Fermi input file.
+
+        :param str input_file: path to SC-Fermi input file
+        :param str structure_file: path to structure file
+        :param str dos_file: path to totdos file
+        :param bool frozen: whether the input file contains
+            any fixed concentration defects (Default: ``False``)
+        :return: InputSet object
+        :rtype: InputSet
+        """
+
+        volume = read_volume_from_structure_file(structure_file)
+        input_data = read_input_fermi(input_file, volume, frozen)
+        dos = read_dos_data(input_data.bandgap, input_data.nelect, dos_file)
+        return cls(
+            dos=dos,
+            volume=volume,
+            defect_species=input_data.defect_species,
+            temperature=input_data.temperature
+        )
 
 
-def read_unitcell_data(filename: str) -> float:
+def is_yaml(filename: str) -> bool:
     """
-    Get volume in A^3 from `unitcell.dat` file used in SC-Fermi.
-    
+    Check if a file is a yaml file.
+
+    :param str filename: path to file
+    :return: True if file is a yaml file, False otherwise
+    :rtype: bool
+    """
+    try:
+        with open(filename, "r") as f:
+            yaml.safe_load(f)
+    except yaml.YAMLError:
+        return False
+    return True
+
+def volume_from_unitcell(filename: str) -> float:
+    """
+    Get volume in A^3 from `unitcell.dat` file-type used in SC-Fermi.
+
     :param str filename: path to `unitcell.dat` file
     :return: volume in A^3
     :rtype: float
@@ -26,9 +150,9 @@ def read_unitcell_data(filename: str) -> float:
     return volume
 
 
-def read_input_data(
+def read_input_fermi(
     filename: str, volume: float = None, frozen: bool = False
-) -> Dict[str, Union[List["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
+) -> InputFermiData:
     """
     Return all information from a input file correctly formated to work
     for ``SC-Fermi``.
@@ -43,87 +167,70 @@ def read_input_data(
     """
 
     if volume == None and frozen == True:
-        raise ValueError("Volume must be specified if frozen is True")
+        raise ValueError("Volume must be specified if input contains 'frozen' defects.")
 
     with open(filename, "r") as f:
         readin = f.readlines()
         pure_readin = [line.strip() for line in readin if line[0] != "#"]
 
-    input_data = {}
-
     # read in general defect system information
-    input_data["spinpol"] = int(pure_readin.pop(0))
-    input_data["nelect"] = int(pure_readin.pop(0))
-    input_data["bandgap"] = float(pure_readin.pop(0))
-    input_data["temperature"] = int(pure_readin.pop(0))
+    spin_pol = int(pure_readin.pop(0))
+    nelect = int(pure_readin.pop(0))
+    bandgap = float(pure_readin.pop(0))
+    temperature = int(pure_readin.pop(0))
 
     # read in defect species information
     defect_species = []
     ndefects = int(pure_readin.pop(0))
     for i in range(ndefects):
-        defect_description = pure_readin.pop(0).split()
-        defect_name = defect_description[0]
-        n_charge_states = int(defect_description[1])
-        nsites = int(defect_description[2])
-        charge_states = []
-        for charge_state in range(n_charge_states):
-            charge_state_description = pure_readin.pop(0).split()
-            charge_state = int(charge_state_description[0])
-            charge_state_formation_energy = float(charge_state_description[1])
-            charge_state_degeneracy = int(charge_state_description[2])
-            charge_states.append(
-                DefectChargeState(
-                    charge=charge_state,
-                    energy=charge_state_formation_energy,
-                    degeneracy=charge_state_degeneracy,
-                )
-            )
-        defect_species.append(
-            DefectSpecies(name=defect_name, charge_states=charge_states, nsites=nsites)
-        )
+        ds = DefectSpecies.from_string(pure_readin)
+        defect_species.append(ds)
 
     # read in frozen defect concentrations
-    if frozen == True:
-
+    if frozen is True and volume is not None:
         # fix defect concentrations
         n_frozen_defects = int(pure_readin.pop(0))
         for n in range(n_frozen_defects):
             l = pure_readin.pop(0).split()
             name, concentration = l[0], float(l[1])
-            for defect in defect_species:
-                if name == defect.name:
-                    defect.fix_concentration(concentration / 1e24 * volume)
+            try:
+                defect = [ds for ds in defect_species if ds.name == name][0]
+                defect.fix_concentration(concentration / 1e24 * volume)     
+            except ValueError:
+                raise ValueError(
+                    f"Frozen defect {name} not found in defect species list"
+                )
 
         # read fixed concentration charge states
         n_frozen_charge_states = int(pure_readin.pop(0))
+        defect_names = [ds.name for ds in defect_species]
         for n in range(n_frozen_charge_states):
-            l = pure_readin.pop(0).split()
-            name, charge_state, concentration = l[0], int(l[1]), float(l[2])
-            for defect in defect_species:
-                if name == defect.name:
-                    defect.charge_states[charge_state].fix_concentration(
-                        concentration / 1e24 * volume
-                    )
+            l = list(pure_readin.pop(0))
+            defect_info = str(l).split()
+            name, charge_state, concentration = (
+                defect_info[0],
+                int(defect_info[1]),
+                float(defect_info[2]),
+            )
+            if name in defect_names:
+                defect = [ds for ds in defect_species if ds.name == name][0]
+                defect.charge_states[charge_state].fix_concentration(
+                    concentration / 1e24 * volume # type: ignore
+                )
             else:
-                defect_charge_state = DefectChargeState(
-                    charge=charge_state,
-                    fixed_concentration=concentration / 1e24 * volume,
-                    degeneracy=1,
+                defect_charge_state = DefectChargeState.from_string(
+                    str(l), volume, frozen=True
                 )
-                defect_species.append(
-                    DefectSpecies(
-                        name=name, charge_states=[defect_charge_state], nsites=1
-                    )
-                )
+                defect_species.append(DefectSpecies(name, 1, {charge_state: defect_charge_state}))
 
-    input_data.update({"defect_species": defect_species})
-
-    return input_data
+    return InputFermiData(spin_pol, nelect, bandgap, temperature, defect_species)
 
 
 def read_dos_data(
-    bandgap: float, nelect: int, filename: str = "totdos.dat",
-) -> "py_sc_fermi.dos.DOS":
+    bandgap: float,
+    nelect: int,
+    filename: str = "totdos.dat",
+) -> DOS:
     """
     Read in total DOS from `totdos.dat` file used in SC-Fermi.
 
@@ -142,43 +249,9 @@ def read_dos_data(
     return dos
 
 
-def inputs_from_files(
-    structure_filename: str = "unitcell.dat",
-    totdos_filename: str = "totdos.dat",
-    input_fermi_filename: str = "input-fermi.dat",
-    frozen: bool = False,
-) -> dict[str, Union[list["py_sc_fermi.defect_species.DefectSpecies"], float, int]]:
-    """
-    Read a set of inputs descrbing a full defect system from SC-Fermi input files
-    and return them as a dictionary.
-
-    :param str structure_filename: path to file defining the structure.
-    :param str totdos_filename: path to ``totdos.dat`` file.
-    :param str input_fermi_filename: path to ``SC-Fermi`` input file.
-    :param bool frozen: whether the input file contains any fixed concentration
-        ``DefectSpecies`` or ``DefectChargeState``s. I.e. whether this is an
-        input file for ``SC-Fermi`` or ``Frozen-SC-Fermi``.
-    :return: inputs (dict): set of input data for py_sc_fermi.DefectSystem
-    :rtype: Dict[str, Union[List[:py:class:`DefectSpecies`], float, int]]
-
-    """
-    inputs = {}
-    try:
-        inputs["volume"] = read_unitcell_data(structure_filename)
-    except:
-        inputs["volume"] = volume_from_structure(structure_filename)
-    inputs.update(
-        read_input_data(input_fermi_filename, frozen=frozen, volume=inputs["volume"])
-    )
-    inputs["dos"] = read_dos_data(
-        filename=totdos_filename, bandgap=inputs["bandgap"], nelect=inputs["nelect"]
-    )
-    return inputs
-
-
 def volume_from_structure(structure_file: str) -> float:
     """
-    Calculate the volume of a structure from any file readable by 
+    Calculate the volume of a structure from any file readable by
     :py:mod:pymatgen.
 
     :param str structure_file: path to file defining the structure.
@@ -188,132 +261,25 @@ def volume_from_structure(structure_file: str) -> float:
     return Structure.from_file(structure_file).volume
 
 
-def dos_from_dict(dos_dict: dict) -> "py_sc_fermi.dos.DOS":
+def read_volume_from_structure_file(structure_file: str) -> float:
     """
-    Return a DOS object from a dictionary containing the DOS data.
+    Read the volume of a structure from a file.
 
-    :param dict dos_dict: dictionary containing the DOS data.
-    :return: :py:class:`DOS`
-    :rtype: py_sc_fermi.dos.DOS
+    :param str file: path to file defining the structure.
+    :return: volume of structure in Angstrom^3
+    :rtype: float
     """
-    nelect = dos_dict["nelect"]
-    bandgap = dos_dict["bandgap"]
-    dos = dos_dict["dos"]
-    edos = dos_dict["edos"]
-    if type(dos) == dict:
-        dos = np.array(dos["up"]) + np.array(dos["down"])
-        spin_pol = True
+    # if the structure is specified in the SC-Fermi format, calculate
+    # the volume from that
+    if structure_file.endswith(".dat"):
+        volume = volume_from_unitcell(structure_file)
+    # if all else fails, use pymatgen to try and get the
+    # volume from the structure file
     else:
-        dos = dos
-        spin_pol = False
-    return DOS(
-        nelect=nelect,
-        bandgap=bandgap,
-        edos=np.array(edos),
-        dos=np.array(dos),
-        spin_polarised=spin_pol,
-    )
-
-
-def defect_species_from_dict(
-    defect_species_dict: dict, volume: float
-) -> list["py_sc_fermi.defect_species.DefectSpecies"]:
-    """
-    return a DefectSpecies object from a dictionary containing the defect
-    species data.
-
-    :param dict defect_species_dict: dictionary containing the defect species
-        data.
-    :param float volume: volume of the defect system in Angstrom^3.
-    :return: :py:class:`DefectSpecies`
-    :rtype: py_sc_fermi.defect_species.DefectSpecies
-    """
-    charge_states = []
-    name = list(defect_species_dict.keys())[0]
-    for n, c in defect_species_dict[name]["charge_states"].items():
-        if "fixed_concentration" not in list(c.keys()):
-            fixed_concentration = None
-        else:
-            fixed_concentration = float(c["fixed_concentration"]) / 1e24 * volume
-        if "formation_energy" not in list(c.keys()):
-            formation_energy = None
-        else:
-            formation_energy = float(c["formation_energy"])
-        if formation_energy == None and fixed_concentration == None:
+        try:
+            volume = volume_from_structure(structure_file)
+        except:
             raise ValueError(
-                f"{name, n} must have one or both fixed concentration or formation energy"
+                "Volume could not be read from structure file. Please check the file format."
             )
-        charge_state = DefectChargeState(
-            charge=n,
-            energy=formation_energy,
-            degeneracy=c["degeneracy"],
-            fixed_concentration=fixed_concentration,
-        )
-        charge_states.append(charge_state)
-
-    if "fixed_concentration" in defect_species_dict[name].keys():
-        fixed_concentration = (
-            float(defect_species_dict[name]["fixed_concentration"]) / 1e24 * volume
-        )
-        return DefectSpecies(
-            name,
-            defect_species_dict[name]["nsites"],
-            charge_states=charge_states,
-            fixed_concentration=fixed_concentration,
-        )
-    else:
-        return DefectSpecies(
-            name, defect_species_dict[name]["nsites"], charge_states=charge_states,
-        )
-
-
-def defect_system_from_yaml(filename: str) -> "py_sc_fermi.defect_system.DefectSystem":
-    """
-    Return a DefectSystem object from a yaml file
-
-    :param str filename: path to yaml file containing the defect system data.
-    :return: :py:class:`DefectSystem`
-    :rtype: py_sc_fermi.defect_system.DefectSystem
-
-    """
-    with open(filename, "r") as f:
-        data = yaml.load(f, Loader=yaml.SafeLoader)
-
-    if "volume" not in data.keys():
-        if "unitcell.dat" in os.listdir("."):
-            volume = read_unitcell_data("unitcell.dat")
-        elif "POSCAR" in os.listdir("."):
-            volume = volume_from_structure("POSCAR")
-        else:
-            raise ValueError(
-                "No volume found in input file and no file defining the structure detected in this directory"
-            )
-    else:
-        volume = data["volume"]
-
-    if "edos" in data.keys() and "dos" in data.keys():
-        dos = dos_from_dict(data)
-    elif "totdos.dat" in os.listdir("."):
-        dos = read_dos_data(bandgap=data["bandgap"], nelect=data["nelect"])
-    elif "vasprun.xml" in os.listdir("."):
-        dos = DOS.from_vasprun(nelect=data["nelect"])
-    else:
-        raise ValueError("No DOS data found")
-
-    defect_species = [
-        defect_species_from_dict(d, volume) for d in data["defect_species"]
-    ]
-
-    if "convergence_tol" not in list(data.keys()):
-        data["convergence_tol"] = 1e-18
-    if "n_trial_steps" not in list(data.keys()):
-        data["n_trial_steps"] = 1500
-
-    return DefectSystem(
-        dos=dos,
-        volume=volume,
-        defect_species=defect_species,
-        temperature=data["temperature"],
-        convergence_tolerance=float(data["convergence_tol"]),
-        n_trial_steps=int(data["n_trial_steps"]),
-    )
+    return volume

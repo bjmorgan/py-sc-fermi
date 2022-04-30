@@ -10,7 +10,7 @@ jobs:
       timeout-minutes: 30
       strategy:
         matrix:
-          python-version: [3.9, 3.10]
+          python-version: ['3.8', '3.9', '3.10']
       steps:
         - uses: actions/checkout@v2
         - name: Set up Python ${{matrix.python-version}}
@@ -34,8 +34,8 @@ jobs:
           with: 
             coverageCommand: coverage run -m pytest
             debug: true
-#            coverageLocations: ${{github.workspace}}:coverage.py 
-#         - name: Static type checking
-#           run: |
-#             mypy py_sc_fermi
+            coverageLocations: ${{github.workspace}}:coverage.py 
+        - name: Static type checking
+          run: |
+             mypy py_sc_fermi
 
