@@ -2,6 +2,9 @@ from typing import Dict, List, Tuple, Any
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
+from py_sc_fermi.inputs import volume_from_structure
+from py_sc_fermi.inputs import volume_from_unitcell
+from py_sc_fermi.inputs import read_dos_data
 import yaml
 import numpy as np
 import os
@@ -104,9 +107,9 @@ class DefectSystem(object):
 
         if "volume" not in data.keys():
             if "unitcell.dat" in os.listdir("."):
-                volume = inputs.volume_from_unitcell("unitcell.dat")
+                volume = volume_from_unitcell("unitcell.dat")
             elif "POSCAR" in os.listdir("."):
-                volume = inputs.volume_from_structure("POSCAR")
+                volume = volume_from_structure("POSCAR")
             else:
                 raise ValueError(
                     "No volume found in input file and no file defining the structure detected in this directory. We reccomend specifying the volume of the cell in the input .yaml file."
@@ -117,7 +120,7 @@ class DefectSystem(object):
         if "edos" in data.keys() and "dos" in data.keys():
             dos = DOS.from_dict(data)
         elif "totdos.dat" in os.listdir("."):
-            dos = inputs.read_dos_data(filename="totdos.dat", bandgap=data["bandgap"], nelect=data["nelect"])
+            dos = read_dos_data(filename="totdos.dat", bandgap=data["bandgap"], nelect=data["nelect"])
         elif "vasprun.xml" in os.listdir("."):
             dos = DOS.from_vasprun("vasprun.xml", nelect=data["nelect"])
         else:
