@@ -1,12 +1,11 @@
 from collections import namedtuple
 from dataclasses import dataclass
 import numpy as np
-from .defect_system import DefectSystem
-from .defect_species import DefectSpecies
-from .defect_charge_state import DefectChargeState
+from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
-from typing import NamedTuple, List
+from typing import List
 import yaml
 
 InputFermiData = namedtuple(
@@ -22,17 +21,6 @@ class InputSet:
     temperature: float
     convergence_tolerance: float = 1e-18
     n_trial_steps: int = 1500
-
-    @property
-    def defect_system(self):
-        return DefectSystem(
-            defect_species=self.defect_species,
-            dos=self.dos,
-            volume=self.volume,
-            temperature=self.temperature,
-            convergence_tolerance=self.convergence_tolerance,
-            n_trial_steps=self.n_trial_steps,
-        )
 
     @classmethod
     def from_yaml(
@@ -204,9 +192,10 @@ def read_input_fermi(
         # read fixed concentration charge states
         n_frozen_charge_states = int(pure_readin.pop(0))
         defect_names = [ds.name for ds in defect_species]
+        print(defect_names)
         for n in range(n_frozen_charge_states):
-            l = list(pure_readin.pop(0))
-            defect_info = str(l).split()
+            l = pure_readin.pop(0)
+            defect_info = str(l).split(" ")
             name, charge_state, concentration = (
                 defect_info[0],
                 int(defect_info[1]),
@@ -218,6 +207,7 @@ def read_input_fermi(
                     concentration / 1e24 * volume # type: ignore
                 )
             else:
+                print(l)
                 defect_charge_state = DefectChargeState.from_string(
                     str(l), volume, frozen=True
                 )

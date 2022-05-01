@@ -72,10 +72,10 @@ class DefectChargeState:
 
     @classmethod
     def from_string(
-        cls, string: str, volume: Optional[float] = None, frozen: bool = False
-    ) -> "DefectChargeState":
+        cls, string: str, volume: Optional[float] = None, frozen: bool = False):
         string = string.strip()
         stripped_string = string.split()
+        print(stripped_string)
         if frozen == False:
             return cls(
                 charge=int(stripped_string[0]),
@@ -83,12 +83,12 @@ class DefectChargeState:
                 degeneracy=int(stripped_string[2]),
             )
         else:
-            if volume is None: # type: ignore
+            if volume is None:
                 raise ValueError("You must specify a real, positive cell volume if passing a frozen concentration!")
             else:
                 return cls(
-                    charge=int(string[1]),
-                    fixed_concentration=float(string[2]) / 1e24 * volume
+                    charge=int(stripped_string[1]),
+                    fixed_concentration=float(stripped_string[2]) / 1e24 * volume
                 )
 
     def get_formation_energy(self, e_fermi: float) -> float: 

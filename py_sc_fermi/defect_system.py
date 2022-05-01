@@ -1,8 +1,7 @@
-from typing import Dict, List, Tuple, Union, Any
-from py_sc_fermi.defect_charge_state import DefectChargeState
+from typing import Dict, List, Tuple, Any
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi import inputs
+from py_sc_fermi.inputs import InputSet
 import yaml
 import numpy as np
 import os
@@ -71,11 +70,11 @@ class DefectSystem(object):
         return [ds.name for ds in self.defect_species]
 
     @classmethod
-    def from_input_set(cls, input_set: inputs.InputSet):
+    def from_input_set(cls, input_set: InputSet):
         """
         Create a defect system from an input set
 
-        :param inputs.InputSet input_set: Input set to use to create the defect system
+        :param InputSet input_set: Input set to use to create the defect system
         :return: Defect system
         :rtype: :py:class:`py_sc_fermi.defect_system.DefectSystem`
         """
@@ -351,21 +350,13 @@ class DefectSystem(object):
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
-
         if decomposed == False:
-            sum_concs = {
-                ds.name: ds.get_concentration(e_fermi, self.temperature) * scale
-                for ds in self.defect_species
-            }
+            sum_concs = {str(ds.name): float(ds.get_concentration(e_fermi, self.temperature) * scale)
+                for ds in self.defect_species}
             return {**run_stats, **sum_concs}
         else:
-            for ds in self.defect_species:
-                decomp_concs = {}
-                charge_states = ds.charge_state_concentrations(
-                    e_fermi, self.temperature
-                )
-                all_charge_states = {
-                    str(k): float(v * scale) for k, v in charge_states.items()
-                }
-                decomp_concs.update({ds.name : all_charge_states})
+            decomp_concs = {str(ds.name):
+                {int(q): float(ds.charge_state_concentrations(e_fermi, self.temperature)[q] * scale)
+                for q in ds.charge_states}
+            for ds in self.defect_species}
             return {**run_stats, **decomp_concs}
