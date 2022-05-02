@@ -13,7 +13,6 @@ from py_sc_fermi.inputs import (
     read_input_fermi,
     is_yaml,
     InputSet,
-    InputFermiData
 )
 from pymatgen.core.structure import Structure
 
