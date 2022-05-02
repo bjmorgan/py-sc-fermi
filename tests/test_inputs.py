@@ -1,21 +1,22 @@
 import unittest
+from unittest.mock import Mock
 import numpy as np
+from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 import os
 
 from py_sc_fermi.inputs import (
     volume_from_structure,
-    read_unitcell_data,
-    read_input_data,
     read_dos_data,
-    inputs_from_files,
-    dos_from_dict,
-    defect_species_from_dict,
-    defect_system_from_yaml,
+    volume_from_unitcell,
+    read_volume_from_structure_file,
+    read_input_fermi,
+    is_yaml,
+    InputSet,
 )
 from pymatgen.core.structure import Structure
 
-test_data_dir = "inputs/"
+test_data_dir = "dummy_inputs/"
 test_poscar_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "POSCAR")
 test_unitcell_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "unitcell.dat"
@@ -34,89 +35,69 @@ test_defect_system_yaml_filename = os.path.join(
 structure = Structure.from_file(test_poscar_filename)
 volume = structure.volume
 
+class TestInputsSetInit(unittest.TestCase):
+    def test_input_set_is_initialised(self):
+        dos = Mock(spec=DOS)
+        volume = 100
+        defect_species = [Mock(spec=DefectSpecies)]
+        temperature = 298
+        conv = 1
+        n_trial = 100
+        input_set = InputSet(dos, volume, defect_species, temperature, conv, n_trial)
+        self.assertEqual(input_set.dos, dos)
+        self.assertEqual(input_set.volume, volume)
+        self.assertEqual(input_set.defect_species, defect_species)
+        self.assertEqual(input_set.temperature, temperature)
+        self.assertEqual(input_set.convergence_tolerance, conv)
+        self.assertEqual(input_set.n_trial_steps, n_trial)
+
+class TestInputSet(unittest.TestCase):
+    def test_from_yaml(self):
+        input_set = InputSet.from_yaml(test_defect_system_yaml_filename)
+        self.assertEqual(input_set.volume, 59)
+        self.assertEqual(input_set.dos.nelect, 18)
+        self.assertEqual(input_set.dos.bandgap, 0.8084)
+        self.assertEqual(input_set.temperature, 300)
+        self.assertEqual(len(input_set.defect_species), 3)
+    
+    def test_from_sc_fermi_inputs(self):
+        input_set = InputSet.from_sc_fermi_inputs(
+            test_sc_fermi_input_filename, test_unitcell_filename, test_dos_filename
+        )
+        self.assertEqual(input_set.volume, 544.7091796190017)
+        self.assertEqual(input_set.dos.nelect, 18)
+        self.assertEqual(input_set.dos.bandgap, 0.8084)
+        self.assertEqual(input_set.temperature, 100)
+        self.assertEqual(len(input_set.defect_species), 2)
+
 
 class TestInputs(unittest.TestCase):
     def test_volume_from_structure(self):
         self.assertAlmostEqual(volume_from_structure(test_poscar_filename), volume)
 
-    def test_read_unitcell_data(self):
-        self.assertAlmostEqual(read_unitcell_data(test_unitcell_filename), volume)
+    def test_volume_from_unitcell(self):
+        self.assertAlmostEqual(volume_from_unitcell(test_unitcell_filename), volume)
 
-    def test_read_input_data(self):
-        defect_data = read_input_data(test_sc_fermi_input_filename, volume=1)
-        self.assertEqual(len(defect_data["defect_species"]), 2)
-        self.assertEqual(defect_data["temperature"], 100)
-        self.assertEqual(defect_data["bandgap"], 0.8084)
-        self.assertEqual(defect_data["nelect"], 18)
-        self.assertEqual(defect_data["spinpol"], 1)
+    def test_is_yaml(self):
+        self.assertTrue(is_yaml(test_defect_system_yaml_filename))
+        self.assertFalse(is_yaml(test_sc_fermi_input_filename))
+
+    def test_read_input_fermi(self):
+        defect_data = read_input_fermi(test_sc_fermi_input_filename, volume=1)
+        self.assertEqual(len(defect_data.defect_species), 2)
+        self.assertEqual(defect_data.temperature, 100)
+        self.assertEqual(defect_data.bandgap, 0.8084)
+        self.assertEqual(defect_data.nelect, 18)
 
     def test_read_dos_data(self):
         dos_data = read_dos_data(filename=test_dos_filename, bandgap=1, nelect=1)
         self.assertEqual(type(dos_data), DOS)
 
-    def test_inputs_from_files(self):
-        inputs = inputs_from_files(
-            test_unitcell_filename,
-            test_dos_filename,
-            test_frozen_sc_fermi_input_filename,
-            frozen=True,
+    def test_read_volume_from_structure_file(self):
+        self.assertAlmostEqual(
+            read_volume_from_structure_file(test_poscar_filename), volume
         )
-        self.assertEqual(len(inputs["defect_species"]), 4)
-        self.assertEqual(inputs["temperature"], 300)
-        self.assertEqual(inputs["bandgap"], 0.8084)
-        self.assertEqual(inputs["nelect"], 18)
-        self.assertEqual(inputs["spinpol"], 1)
-
-    def test_dos_from_dict(self):
-        dos_dict = {
-            "dos": np.ones(101),
-            "edos": np.linspace(-10.0, 10.0, 101),
-            "bandgap": 1,
-            "nelect": 10,
-        }
-        dos = dos_from_dict(dos_dict)
-        self.assertEqual(dos_dict["bandgap"], dos.bandgap)
-        self.assertEqual(dos_dict["nelect"], dos.nelect)
-        self.assertEqual(False, dos.spin_polarised)
-        np.testing.assert_equal(np.ones(101), dos.dos)
-        np.testing.assert_equal(np.linspace(-10.0, 10.0, 101), dos.edos)
-
-    def test_spinpol_dos_from_dict(self):
-        dos_dict = {
-            "dos": {"up": np.ones(101), "down": np.ones(101)},
-            "edos": np.linspace(-10.0, 10.0, 101),
-            "bandgap": 1,
-            "nelect": 10,
-        }
-        dos = dos_from_dict(dos_dict)
-        self.assertEqual(dos.spin_polarised, True)
-
-    def test_defect_species_from_dict(self):
-        defect_dict = {
-            "V_O": {
-                "nsites": 1,
-                "charge_states": {0: {"degeneracy": 1, "formation_energy": 1}},
-            }
-        }
-        defect_species = defect_species_from_dict(defect_dict, volume=1)
-        self.assertEqual(defect_species.name, "V_O")
-        self.assertEqual(defect_species.nsites, 1)
-        self.assertEqual(defect_species.charge_states[0].degeneracy, 1)
-        self.assertEqual(defect_species.charge_states[0].energy, 1)
-
-    def test_defect_species_from_dict_raises_no_e_no_c_error(self):
-        defect_dict = {"V_O": {"nsites": 1, "charge_states": {0: {"degeneracy": 1}}}}
-        with self.assertRaises(ValueError):
-            defect_species_from_dict(defect_dict, 1)
-
-    def test_defect_system_from_yaml(self):
-        defect_system = defect_system_from_yaml(test_defect_system_yaml_filename)
-        self.assertEqual(defect_system.dos.bandgap, 0.8084)
-        self.assertEqual(defect_system.dos.nelect, 18)
-        self.assertEqual(defect_system.volume, 59)
-        self.assertEqual(defect_system.temperature, 300)
-        self.assertEqual(len(defect_system.defect_species), 3)
-
+        self.assertAlmostEqual(read_volume_from_structure_file(test_unitcell_filename), volume)
 
 if __name__ == "__main__":
     unittest.main()

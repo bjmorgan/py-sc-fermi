@@ -75,8 +75,7 @@ class DefectChargeState:
         cls, string: str, volume: Optional[float] = None, frozen: bool = False):
         string = string.strip()
         stripped_string = string.split()
-        print(stripped_string)
-        if frozen == False:
+        if frozen is False:
             return cls(
                 charge=int(stripped_string[0]),
                 energy=float(stripped_string[1]),

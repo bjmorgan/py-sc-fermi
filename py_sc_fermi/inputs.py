@@ -171,7 +171,7 @@ def read_input_fermi(
     defect_species = []
     ndefects = int(pure_readin.pop(0))
     for i in range(ndefects):
-        ds = DefectSpecies.from_string(pure_readin)
+        ds = DefectSpecies._from_list_of_strings(pure_readin)
         defect_species.append(ds)
 
     # read in frozen defect concentrations

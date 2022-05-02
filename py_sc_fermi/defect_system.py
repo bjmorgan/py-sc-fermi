@@ -73,11 +73,11 @@ class DefectSystem(object):
         return [ds.name for ds in self.defect_species]
 
     @classmethod
-    def from_input_set(cls, input_set: InputSet):
+    def from_input_set(cls, input_set: InputSet) -> "DefectSystem":
         """
         Create a defect system from an input set
 
-        :param InputSet input_set: Input set to use to create the defect system
+        :param inputs.InputSet input_set: Input set to use to create the defect system
         :return: Defect system
         :rtype: :py:class:`py_sc_fermi.defect_system.DefectSystem`
         """
