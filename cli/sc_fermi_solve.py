@@ -1,7 +1,4 @@
-from py_sc_fermi.inputs import (
-    inputs_from_files,
-    defect_system_from_yaml,
-)
+from py_sc_fermi.inputs import InputSet
 from py_sc_fermi.defect_system import DefectSystem
 import argparse
 import yaml
@@ -52,26 +49,20 @@ def main():
     n_trial = args.n_trial
 
     if input.endswith(".yaml"):
-        defect_system = defect_system_from_yaml(input)
+        defect_system = DefectSystem.from_yaml(input)
     else:
-        input_data = inputs_from_files(
-            input_fermi_filename=input,
-            structure_filename=structure,
-            totdos_filename=totdos,
+        input_data = InputSet.from_sc_fermi_inputs(
+            input_file=input,
+            structure_file=structure,
+            dos_file=totdos,
             frozen=frozen,
         )
-        defect_system = DefectSystem(
-            defect_species=input_data["defect_species"],
-            dos=input_data["dos"],
-            volume=input_data["volume"],
-            temperature=input_data["temperature"],
-            convergence_tolerance=conv,
-            n_trial_steps=n_trial,
-        )
+        defect_system = DefectSystem.from_input_set(input_data)
     defect_system.report()
 
-    dump_dict = defect_system.as_dict(decomposed=True)
+    dump_dict = defect_system.as_dict(decomposed=False)
     dump_dict["temperature"] = defect_system.temperature
+    print(dump_dict)
     with open("py_sc_fermi_out.yaml", "w") as f:
         yaml.dump(dump_dict, f)
 

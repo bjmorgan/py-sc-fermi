@@ -1,7 +1,10 @@
 from typing import Dict, List, Tuple, Any
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi import inputs
+from py_sc_fermi.inputs import InputSet
+from py_sc_fermi.inputs import volume_from_structure
+from py_sc_fermi.inputs import volume_from_unitcell
+from py_sc_fermi.inputs import read_dos_data
 import yaml
 import numpy as np
 import os
@@ -70,7 +73,7 @@ class DefectSystem(object):
         return [ds.name for ds in self.defect_species]
 
     @classmethod
-    def from_input_set(cls, input_set: inputs.InputSet) -> "DefectSystem":
+    def from_input_set(cls, input_set: InputSet) -> "DefectSystem":
         """
         Create a defect system from an input set
 
@@ -81,7 +84,7 @@ class DefectSystem(object):
 
         # return the defect system
         return cls(
-            defect_species=defect_species,
+            defect_species=input_set.defect_species,
             dos=input_set.dos,
             volume=input_set.volume,
             temperature=input_set.temperature,
@@ -104,9 +107,9 @@ class DefectSystem(object):
 
         if "volume" not in data.keys():
             if "unitcell.dat" in os.listdir("."):
-                volume = inputs.volume_from_unitcell("unitcell.dat")
+                volume = volume_from_unitcell("unitcell.dat")
             elif "POSCAR" in os.listdir("."):
-                volume = inputs.volume_from_structure("POSCAR")
+                volume = volume_from_structure("POSCAR")
             else:
                 raise ValueError(
                     "No volume found in input file and no file defining the structure detected in this directory. We reccomend specifying the volume of the cell in the input .yaml file."
@@ -117,7 +120,7 @@ class DefectSystem(object):
         if "edos" in data.keys() and "dos" in data.keys():
             dos = DOS.from_dict(data)
         elif "totdos.dat" in os.listdir("."):
-            dos = inputs.read_dos_data(filename="totdos.dat", bandgap=data["bandgap"], nelect=data["nelect"])
+            dos = read_dos_data(filename="totdos.dat", bandgap=data["bandgap"], nelect=data["nelect"])
         elif "vasprun.xml" in os.listdir("."):
             dos = DOS.from_vasprun("vasprun.xml", nelect=data["nelect"])
         else:
@@ -350,21 +353,13 @@ class DefectSystem(object):
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
-
         if decomposed == False:
-            sum_concs = {
-                ds.name: ds.get_concentration(e_fermi, self.temperature) * scale
-                for ds in self.defect_species
-            }
+            sum_concs = {str(ds.name): float(ds.get_concentration(e_fermi, self.temperature) * scale)
+                for ds in self.defect_species}
             return {**run_stats, **sum_concs}
         else:
-            for ds in self.defect_species:
-                decomp_concs = {}
-                charge_states = ds.charge_state_concentrations(
-                    e_fermi, self.temperature
-                )
-                all_charge_states = {
-                    str(k): float(v * scale) for k, v in charge_states.items()
-                }
-                decomp_concs.update({ds.name : all_charge_states})
+            decomp_concs = {str(ds.name):
+                {int(q): float(ds.charge_state_concentrations(e_fermi, self.temperature)[q] * scale)
+                for q in ds.charge_states}
+            for ds in self.defect_species}
             return {**run_stats, **decomp_concs}

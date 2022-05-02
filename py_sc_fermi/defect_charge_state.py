@@ -26,9 +26,9 @@ class DefectChargeState:
     def __init__(
         self,
         charge: int,
-        energy: float = None,
-        fixed_concentration: float = None,
         degeneracy: int = 1,
+        energy: float = None,
+        fixed_concentration: float = None
     ):
         """Initialise a ``DefectChargeState`` instance."""
 
@@ -37,8 +37,8 @@ class DefectChargeState:
                 "You must specify either a fixed concentration or energy for this defect! \n Note, if you specify both, the concentration will treated as fixed"
             )
         self._charge = charge
-        self._energy = energy
         self._degeneracy = degeneracy
+        self._energy = energy
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration: float) -> None:
@@ -72,8 +72,7 @@ class DefectChargeState:
 
     @classmethod
     def from_string(
-        cls, string: str, volume: Optional[float] = None, frozen: bool = False
-    ) -> "DefectChargeState":
+        cls, string: str, volume: Optional[float] = None, frozen: bool = False):
         string = string.strip()
         stripped_string = string.split()
         if frozen is False:
