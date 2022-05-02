@@ -291,7 +291,7 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertEqual(DefectSpecies.from_dict(d, volume = 1e24).fixed_concentration, 100)
         self.assertEqual(DefectSpecies.from_dict(d, volume = 1e24).charge_states[1].fixed_concentration, 100)
 
-    def test__from_list_of_strings(self):
+    def test__from_string(self):
         string = "V_O 1 2\n2 2 2"
         string = string.splitlines()
         self.assertEqual(DefectSpecies._from_list_of_strings(deepcopy(string)).name, "V_O")

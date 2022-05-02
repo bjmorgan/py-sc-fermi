@@ -194,7 +194,7 @@ def read_input_fermi(
         defect_names = [ds.name for ds in defect_species]
         print(defect_names)
         for n in range(n_frozen_charge_states):
-            l = pure_readin.pop(0)
+            l = list(pure_readin.pop(0))
             defect_info = str(l).split(" ")
             name, charge_state, concentration = (
                 defect_info[0],
@@ -204,7 +204,7 @@ def read_input_fermi(
             if name in defect_names:
                 defect = [ds for ds in defect_species if ds.name == name][0]
                 defect.charge_states[charge_state].fix_concentration(
-                    concentration / 1e24 * volume # type: ignore
+                    concentration / 1e24 * volume
                 )
             else:
                 print(l)

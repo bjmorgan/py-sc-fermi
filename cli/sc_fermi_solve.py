@@ -60,9 +60,8 @@ def main():
         defect_system = DefectSystem.from_input_set(input_data)
     defect_system.report()
 
-    dump_dict = defect_system.as_dict(decomposed=False)
+    dump_dict = defect_system.as_dict(decomposed=True)
     dump_dict["temperature"] = defect_system.temperature
-    print(dump_dict)
     with open("py_sc_fermi_out.yaml", "w") as f:
         yaml.dump(dump_dict, f)
 
