@@ -6,18 +6,17 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 class DefectSpecies(object):
     """Class for individual defect species.
 
-
     :param str name: A unique identifying string for this defect species,
         e.g. `V_O` might be an oxygen vacancy.
     :param int nsites: Number of sites energetically degenerate sites in the
-        calculation cell where this defect can form.
+        calculation cell where this defect can form in the unit cell (the site degeneracy).
     :param dict charge_states: A dictionary of :py:class:`DefectChargeState`
         for this defect. Each key-value pair takes the form
-        ``{charge (int): :py:class:`DefectChargeState``
+        ``{charge (int): :py:class:`DefectChargeState}``
     :param float fixed_concentration: If set, this fixes the total concentration
         of this defect species to this value (per calculation cell).
         The concetration of the charge states will be able to change,
-        but not the total concentration of the defect species.
+        but the total concentration of the defect species will be fixed to this value.
     """
 
     def __init__(

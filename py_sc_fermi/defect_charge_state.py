@@ -6,17 +6,19 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
 class DefectChargeState:
-    """Class for individual defect charge states
+    """Class describing an individual defect charge state
 
-    :param int charge: Charge of this charge state.
+    :param int charge: integer charge of the defect
     :param float energy: Formation energy of this charge state when
-        E_Fermi = E(VBM)
+        E_Fermi = 0 (E(vbm)) in eV.
     :param int degeneracy: Degeneracy of this charge state
         (e.g. spin/intrinsic degeneracy).
     :param float fixed_concentration: the fixed concentration of the defect
-        charge state (default = None)
+        charge state per unit cell (default = None)
 
-    :raises ValueError: If `energy` and `fixed concentration` == None.
+    :raises ValueError: If `energy` and `fixed concentration` == None. Defect
+        charge state may possess either a formation energy or a fixed concentration,
+        or both.
 
     .. note:: If both a formation energy and fixed_concentration are specified,
         the concentration of the ``DefectChargeState`` will treated as fixed.
@@ -40,13 +42,6 @@ class DefectChargeState:
         self._degeneracy = degeneracy
         self._energy = energy
         self._fixed_concentration = fixed_concentration
-
-    def fix_concentration(self, concentration: float) -> None:
-        """fix the net concentration (per calculation cell) of this defect
-        species
-        :param float concentration: the fixed concentration of this defect
-        """
-        self._fixed_concentration = concentration
 
     @property
     def energy(self) -> Optional[float]:
@@ -73,6 +68,43 @@ class DefectChargeState:
     @classmethod
     def from_string(
         cls, string: str, volume: Optional[float] = None, frozen: bool = False):
+        """
+        Create a DefectChargeState from a string. This method was envisaged for 
+        use as a way to read in defect charge states from an input file for
+        SC-Fermi. If a user does wish to specify a defect chage state using this 
+        functionaility, the string should be in the form:
+
+        ```
+             "`charge` `formation energy` `degeneracy`"
+        ```
+
+        i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
+        of 2 would be specified as:
+
+        ```
+            "2 0.1 2"
+        ```
+
+        if the charge state has a fixed concentration, the string should be in
+        the form:
+
+        ```
+            "`charge` `concentration`"
+        ```
+
+        i.e. a defect with charge 2, concentration of 1e21 per cm-3
+        would be specified as:
+
+        ```
+            "2 1e21"
+        ```
+
+        :param str string: String representation of a defect charge state.
+        :param float volume: Volume of the unit cell (in A^3). Only required if the 
+            charge state has a fixed concentration.
+        :param bool frozen: If True, the parser will expect to read the string as a
+            fixed concentration DefectChargeState.
+        """
         string = string.strip()
         stripped_string = string.split()
         if frozen is False:
@@ -89,6 +121,14 @@ class DefectChargeState:
                     charge=int(stripped_string[1]),
                     fixed_concentration=float(stripped_string[2]) / 1e24 * volume
                 )
+
+    def fix_concentration(self, concentration: float) -> None:
+        """fix the net concentration (per unit cell) of this defect
+        species
+        
+        :param float concentration: the fixed concentration of this defect
+        """
+        self._fixed_concentration = concentration
 
     def get_formation_energy(self, e_fermi: float) -> float: 
         """Calculate the formation energy of this charge state at a
