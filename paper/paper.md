@@ -26,39 +26,20 @@ bibliography: paper.bib
 
 # Summary
 
-Point defects are determinants of the properties of functional materials. Point defects influnce the effiency of solar cell materials [@TLC], the capacities of
-battery materials [@batteries], and performance thermoelectrics[@thermoelectric] to name a few. `py-sc-fermi` is a Python package which provides a numerical
-approach for calculating a "self-consistent Fermi energy", which allows for the quantification of point defect poulations thereby allowing accurate calculation of figures of merit such as electronic conducitivity.
+Atomic scale impefections--known as point defects--influence the properties of all functional materials. Point defects participate in electronic and optical events critical to solar energy conversion [@TLC]. Diffusion charged defects underpins modern electrochemical energy storage systems [@batteries], and they control the extent to which the conductivities of thermoelectrics and transparent conductors can be increased via doping [@thermoelectrics,@TCOs]. Attempts to quantify the concentrations of these defect species has become a common 
+practice in materials modelling community in an attempt to desgin new, highly efficient electronic materials and to rationlise and optimise the properties of known materials [cite Joe's preprint and all the electronic conductivty in solid electrolyte papers]. `py-sc-fermi` is a Python package which provides a numerical approach for calculating defect concentrations under the condition that the removal and addition on ions throughout the material maintain overall net charge neutralility. This is known as a "self-consistent Fermi energy" approach. The inputs for the code are formation energies of all point defects in the system (these are typically obtained from a density funtional theory study) and the electronic structure. The temperature under which the defects form can then be treated as a free parameter. 
 
 # Statement of need
 
 `py-sc-fermi` is a Python package for determining the self-consistent Fermi energy of a material from knowledge of the point defect
-energetics, allowing for quantification of point defect populations. While we aware of other scientific software that allows for these 
-kinds of calculations, we are not aware of any equivalent packages that are not built in to other, larger "workflow" packages (reducing their overall flexibility)
-or are built on a flexible python API which allows for rapid prototyping and exploration of different "what-if" scenarios, while striving to remain "code-agnositic", such that the program does not rely on the input data having being caluclated from a particular materials modelling code.
+energetics, allowing for quantification of point defect populations. While we aware of other scientific software that allows for these and related calculations, we are not aware of any equivalent packages that are not
 
-# Citations
+    - built in to other, larger "workflow" packages (reducing their overall flexibility)[Spinney,pycdt(?),pylada(?)]  
+    - or are built on a flexible Python API which allows for rapid prototyping [SC-Fermi]
 
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
+`py-sc-fermi` also allows the user to implement constraints on the concentrations of defects, for example, if we wished to simulate a system in which defects formed at high temperature, but then the system was cooled such that kinetic barriers were too high for full requilibration of some or all defect concentrations to change, the system can then be resampled at lower temperatures allowing for estimating the room temperature conductivity of a material that was sysnthesied under much higher temperatures. In addition, `py-sc-fermi` is fully "agnositic" towards the software used to generate the input data, and as such, the user is not limitied in which materials modelling code is used to generate the input data.* `py-sc-fermi` strives to be flexible enough to incorporate into any existing point-defect modelling workflow, while remaining user and developer friendly to promote both a wide user base, and ease of extension.
 
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-
-# Figures
-
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
+ *There is some minor convenience functionaility for users of VASP.
 
 # Acknowledgements
 

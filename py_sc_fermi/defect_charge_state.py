@@ -9,12 +9,11 @@ class DefectChargeState:
     """Class describing an individual defect charge state
 
     :param int charge: integer charge of the defect
-    :param float energy: Formation energy of this charge state when
-        E_Fermi = 0 (E(vbm)) in eV.
+    :param float energy: Formation energy of this charge state at E(VBM)
     :param int degeneracy: Degeneracy of this charge state
         (e.g. spin/intrinsic degeneracy).
     :param float fixed_concentration: the fixed concentration of the defect
-        charge state per unit cell (default = None)
+        charge state per unit cell (Default ``None``)
 
     :raises ValueError: If `energy` and `fixed concentration` == None. Defect
         charge state may possess either a formation energy or a fixed concentration,
@@ -45,7 +44,7 @@ class DefectChargeState:
 
     @property
     def energy(self) -> Optional[float]:
-        """:return: Formation energy of this charge state when E_Fermi = E(VBM)"""
+        """:return: Formation energy of this charge state at E(VBM)"""
         return self._energy
 
     @property
@@ -73,34 +72,19 @@ class DefectChargeState:
         use as a way to read in defect charge states from an input file for
         SC-Fermi. If a user does wish to specify a defect chage state using this 
         functionaility, the string should be in the form:
-
-        ```
-             "`charge` `formation energy` `degeneracy`"
-        ```
-
+             "`charge` `formation_energy` `degeneracy`"
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
         of 2 would be specified as:
-
-        ```
             "2 0.1 2"
-        ```
-
         if the charge state has a fixed concentration, the string should be in
         the form:
-
-        ```
             "`charge` `concentration`"
-        ```
-
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
         would be specified as:
-
-        ```
             "2 1e21"
-        ```
-
+        
         :param str string: String representation of a defect charge state.
-        :param float volume: Volume of the unit cell (in A^3). Only required if the 
+        :param float volume: Volume of the unit cell. Only required if the 
             charge state has a fixed concentration.
         :param bool frozen: If True, the parser will expect to read the string as a
             fixed concentration DefectChargeState.
@@ -150,8 +134,8 @@ class DefectChargeState:
         specified Fermi energy and temperature, per site in the unit
         cell.
 
-        :param float e_fermi: Fermi energy relative to the VBM (in eV).
-        :param float temperature: Temperature (in K).
+        :param float e_fermi: Fermi energy.
+        :param float temperature: Temperature.
         :return concentration: Concentration of this charge state at the specified
             Fermi energy and temperature.
         :rtype: float

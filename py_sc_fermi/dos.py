@@ -71,7 +71,7 @@ class DOS(object):
         cls, path_to_vasprun: str, nelect: int, bandgap: Optional[float] = None
     ):
         """
-        generate ``py_sc_fermi.dos.DOS`` object from a ``VASP`` ``vasprun.xml``
+        Generate ``py_sc_fermi.dos.DOS`` object from a ``VASP`` ``vasprun.xml``
         file. As this is parsed using pymatgen, the number of electrons is not
         contained in the vasprun data and must be passed in. On the other hand,
         If the bandgap is not passed in, it can be read from the vasprun file.
@@ -79,7 +79,7 @@ class DOS(object):
         :param str path_to_vasprun: path to vasprun.xml file
         :param int nelect: number of electrons in the calculation cell
         :param float bandgap: bandgap in eV. If not passed in, it will be read
-            from the vasprun file.
+            from the vasprun file. (Default: ``None``)
 
         :return: DOS object
         :rtype: py_sc_fermi.dos.DOS
@@ -147,7 +147,7 @@ class DOS(object):
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
-        density-of-states calculation cell (self.nelect)"""
+        density-of-states unit cell (self.nelect)"""
         integrated_dos = self.sum_dos()
         self._dos = self._dos / integrated_dos * self._nelect
 

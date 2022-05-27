@@ -31,9 +31,9 @@ class InputSet:
 
         :param str input_file: path to yaml file
         :param str structure_file: path to structure file
-            (Default: ``None``)
+            (Default: ``''``)
         :param str dos_file: path to dos file
-            (Default: ``None``)
+            (Default: ``''``)
         :return: InputSet object
         :rtype: py_sc_fermi.inputs.InputSet
 
@@ -146,7 +146,7 @@ def read_input_fermi(
     for ``SC-Fermi``.
 
     :param str filename: path to ``SC-Fermi` input file.
-    :param float volume: volume of unit cell in A^3.
+    :param float volume: volume of unit cell
     :param bool frozen: whether the input file contains any fixed concentration
         ``DefectSpecies`` or ``DefectChargeState``s. I.e. whether this is an
         input file for ``SC-Fermi`` or ``Frozen-SC-Fermi``.
@@ -226,7 +226,7 @@ def read_dos_data(
 
     :param float bandgap: bandgap of defect system in eV.
     :param int nelect: number of electrons in defect system.
-    :param str filename: path to `totdos.dat` file.
+    :param str filename: path to `totdos.dat` file. (Default: ``totdos.dat``)
     :return: :py:class:`DOS`
     :rtype: py_sc_fermi.dos.DOS
     """
@@ -245,7 +245,7 @@ def volume_from_structure(structure_file: str) -> float:
     :py:mod:pymatgen.
 
     :param str structure_file: path to file defining the structure.
-    :return: volume of structure in Angstrom^3
+    :return: volume of structure
     :rtype: float
     """
     return Structure.from_file(structure_file).volume
@@ -256,7 +256,7 @@ def read_volume_from_structure_file(structure_file: str) -> float:
     Read the volume of a structure from a file.
 
     :param str file: path to file defining the structure.
-    :return: volume of structure in Angstrom^3
+    :return: volume of structure
     :rtype: float
     """
     # if the structure is specified in the SC-Fermi format, calculate
