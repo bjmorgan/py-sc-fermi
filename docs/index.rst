@@ -17,6 +17,7 @@ The approach used in this code was initially based off the algorithm used by the
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   tutorial.ipynb
 
 Usage notes
 -------------------------------------
