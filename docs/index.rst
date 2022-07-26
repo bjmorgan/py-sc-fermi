@@ -14,11 +14,6 @@ The approach used in this code was initially based off the algorithm used by the
    :height: 400px
    :align: center
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-   tutorial.ipynb
-
 Usage notes
 -------------------------------------
 - At different points in the documentation, a "unit cell" is referred to, this is the cell for which the density
@@ -44,6 +39,11 @@ Usage notes
 Papers that use :py:mod:`py-sc-fermi`
 -------------------------------------
 - `10.1021/acs.inorgchem.1c00278 <https://pubs.acs.org/doi/abs/10.1021/acs.inorgchem.1c00278>`_
+
+.. toctree::
+   :maxdepth: 2
+
+   source/tutorial.ipynb
 
 Indices and tables
 ==================
