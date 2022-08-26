@@ -1,4 +1,4 @@
-frequently asked questions
+FAQs
 =======================================
 
 1. How do I define the degeneracy of a defect's charge state (``DefectChargeState``)? 
