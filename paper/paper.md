@@ -50,7 +50,7 @@ energetics, allowing for quantification of point defect populations. While we aw
   - built on a flexible Python API which allows for rapid prototyping and convergence testing with respect to the calculated self-consistent Fermi energy
   - is not part of a larger "point-defects workflow" package, making it as flexible as possible for the end user
   - agnostic towards the choice of simulation code used to generate the input data
-  - possess both a command-line interface and user-friendly API
+  - possess both command-line functionaility and user-friendly API
   - allows for constraints on the concentrations of any combination of defects and specific charge states of that defect, including the simulation of effective dopants
   - fully documented and tested.
 
