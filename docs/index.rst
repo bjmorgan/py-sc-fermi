@@ -3,11 +3,12 @@ py-sc-fermi
 =======================================
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: contents
 
    usage_notes
-   source/tutorial.ipynb
+   source/tutorials
 
 :py:mod:`py-sc-fermi` is an open-source Python package for calculating the concentration of point defects in (semiconducting) crystalline materials.
 The required inputs are the volume, density of states of the bulk material, and the formation energies and degeneracies of the point defects. 
