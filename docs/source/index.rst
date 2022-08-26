@@ -18,7 +18,7 @@ The outputs include the self consistent Fermi energy, defect transition levels, 
 
 The approach used in this code was initially based off the algorithm used by the FORTRAN code `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_, as described in this `Paper <https://www.sciencedirect.com/science/article/pii/S0010465519302048>`_.
 
-.. image:: source/figures/outline.png
+.. image:: figures/outline.png
    :width: 800px
    :height: 400px
    :align: center
