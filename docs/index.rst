@@ -4,7 +4,7 @@ py-sc-fermi
 
 .. toctree::
    :hidden:
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: contents
 
    usage_notes
