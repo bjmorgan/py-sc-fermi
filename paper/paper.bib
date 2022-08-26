@@ -25,7 +25,6 @@ abstract  ="The Shockley–Queisser (SQ) limit provides a convenient metric for 
 	abstract = {The contribution emphasizes the central role of point defect chemistry for battery materials. While the significance for solid electrolytes is well appreciated, there are only a few examples, where defect chemistry is taken seriously for electrode materials. This is astonishing as it is only defect chemistry which allows for a proper understanding of both equilibrium (e.g. theoretical capacity, cell voltage) and non-equilibrium properties (losses due to transport problems, charge-transfer resistance, concentration polarization). Furthermore defect chemistry provides the framework for both a materials analysis and a materials search. Selected examples are discussed which refer to various storage modes, corroborating this statement (FePO4, Li2O2, TiO2, Ru: Li2O).}
 }
 
-
 @Article{TCOs,
   title     = "Latest directions in p-type transparent conductor design",
   author    = "Willis, Joe and Scanlon, David O",
@@ -35,6 +34,175 @@ abstract  ="The Shockley–Queisser (SQ) limit provides a convenient metric for 
   number    =  36,
   pages     = "11995--12009",
   year      =  2021,
+  language  = "en"
+}
+
+
+
+@ARTICLE{Neilson2022-cj,
+  title    = "{DefAP}: A Python code for the analysis of point defects in
+              crystalline solids",
+  author   = "Neilson, William D and Murphy, Samuel T",
+  abstract = "Inevitably, all crystalline materials will contain imperfections
+              that have the ability to modify the properties of the host
+              material. Key to the development of advanced materials is the
+              ability to predict the concentrations of different defects in any
+              given environmental conditions and how the change in the defect
+              population alters the material's properties. Modern first
+              principles atomistic simulation techniques, such as density
+              functional theory (DFT), are now widely employed for the
+              simulation of point defects, however, to develop true insight
+              into a material's defect chemistry, it is essential to link the
+              energies calculated to thermodynamic variables that fully
+              describe its operating conditions. The Defect Analysis Package
+              (DefAP), an open-source Python code, has been designed to fulfil
+              this role. The primary function of the package is to predict the
+              concentrations of defects in materials as a function of key
+              thermodynamic variables, such as temperature and availability of
+              different species, expressed through chemical potentials. Through
+              simple thermodynamic equations, DefAP allows the rapid
+              exploration of a material's defect chemistry allowing direct
+              comparison with experimental observations. Rapid exploration is
+              supported through the use of autoplotting with carefully
+              considered automatic data labelling and simplification options
+              enabling production of publication quality plots. DefAP offers a
+              wide range of options for the calculation of defect and carrier
+              concentrations that can be customised by the user to suit the
+              material studied and an extensive suite of options have been
+              designed for the study of extrinsic defects (e.g. dopants or
+              impurities). The capabilities of DefAP are demonstrated in this
+              paper by studying intrinsic defects in YBa2Cu3O7, P doping in Si,
+              Am accumulation in PuO2, and simultaneous build-up of T and He in
+              Li2TiO3.",
+  journal  = "Comput. Mater. Sci.",
+  volume   =  210,
+  pages    = "111434",
+  month    =  jul,
+  year     =  2022,
+  keywords = "Defect chemistry; Thermodynamics; Brouwer diagrams"
+}
+
+
+% The entry below contains non-ASCII chars that could not be converted
+% to a LaTeX equivalent.
+@ARTICLE{Buckeridge2019-fm,
+  title     = "Equilibrium point defect and charge carrier concentrations in a
+               material determined through calculation of the self-consistent
+               Fermi energy",
+  author    = "Buckeridge, J",
+  abstract  = "A concise procedure to determine the self-consistent Fermi
+               energy and defect and carrier concentrations in an extended
+               crystalline system is presented. It is assumed that the
+               formation enthalpies of a set of variously charged point defects
+               in thermodynamic …",
+  journal   = "Comput. Phys. Commun.",
+  publisher = "Elsevier",
+  year      =  2019
+}
+
+
+@ARTICLE{Ogawa2022-sn,
+  title     = "An extended computational approach for point-defect equilibria
+               in semiconductor materials",
+  author    = "Ogawa, Takafumi and Taguchi, Ayako and Kuwabara, Akihide",
+  abstract  = "Concentrations of intrinsic and extrinsic point defects in
+               crystalline materials with a bandgap are typically calculated in
+               a constant-$\mu$ approach from defect formation energies based
+               on density functional theory. In this work, calculations of
+               thermal and charge equilibria among point defects are extended
+               to a constant-N approach. The two approaches for point-defect
+               equilibria are comparatively demonstrated in the application to
+               Mg2Si doped with Li, Na, and Ag, which is a lightweight and
+               environmentally friendly thermoelectric candidate material. Our
+               results reveal the systematic behavior of defect and carrier
+               concentrations. The dopant atoms form interstitial defects at
+               similar concentrations to substitutional defects at the Mg
+               sites, resulting in significantly reduced free-carrier
+               concentrations compared to the expected values. The developed
+               procedures could be utilized to find an optimal avenue for
+               achieving higher carrier concentrations, e.g., with regard to
+               annealing temperature and the concentration of dopant atoms, in
+               various semiconductors and insulators.",
+  journal   = "npj Computational Materials",
+  publisher = "Nature Publishing Group",
+  volume    =  8,
+  number    =  1,
+  pages     = "1--11",
+  month     =  apr,
+  year      =  2022,
+  language  = "en"
+}
+
+
+
+@ARTICLE{Arrigoni2021-oc,
+  title    = "Spinney: Post-processing of first-principles calculations of
+              point defects in semiconductors with Python",
+  author   = "Arrigoni, Marco and Madsen, Georg K H",
+  abstract = "Understanding and predicting the thermodynamic properties of
+              point defects in semiconductors and insulators would greatly aid
+              in the design of novel materials and allow tuning the properties
+              of existing ones. As a matter of fact, first-principles
+              calculations based on density functional theory (DFT) and the
+              supercell approach have become a standard tool for the study of
+              point defects in solids. However, in the dilute limit, of most
+              interest for the design of novel semiconductor materials, the
+              ``raw`` DFT calculations require an extensive post-processing.
+              Spinney is an open-source Python package developed with the aim
+              of processing first-principles calculations to obtain several
+              quantities of interest, such as the chemical potential limits
+              that assure the thermodynamic stability of the defect-laden
+              system, defect charge transition levels, defect formation
+              energies, including electrostatic corrections for finite-size
+              effects, and defect and carrier concentrations. In this paper we
+              demonstrate the capabilities of the Spinney code using c-BN,
+              GaN:Mg, TiO2 and ZnO as examples. Program summary Program Title:
+              Spinney CPC Library link to program files:
+              https://doi.org/10.17632/2xp4ddwmgx.1 Developer's repository
+              link: https://gitlab.com/Marrigoni/spinney Code Ocean capsule:
+              https://codeocean.com/capsule/4970623 Licensing provisions: MIT
+              Programming language: Python 3 External libraries: NumPy [1],
+              SciPy [2], Pandas [3], Matplotlib [4], ASE [5] Nature of problem:
+              Post-processing of first-principles calculations in order to
+              obtain important properties of defect laden systems in the
+              dilute-limit: chemical potential values ensuring thermodynamic
+              stability, thermodynamic charge transition levels, defect
+              formation energies and corrections thereof using state-of-the-art
+              corrections schemes for electrostatic finite-size effects,
+              equilibrium defect and carriers concentrations. Solution method:
+              Flexible low-level interface for allowing the post-processing of
+              the raw fist-principles data provided by any computer code.
+              High-level interface for parsing and post-processing the
+              first-principles data produced by the popular computer codes VASP
+              and WIEN2k. Additional comments including restrictions and
+              unusual features: An extensive documentation is available at:
+              https://spinney.readthedocs.io",
+  journal  = "Comput. Phys. Commun.",
+  volume   =  264,
+  pages    = "107946",
+  month    =  jul,
+  year     =  2021,
+  keywords = "First-principles; Point defects; Charged defects; Thermodynamic
+              stability; Density functional theory; Python"
+}
+
+
+@ARTICLE{LLZO-elect,
+  title     = "Low electronic conductivity of {Li7La3Zr2O12} solid electrolytes
+               from first principles",
+  author    = "Squires, Alexander G and Davies, Daniel W and Kim, Sunghyun and
+               Scanlon, David O and Walsh, Aron and Morgan, Benjamin J",
+  abstract  = "Lithium-rich garnets such as Li 7 La 3 Zr 2 O 12 (LLZO) are
+               promising solid electrolytes with potential application in
+               all-solid-state batteries that use lithium-metal anodes. The
+               practical …",
+  journal   = "Phys. Rev. Mater.",
+  publisher = "American Physical Society (APS)",
+  volume    =  6,
+  number    =  8,
+  month     =  aug,
+  year      =  2022,
+  copyright = "https://creativecommons.org/licenses/by/4.0/",
   language  = "en"
 }
 
