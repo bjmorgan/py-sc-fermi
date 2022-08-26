@@ -9,7 +9,7 @@ py-sc-fermi
 
    usage_notes
    tutorials
-   py-sc-fermi
+   py_sc_fermi
    FAQs
 
 :py:mod:`py-sc-fermi` is an open-source Python package for calculating the concentration of point defects in (semiconducting) crystalline materials.
