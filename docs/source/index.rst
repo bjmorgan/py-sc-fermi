@@ -25,7 +25,7 @@ The approach used in this code was initially based off the algorithm used by the
    :height: 400px
    :align: center
   
-  
+|
 
 Papers that use :py:mod:`py-sc-fermi`
 ======================================
