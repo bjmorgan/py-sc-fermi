@@ -7,7 +7,6 @@ py-sc-fermi
    :maxdepth: 4
    :caption: contents
 
-   index
    usage_notes
    tutorials
    cli_tutorial
@@ -26,15 +25,10 @@ The approach used in this code was initially based off the algorithm used by the
    :height: 400px
    :align: center
   
+  
 
 Papers that use :py:mod:`py-sc-fermi`
 -------------------------------------
 - `10.1021/acs.inorgchem.1c00278 <https://pubs.acs.org/doi/abs/10.1021/acs.inorgchem.1c00278>`_
 - `10.1103/PhysRevMaterials.6.085401 <https://journals.aps.org/prmaterials/abstract/10.1103/PhysRevMaterials.6.085401>`_
 
-
-Reference
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
