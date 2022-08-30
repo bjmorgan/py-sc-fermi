@@ -1,4 +1,4 @@
-Tutorial notebooks
+API tutorial
 ===================
 .. toctree::
    :maxdepth: 4
