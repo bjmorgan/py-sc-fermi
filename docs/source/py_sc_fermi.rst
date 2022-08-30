@@ -1,9 +1,6 @@
 py\_sc\_fermi package
 =====================
 
-Submodules
-----------
-
 py\_sc\_fermi.defect\_charge\_state module
 ------------------------------------------
 
