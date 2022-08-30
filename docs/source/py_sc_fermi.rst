@@ -1,4 +1,4 @@
-py\_sc\_fermi package
+API
 =====================
 
 py\_sc\_fermi.defect\_charge\_state module
