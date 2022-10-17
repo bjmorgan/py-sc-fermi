@@ -10,9 +10,10 @@ import yaml
 import os
 
 InputFermiData = namedtuple(
-        "InputFermiData",
-        "spin_pol nelect bandgap temperature defect_species",
-    )
+    "InputFermiData",
+    "spin_pol nelect bandgap temperature defect_species",
+)
+
 
 @dataclass
 class InputSet:
@@ -24,9 +25,7 @@ class InputSet:
     n_trial_steps: int = 1500
 
     @classmethod
-    def from_yaml(
-        cls, input_file: str, structure_file: str = '', dos_file: str = ''
-    ):
+    def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = ""):
         """
         Generate a ``py_sc_fermi.inputs.InputSet`` object from a yaml file.
 
@@ -45,25 +44,52 @@ class InputSet:
         with open(input_file, "r") as f:
             input_dict = yaml.safe_load(f)
 
-        # if edos and dos are specified in the yaml file, generate
-        # the dos object
-        if "edos" in input_dict.keys() and "dos" in input_dict.keys():
-            dos = DOS.from_dict(input_dict)
-        # if the dos is specified in the SC-Fermi format, generate
-        # from that
-        elif dos_file.endswith(".dat"):
-            dos_data = read_dos_data(input_dict["bandgap"], input_dict["nelect"], dos_file)
-            dos = DOS(
-                dos=dos_data.dos,
-                edos=dos_data.dos,
-                nelect=input_dict["nelect"],
-                bandgap=input_dict["bandgap"],
-            )
-        # or if DOS file is an .xml, try and read it as a vaspun
-        elif dos_file.endswith(".xml"):
-            dos = DOS.from_vasprun(dos_file, input_dict["nelect"], input_dict["bandgap"])
+        if dos_file != '':
+            if dos_file.endswith(".dat"):
+                dos_data = read_dos_data(
+                    input_dict["bandgap"], input_dict["nelect"], dos_file
+                )
+                dos = DOS(
+                    dos=dos_data.dos,
+                    edos=dos_data.dos,
+                    nelect=input_dict["nelect"],
+                    bandgap=input_dict["bandgap"],
+                )
 
-        if "volume" not in input_dict.keys():
+            # or if DOS file is an .xml, try and read it as a vasprun
+            elif dos_file.endswith(".xml"):
+                dos = DOS.from_vasprun(
+                    dos_file, input_dict["nelect"], input_dict["bandgap"]
+                )
+        
+        elif "edos" in input_dict.keys() and "dos" in input_dict.keys():
+            dos = DOS.from_dict(input_dict)
+            
+        # or if there is a `totdos.dat` in the current folder
+        elif "totdos.dat" in os.listdir("."):
+            dos = read_dos_data(
+                    filename="totdos.dat",
+                    bandgap=input_dict["bandgap"],
+                    nelect=input_dict["nelect"],
+                )
+        # or if there is a vasprun in the current folder
+        elif "vasprun.xml" in os.listdir("."):
+            dos = DOS.from_vasprun("vasprun.xml", nelect=input_dict["nelect"])
+    
+        # if all else fails, raise an Error
+
+        else:
+            raise ValueError(
+                """No DOS file specified, or dos and edos entry found in .yaml file, 
+                and the dos could not be read from any other file  in 
+                the current directory."""
+            )
+
+        # read volume
+        if structure_file != '':
+            volume = read_volume_from_structure_file(structure_file)
+        
+        elif "volume" not in input_dict.keys():
             if "unitcell.dat" in os.listdir("."):
                 volume = volume_from_unitcell("unitcell.dat")
             elif "POSCAR" in os.listdir("."):
@@ -74,19 +100,7 @@ class InputSet:
                 )
         else:
             volume = input_dict["volume"]
-
-        if "edos" in input_dict.keys() and "dos" in input_dict.keys():
-            dos = DOS.from_dict(input_dict)
-        elif "totdos.dat" in os.listdir("."):
-            dos = read_dos_data(filename="totdos.dat", bandgap=input_dict["bandgap"], nelect=input_dict["nelect"])
-        elif "vasprun.xml" in os.listdir("."):
-            dos = DOS.from_vasprun("vasprun.xml", nelect=input_dict["nelect"])
-        else:
-            raise ValueError(
-                "No DOS data found in yaml file, and the dos could not be read from the current directory."
-            )
-
-
+        
         # if the solver parameters are not in the .yaml file, set them
         if "convergence_tol" not in list(input_dict.keys()):
             input_dict["convergence_tol"] = 1e-18
@@ -94,7 +108,7 @@ class InputSet:
             input_dict["n_trial_steps"] = 1500
 
         defect_species = [
-             DefectSpecies.from_dict(d, volume) for d in input_dict["defect_species"]
+            DefectSpecies.from_dict(d, volume) for d in input_dict["defect_species"]
         ]
 
         return cls(
@@ -129,7 +143,7 @@ class InputSet:
             dos=dos,
             volume=volume,
             defect_species=input_data.defect_species,
-            temperature=input_data.temperature
+            temperature=input_data.temperature,
         )
 
 
@@ -147,6 +161,7 @@ def is_yaml(filename: str) -> bool:
     except yaml.YAMLError:
         return False
     return True
+
 
 def volume_from_unitcell(filename: str) -> float:
     """
@@ -211,7 +226,7 @@ def read_input_fermi(
             name, concentration = l[0], float(l[1])
             try:
                 defect = [ds for ds in defect_species if ds.name == name][0]
-                defect.fix_concentration(concentration / 1e24 * volume)     
+                defect.fix_concentration(concentration / 1e24 * volume)
             except:
                 raise ValueError(
                     f"Frozen defect {name} not found in defect species list"
@@ -237,7 +252,9 @@ def read_input_fermi(
                 defect_charge_state = DefectChargeState.from_string(
                     full_string, volume, frozen=True
                 )
-                defect_species.append(DefectSpecies(name, 1, {charge_state: defect_charge_state}))
+                defect_species.append(
+                    DefectSpecies(name, 1, {charge_state: defect_charge_state})
+                )
 
     return InputFermiData(spin_pol, nelect, bandgap, temperature, defect_species)
 

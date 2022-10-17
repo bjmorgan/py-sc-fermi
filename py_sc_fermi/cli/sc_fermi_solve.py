@@ -3,6 +3,7 @@ from py_sc_fermi.defect_system import DefectSystem
 import argparse
 import yaml
 
+
 def parse_command_line_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -27,7 +28,11 @@ def parse_command_line_arguments():
         action="store_true",
     )
     parser.add_argument(
-        "-c", "--convergence_tol", help="convergence tolerance", type=float, default=1e-19
+        "-c",
+        "--convergence_tol",
+        help="convergence tolerance",
+        type=float,
+        default=1e-19,
     )
     parser.add_argument(
         "-n", "--n_trial", help="maximum number of trial steps", type=int, default=1500
@@ -47,7 +52,7 @@ def main():
     dos_file = args.dos_file
     frozen_defects = args.frozen_defects
     convergence_tol = args.convergence_tol
-    n_trial = args.n_trial # This is not used?
+    n_trial = args.n_trial  # This is not used?
 
     if input_file.endswith(".yaml"):
         defect_system = DefectSystem.from_yaml(input_file)

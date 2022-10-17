@@ -29,7 +29,7 @@ class DefectChargeState:
         charge: int,
         degeneracy: int = 1,
         energy: float = None,
-        fixed_concentration: float = None
+        fixed_concentration: float = None,
     ):
         """Initialise a ``DefectChargeState`` instance."""
 
@@ -66,11 +66,12 @@ class DefectChargeState:
 
     @classmethod
     def from_string(
-        cls, string: str, volume: Optional[float] = None, frozen: bool = False):
+        cls, string: str, volume: Optional[float] = None, frozen: bool = False
+    ):
         """
-        Create a DefectChargeState from a string. This method was envisaged for 
+        Create a DefectChargeState from a string. This method was envisaged for
         use as a way to read in defect charge states from an input file for
-        SC-Fermi. If a user does wish to specify a defect chage state using this 
+        SC-Fermi. If a user does wish to specify a defect chage state using this
         functionaility, the string should be in the form:
              "`charge` `formation_energy` `degeneracy`"
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
@@ -82,9 +83,9 @@ class DefectChargeState:
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
         would be specified as:
             "2 1e21"
-        
+
         :param str string: String representation of a defect charge state.
-        :param float volume: Volume of the unit cell. Only required if the 
+        :param float volume: Volume of the unit cell. Only required if the
             charge state has a fixed concentration.
         :param bool frozen: If True, the parser will expect to read the string as a
             fixed concentration DefectChargeState.
@@ -99,22 +100,24 @@ class DefectChargeState:
             )
         else:
             if volume is None:
-                raise ValueError("You must specify a real, positive cell volume if passing a frozen concentration!")
+                raise ValueError(
+                    "You must specify a real, positive cell volume if passing a frozen concentration!"
+                )
             else:
                 return cls(
                     charge=int(stripped_string[1]),
-                    fixed_concentration=float(stripped_string[2]) / 1e24 * volume
+                    fixed_concentration=float(stripped_string[2]) / 1e24 * volume,
                 )
 
     def fix_concentration(self, concentration: float) -> None:
         """fix the net concentration (per unit cell) of this defect
         species
-        
+
         :param float concentration: the fixed concentration of this defect
         """
         self._fixed_concentration = concentration
 
-    def get_formation_energy(self, e_fermi: float) -> float: 
+    def get_formation_energy(self, e_fermi: float) -> float:
         """Calculate the formation energy of this charge state at a
         specified Fermi energy.
 
@@ -127,7 +130,9 @@ class DefectChargeState:
         if self.energy is not None:
             return self.energy + self.charge * e_fermi
         else:
-            raise ValueError("Cannot calculate formation energy as a function of `e_fermi` without a defined formation energy!")
+            raise ValueError(
+                "Cannot calculate formation energy as a function of `e_fermi` without a defined formation energy!"
+            )
 
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this charge state at a

@@ -101,7 +101,7 @@ class DOS(object):
         if bandgap is None:
             bandgap = float(vr.eigenvalue_band_properties[0])
         return cls(
-            dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol 
+            dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol
         )
 
     @classmethod
@@ -127,7 +127,7 @@ class DOS(object):
             new_dos = np.sum(raw_dos, axis=0)
             spin_pol = True
         else:
-             raise ValueError("dos_dict['dos'] is not in the correct format.")
+            raise ValueError("dos_dict['dos'] is not in the correct format.")
         return cls(
             nelect=nelect,
             bandgap=bandgap,

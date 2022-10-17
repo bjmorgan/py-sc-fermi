@@ -102,7 +102,7 @@ class DefectSystem(object):
         :rtype: py_sc_fermi.defect_system.DefectSystem
 
         """
- 
+
         input_set = InputSet.from_yaml(filename)
         return cls(
             defect_species=input_set.defect_species,
@@ -312,7 +312,7 @@ class DefectSystem(object):
             scale = 1e24 / self.volume
         else:
             scale = 1
-        
+
         e_fermi = self.get_sc_fermi()[0]
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         run_stats = {
@@ -321,12 +321,22 @@ class DefectSystem(object):
             "n0": float(n0 * scale),
         }
         if decomposed == False:
-            sum_concs = {str(ds.name): float(ds.get_concentration(e_fermi, self.temperature) * scale)
-                for ds in self.defect_species}
+            sum_concs = {
+                str(ds.name): float(
+                    ds.get_concentration(e_fermi, self.temperature) * scale
+                )
+                for ds in self.defect_species
+            }
             return {**run_stats, **sum_concs}
         else:
-            decomp_concs = {str(ds.name):
-                {int(q): float(ds.charge_state_concentrations(e_fermi, self.temperature)[q] * scale)
-                for q in ds.charge_states}
-            for ds in self.defect_species}
+            decomp_concs = {
+                str(ds.name): {
+                    int(q): float(
+                        ds.charge_state_concentrations(e_fermi, self.temperature)[q]
+                        * scale
+                    )
+                    for q in ds.charge_states
+                }
+                for ds in self.defect_species
+            }
             return {**run_stats, **decomp_concs}

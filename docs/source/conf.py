@@ -35,7 +35,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "nbsphinx",
-    "recommonmark"
+    "recommonmark",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -46,8 +46,7 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-source_suffix = {'.rst' : 'restructuredtext',
-                 '.md' : 'markdown'}
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 
 # -- Options for HTML output -------------------------------------------------

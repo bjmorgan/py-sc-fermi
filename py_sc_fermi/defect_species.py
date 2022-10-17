@@ -84,15 +84,14 @@ class DefectSpecies(object):
         return to_return
 
     @classmethod
-    def from_dict(
-        cls, defect_species_dict: dict, volume: Optional[float] = None):
+    def from_dict(cls, defect_species_dict: dict, volume: Optional[float] = None):
         """
         return a DefectSpecies object from a dictionary containing the defect
         species data.
 
         :param dict defect_species_dict: dictionary containing the defect species
             data.
-        :param float volume: volume of the defect system in Angstrom^3. 
+        :param float volume: volume of the defect system in Angstrom^3.
             (Default: ``None``)
         :return: :py:class:`DefectSpecies`
         :rtype: py_sc_fermi.defect_species.DefectSpecies
@@ -120,28 +119,29 @@ class DefectSpecies(object):
             )
             charge_states.append(charge_state)
 
-        if "fixed_concentration" in defect_species_dict[name].keys() and volume is not None:
+        if (
+            "fixed_concentration" in defect_species_dict[name].keys()
+            and volume is not None
+        ):
             fixed_concentration = (
                 float(defect_species_dict[name]["fixed_concentration"]) / 1e24 * volume
             )
             return cls(
                 name,
                 defect_species_dict[name]["nsites"],
-                charge_states={cs.charge : cs for cs in charge_states},
+                charge_states={cs.charge: cs for cs in charge_states},
                 fixed_concentration=fixed_concentration,
             )
         else:
             return cls(
                 name,
                 defect_species_dict[name]["nsites"],
-                charge_states={cs.charge : cs for cs in charge_states},
+                charge_states={cs.charge: cs for cs in charge_states},
             )
 
     @classmethod
-    def _from_list_of_strings(
-        cls, defect_string: List[str]
-    ):
-        """ 
+    def _from_list_of_strings(cls, defect_string: List[str]):
+        """
         generate a DefectSpecies object from a string containing the defect
         species data. Only intended for use reading defect species from a
         SC-Fermi input file.
@@ -159,7 +159,7 @@ class DefectSpecies(object):
             string = defect_string.pop(0)
             charge_state = DefectChargeState.from_string(string)
             charge_states.append(charge_state)
-        return cls(name, nsites, {cs.charge : cs for cs in charge_states})
+        return cls(name, nsites, {cs.charge: cs for cs in charge_states})
 
     def charge_states_by_formation_energy(
         self, e_fermi: float
@@ -182,9 +182,7 @@ class DefectSpecies(object):
             key=lambda x: x.get_formation_energy(e_fermi),
         )
 
-    def min_energy_charge_state(
-        self, e_fermi: float
-    ) -> DefectChargeState:
+    def min_energy_charge_state(self, e_fermi: float) -> DefectChargeState:
         """Returns the defect charge state with the minimum energy at a given
         Fermi energy.
 

@@ -14,16 +14,15 @@ setup(
     author="Benjamin J. Morgan, Alex G. Squires",
     author_email="b.j.morgan@bath.ac.uk",
     url="https://github.com/bjmorgan/py-sc-fermi",
-    download_url="https://github.com/bjmorgan/py-sc-fermi/archive/%s.tar.gz" % (VERSION),
+    download_url="https://github.com/bjmorgan/py-sc-fermi/archive/%s.tar.gz"
+    % (VERSION),
     version=VERSION,
     install_requires=open("requirements.txt").read(),
     python_requires=">=3.8",
     license="MIT",
-    packages=find_packages(exclude=['docs', 'tests*']),
+    packages=find_packages(exclude=["docs", "tests*"]),
     name="py-sc-fermi",
     entry_points={
-        "console_scripts": [
-            f"{s} = py_sc_fermi.cli.{s}:main" for s in scripts
-        ]
+        "console_scripts": [f"{s} = py_sc_fermi.cli.{s}:main" for s in scripts]
     },
 )
