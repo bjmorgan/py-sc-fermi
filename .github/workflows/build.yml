@@ -25,6 +25,7 @@ jobs:
             pip install mypy
             pip install types-PyYAML
             pip install pytest
+            pip install pytest-cov
             pip install .
             pip list
         - name: Run tests
