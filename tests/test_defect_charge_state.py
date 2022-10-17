@@ -78,8 +78,8 @@ class TestDefectChargeState(unittest.TestCase):
 
     def test_defect_charge_state_from_string(self):
         string = "1 0.1234 2"
-        defect_charge_state = DefectChargeState.from_string(string) 
-        print(defect_charge_state)  
+        defect_charge_state = DefectChargeState.from_string(string)
+        print(defect_charge_state)
         self.assertEqual(defect_charge_state.degeneracy, 2)
         self.assertEqual(defect_charge_state.energy, 0.1234)
         self.assertEqual(defect_charge_state.charge, 1)
@@ -87,15 +87,16 @@ class TestDefectChargeState(unittest.TestCase):
 
     def test_defect_charge_state_from_string_with_fixed_concentration(self):
         string = "V_O 1 0.1234"
-        defect_charge_state = DefectChargeState.from_string(string, frozen = True, volume=100)
+        defect_charge_state = DefectChargeState.from_string(
+            string, frozen=True, volume=100
+        )
         self.assertEqual(defect_charge_state.fixed_concentration, 1.234e-23)
         self.assertEqual(defect_charge_state.charge, 1)
-    
+
     def test_defect_charge_state_from_string_raises(self):
         string = "V_O 1 0.1234"
         with self.assertRaises(ValueError):
-            DefectChargeState.from_string(string, frozen = True, volume=None)
-
+            DefectChargeState.from_string(string, frozen=True, volume=None)
 
     def test__repr__(self):
         self.assertEqual(

@@ -112,26 +112,31 @@ class TestDos(unittest.TestCase):
         self.assertEqual(dos.spin_polarised, False)
 
     def test_from_dict_with_spin_polarised(self):
-        dos = self.dos.from_dict({
+        dos = self.dos.from_dict(
+            {
                 "dos": np.array([np.ones(101), np.ones(101)]),
                 "edos": np.linspace(-10.0, 10.0, 101),
                 "bandgap": 3.0,
                 "nelect": 10,
-            })
+            }
+        )
         self.assertEqual(dos.nelect, 10)
         self.assertEqual(dos.bandgap, 3.0)
-        np.testing.assert_equal(dos.dos, np.sum([np.ones(101)/2, np.ones(101)/2], axis=0))
+        np.testing.assert_equal(
+            dos.dos, np.sum([np.ones(101) / 2, np.ones(101) / 2], axis=0)
+        )
         self.assertEqual(dos.spin_polarised, True)
-        
+
     def test_from_dict_raises(self):
         with self.assertRaises(ValueError):
-            self.dos.from_dict({
+            self.dos.from_dict(
+                {
                     "dos": np.array([np.ones(101), np.ones(101), np.ones(101)]),
                     "edos": np.linspace(-10.0, 10.0, 101),
                     "bandgap": 3.0,
                     "nelect": 10,
-                })
-
+                }
+            )
 
 
 if __name__ == "__main__":

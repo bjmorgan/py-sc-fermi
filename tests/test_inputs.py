@@ -27,13 +27,20 @@ test_sc_fermi_input_filename = os.path.join(
 test_frozen_sc_fermi_input_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "frozen_charge_states.dat"
 )
+test_bad_frozen_sc_fermi_input_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "bad_frozen_species.dat"
+)
 test_dos_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "totdos.dat")
 test_defect_system_yaml_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
 )
+test_exception_yaml_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
+)
 
 structure = Structure.from_file(test_poscar_filename)
 volume = structure.volume
+
 
 class TestInputsSetInit(unittest.TestCase):
     def test_input_set_is_initialised(self):
@@ -51,6 +58,7 @@ class TestInputsSetInit(unittest.TestCase):
         self.assertEqual(input_set.convergence_tolerance, conv)
         self.assertEqual(input_set.n_trial_steps, n_trial)
 
+
 class TestInputSet(unittest.TestCase):
     def test_from_yaml(self):
         input_set = InputSet.from_yaml(test_defect_system_yaml_filename)
@@ -59,7 +67,11 @@ class TestInputSet(unittest.TestCase):
         self.assertEqual(input_set.dos.bandgap, 0.8084)
         self.assertEqual(input_set.temperature, 300)
         self.assertEqual(len(input_set.defect_species), 3)
-    
+
+    def test_from_yaml_raises(self):
+        with self.assertRaises(ValueError):
+            InputSet.from_yaml(test_exception_yaml_filename)
+
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
             test_sc_fermi_input_filename, test_unitcell_filename, test_dos_filename
@@ -94,8 +106,13 @@ class TestInputs(unittest.TestCase):
             read_input_fermi(test_sc_fermi_input_filename, volume=None, frozen=True)
 
     def test_read_input_fermi_frozen(self):
-        defect_data = read_input_fermi(test_frozen_sc_fermi_input_filename, volume=1, frozen=True)
-        # self.assertEqual
+        read_input_fermi(test_frozen_sc_fermi_input_filename, volume=1, frozen=True)
+
+    def test_bad_frozen_name_raises(self):
+        with self.assertRaises(ValueError):
+            read_input_fermi(
+                test_bad_frozen_sc_fermi_input_filename, volume=1, frozen=True
+            )
 
     def test_read_dos_data(self):
         dos_data = read_dos_data(filename=test_dos_filename, bandgap=1, nelect=1)
@@ -105,7 +122,10 @@ class TestInputs(unittest.TestCase):
         self.assertAlmostEqual(
             read_volume_from_structure_file(test_poscar_filename), volume
         )
-        self.assertAlmostEqual(read_volume_from_structure_file(test_unitcell_filename), volume)
+        self.assertAlmostEqual(
+            read_volume_from_structure_file(test_unitcell_filename), volume
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

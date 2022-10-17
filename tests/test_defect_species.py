@@ -3,7 +3,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 from copy import deepcopy
 
-from numpy.testing import assert_almost_equal, assert_equal
+from numpy.testing import assert_equal
 
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState
@@ -14,8 +14,8 @@ class TestDefectSpeciesInit(unittest.TestCase):
         name = "foo"
         nsites = 2
         mock_charge_states = {
-            0 : Mock(spec=DefectChargeState),
-            1 : Mock(spec=DefectChargeState),
+            0: Mock(spec=DefectChargeState),
+            1: Mock(spec=DefectChargeState),
         }
         mock_charge_states[0].charge = 0
         mock_charge_states[1].charge = 1
@@ -34,9 +34,9 @@ class TestDefectSpecies(unittest.TestCase):
         name = "V_O"
         nsites = 2
         mock_charge_states = {
-            0 : Mock(spec=DefectChargeState),
-            1 : Mock(spec=DefectChargeState),
-            2 : Mock(spec=DefectChargeState),
+            0: Mock(spec=DefectChargeState),
+            1: Mock(spec=DefectChargeState),
+            2: Mock(spec=DefectChargeState),
         }
         mock_charge_states[0].charge = 0
         mock_charge_states[1].charge = 1
@@ -226,13 +226,13 @@ class TestDefectSpecies(unittest.TestCase):
         self.defect_species.charge_states[1].fixed_concentration = None
         self.defect_species.charge_states[2].fixed_concentration = None
         self.defect_species.charge_states[0].get_concentration = Mock(
-            return_value=0.1234/3
+            return_value=0.1234 / 3
         )
         self.defect_species.charge_states[1].get_concentration = Mock(
-            return_value=0.1234/3
+            return_value=0.1234 / 3
         )
         self.defect_species.charge_states[2].get_concentration = Mock(
-            return_value=0.1234/3
+            return_value=0.1234 / 3
         )
         self.defect_species._fixed_concentration = 0.1234
         self.assertEqual(
@@ -258,45 +258,63 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test_tl_profile(self):
         # TODO: ideally, this test should more directly check the
-        # funtionality of this method
+        # functionality of this method
         charge_state_1 = DefectChargeState(0, energy=2, degeneracy=1)
         charge_state_2 = DefectChargeState(2, energy=-1, degeneracy=1)
-        defect = DefectSpecies("foo", 1, {0 : charge_state_1, 2 :charge_state_2})
+        defect = DefectSpecies("foo", 1, {0: charge_state_1, 2: charge_state_2})
         assert_equal(defect.tl_profile(0, 5), [[0, -1], [1.5, 2], [5, 2]])
 
     def test__repr__(self):
-        self.defect_species._charge_states = {2 : DefectChargeState(2, energy=-1, degeneracy=1)}
+        self.defect_species._charge_states = {
+            2: DefectChargeState(2, energy=-1, degeneracy=1)
+        }
         self.defect_species._fixed_concentration = 100
         self.assertEqual(
             str(self.defect_species),
-            "\nV_O, nsites=2\nfixed [c] = 100\n  q=+2, e=-1, deg=1\n"
+            "\nV_O, nsites=2\nfixed [c] = 100\n  q=+2, e=-1, deg=1\n",
         )
 
     def test_from_dict(self):
-        d = {"V_O" : {
-            "nsites": 2,
-            "charge_states": {1 : {"formation_energy": 0, "degeneracy": 1}}}}
+        d = {
+            "V_O": {
+                "nsites": 2,
+                "charge_states": {1: {"formation_energy": 0, "degeneracy": 1}},
+            }
+        }
         self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
         self.assertEqual(DefectSpecies.from_dict(d).nsites, 2)
         self.assertEqual(DefectSpecies.from_dict(d).charge_states[1].charge, 1)
         self.assertEqual(DefectSpecies.from_dict(d).charge_states[1].energy, 0)
 
     def test_from_dict_with_fixed_concentration(self):
-        d = {"V_O" : {
-            "nsites": 2,
-            "charge_states": {1 : {"fixed_concentration": 100, "degeneracy": 1}},
-            "fixed_concentration": 100}}
+        d = {
+            "V_O": {
+                "nsites": 2,
+                "charge_states": {1: {"fixed_concentration": 100, "degeneracy": 1}},
+                "fixed_concentration": 100,
+            }
+        }
         self.assertEqual(DefectSpecies.from_dict(d, volume=1e24).name, "V_O")
         self.assertEqual(DefectSpecies.from_dict(d, volume=1e24).nsites, 2)
-        self.assertEqual(DefectSpecies.from_dict(d, volume = 1e24).fixed_concentration, 100)
-        self.assertEqual(DefectSpecies.from_dict(d, volume = 1e24).charge_states[1].fixed_concentration, 100)
+        self.assertEqual(
+            DefectSpecies.from_dict(d, volume=1e24).fixed_concentration, 100
+        )
+        self.assertEqual(
+            DefectSpecies.from_dict(d, volume=1e24)
+            .charge_states[1]
+            .fixed_concentration,
+            100,
+        )
 
     def test__from_string(self):
         string = "V_O 1 2\n2 2 2"
         string = string.splitlines()
-        self.assertEqual(DefectSpecies._from_list_of_strings(deepcopy(string)).name, "V_O")
-        self.assertEqual(DefectSpecies._from_list_of_strings(deepcopy(string)).nsites, 2)
-
+        self.assertEqual(
+            DefectSpecies._from_list_of_strings(deepcopy(string)).name, "V_O"
+        )
+        self.assertEqual(
+            DefectSpecies._from_list_of_strings(deepcopy(string)).nsites, 2
+        )
 
 
 if __name__ == "__main__":

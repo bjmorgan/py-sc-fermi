@@ -212,7 +212,7 @@ def read_input_fermi(
             try:
                 defect = [ds for ds in defect_species if ds.name == name][0]
                 defect.fix_concentration(concentration / 1e24 * volume)     
-            except ValueError:
+            except:
                 raise ValueError(
                     f"Frozen defect {name} not found in defect species list"
                 )

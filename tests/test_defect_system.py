@@ -9,7 +9,9 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
-input_string_spin = "0\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
+input_string_spin = (
+    "0\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
+)
 test_data_dir = "dummy_inputs/"
 test_report_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "report_string.txt"
@@ -34,7 +36,7 @@ class TestDefectSystemInit(unittest.TestCase):
             dos=dos,
             temperature=temperature,
             convergence_tolerance=1e-6,
-            n_trial_steps=100
+            n_trial_steps=100,
         )
         self.assertEqual(defect_system.volume, volume)
         self.assertEqual(defect_system.dos, dos)
@@ -75,11 +77,7 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(defect_system.dos.spin_polarised, False)
         self.assertEqual(defect_system.temperature, 300)
         self.assertEqual(len(defect_system.defect_species), 3)
-        self.assertEqual(defect_system.defect_species_names, ['V_Ga', 'Ga_Sb', 'Ga_i'])
-
-    def test_from_yaml_raises(self):
-        with self.assertRaises(ValueError):
-            self.defect_system.from_yaml(test_exception_yaml_filename)
+        self.assertEqual(defect_system.defect_species_names, ["V_Ga", "Ga_Sb", "Ga_i"])
 
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
@@ -118,13 +116,10 @@ class TestDefectSystem(unittest.TestCase):
                 "v_O": 1 / volume * 1e24,
             },
         )
-        self.assertEqual(self.defect_system.as_dict(per_volume=False),             {
-                "Fermi Energy": 1,
-                "p0": 1,
-                "n0": 1,
-                "O_i": 1,
-                "v_O": 1
-            },)
+        self.assertEqual(
+            self.defect_system.as_dict(per_volume=False),
+            {"Fermi Energy": 1, "p0": 1, "n0": 1, "O_i": 1, "v_O": 1},
+        )
 
     def test__get_report_string(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[0.5, {}])
@@ -197,6 +192,7 @@ class TestDefectSystem(unittest.TestCase):
             str(self.defect_system).strip(),
             f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
         )
+
 
 if __name__ == "__main__":
     unittest.main()
