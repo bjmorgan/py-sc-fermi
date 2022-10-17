@@ -119,17 +119,6 @@ class TestDefectSystem(unittest.TestCase):
                 "v_O": 1
             },)
 
-    # def test__collect_defect_species_with_fixed_charge_states(self):
-    #     toy_defect_species = [DefectChargeState(1, 1, 1, 1)]
-    #     self.defect_system.defect_species[
-    #         0
-    #     ].fixed_conc_charge_states = toy_defect_species
-    #     self.defect_system.defect_species[1].fixed_conc_charge_states = {}
-    #     self.assertEqual(
-    #         self.defect_system._collect_defect_species_with_fixed_charge_states(),
-    #         {"v_O": toy_defect_species},
-    #     )
-
     def test__get_report_string(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[0.5, {}])
         self.defect_system.dos.carrier_concentrations = Mock(return_value=(100, 100))
@@ -156,31 +145,6 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(
             self.defect_system._get_report_string().strip(), test_string.strip()
         )
-
-    # def test__get_input_string(self):
-
-    #     self.defect_system.defect_species[0].name = "v_O"
-    #     self.defect_system.defect_species[0].nsites = 1
-    #     self.defect_system.defect_species[0].variable_conc_charge_states = {
-    #         1: Mock(spec=DefectChargeState)
-    #     }
-    #     self.defect_system.defect_species[0].variable_conc_charge_states[1].energy = 1
-    #     self.defect_system.defect_species[0].variable_conc_charge_states[
-    #         1
-    #     ].degeneracy = 1
-    #     self.defect_system.defect_species[0]._fixed_concentration = None
-
-    #     self.defect_system.defect_species[1].name = "O_i"
-    #     self.defect_system.defect_species[1].nsites = 1
-    #     self.defect_system.defect_species[1].variable_conc_charge_states = {}
-    #     self.defect_system.defect_species[1]._fixed_concentration = 1
-
-    #     self.defect_system._collect_defect_species_with_fixed_charge_states = {
-    #         "O_i": [DefectChargeState(1, 1, 1, 1)]
-    #     }
-    #     self.assertEqual(self.defect_system._get_input_string(), input_string)
-    #     self.defect_system.dos.spin_polarised = False
-    #     self.assertEqual(self.defect_system._get_input_string(), input_string_spin)
 
     def test_get_sc_fermi(self):
         self.defect_system.dos.emin = Mock(return_value=0)

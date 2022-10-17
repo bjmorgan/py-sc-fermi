@@ -89,6 +89,14 @@ class TestInputs(unittest.TestCase):
         self.assertEqual(defect_data.bandgap, 0.8084)
         self.assertEqual(defect_data.nelect, 18)
 
+    def test_read_input_fermi_raises(self):
+        with self.assertRaises(ValueError):
+            read_input_fermi(test_sc_fermi_input_filename, volume=None, frozen=True)
+
+    def test_read_input_fermi_frozen(self):
+        defect_data = read_input_fermi(test_frozen_sc_fermi_input_filename, volume=1, frozen=True)
+        # self.assertEqual
+
     def test_read_dos_data(self):
         dos_data = read_dos_data(filename=test_dos_filename, bandgap=1, nelect=1)
         self.assertEqual(type(dos_data), DOS)
