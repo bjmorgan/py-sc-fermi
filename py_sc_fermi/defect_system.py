@@ -102,48 +102,15 @@ class DefectSystem(object):
         :rtype: py_sc_fermi.defect_system.DefectSystem
 
         """
-        with open(filename, "r") as f:
-            data = yaml.load(f, Loader=yaml.SafeLoader)
-
-        if "volume" not in data.keys():
-            if "unitcell.dat" in os.listdir("."):
-                volume = volume_from_unitcell("unitcell.dat")
-            elif "POSCAR" in os.listdir("."):
-                volume = volume_from_structure("POSCAR")
-            else:
-                raise ValueError(
-                    "No volume found in input file and no file defining the structure detected in this directory. We reccomend specifying the volume of the cell in the input .yaml file."
-                )
-        else:
-            volume = data["volume"]
-
-        if "edos" in data.keys() and "dos" in data.keys():
-            dos = DOS.from_dict(data)
-        elif "totdos.dat" in os.listdir("."):
-            dos = read_dos_data(filename="totdos.dat", bandgap=data["bandgap"], nelect=data["nelect"])
-        elif "vasprun.xml" in os.listdir("."):
-            dos = DOS.from_vasprun("vasprun.xml", nelect=data["nelect"])
-        else:
-            raise ValueError(
-                "No DOS data found in yaml file, and the dos could not be read from the current directory."
-            )
-
-        defect_species = [
-            DefectSpecies.from_dict(d, volume) for d in data["defect_species"]
-        ]
-
-        if "convergence_tol" not in list(data.keys()):
-            data["convergence_tol"] = 1e-18
-        if "n_trial_steps" not in list(data.keys()):
-            data["n_trial_steps"] = 1500
-
+ 
+        input_set = InputSet.from_yaml(filename)
         return cls(
-            dos=dos,
-            volume=volume,
-            defect_species=defect_species,
-            temperature=data["temperature"],
-            convergence_tolerance=float(data["convergence_tol"]),
-            n_trial_steps=int(data["n_trial_steps"]),
+            defect_species=input_set.defect_species,
+            dos=input_set.dos,
+            volume=input_set.volume,
+            temperature=input_set.temperature,
+            convergence_tolerance=input_set.convergence_tolerance,
+            n_trial_steps=input_set.n_trial_steps,
         )
 
     def defect_species_by_name(self, name) -> DefectSpecies:

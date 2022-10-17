@@ -17,6 +17,9 @@ test_report_filename = os.path.join(
 test_yaml_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
 )
+test_exception_yaml_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
+)
 
 
 class TestDefectSystemInit(unittest.TestCase):
@@ -73,6 +76,10 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(defect_system.temperature, 300)
         self.assertEqual(len(defect_system.defect_species), 3)
         self.assertEqual(defect_system.defect_species_names, ['V_Ga', 'Ga_Sb', 'Ga_i'])
+
+    def test_from_yaml_raises(self):
+        with self.assertRaises(ValueError):
+            self.defect_system.from_yaml(test_exception_yaml_filename)
 
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])

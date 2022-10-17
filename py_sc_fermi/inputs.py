@@ -7,6 +7,7 @@ from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
 from typing import List
 import yaml
+import os
 
 InputFermiData = namedtuple(
         "InputFermiData",
@@ -62,17 +63,44 @@ class InputSet:
         elif dos_file.endswith(".xml"):
             dos = DOS.from_vasprun(dos_file, input_dict["nelect"], input_dict["bandgap"])
 
-        # if volume is specified in the yaml file, read it
-        if "volume" in input_dict.keys():
-            volume = input_dict["volume"]
-        # otherwise, read it from the structure file
+        if "volume" not in input_dict.keys():
+            if "unitcell.dat" in os.listdir("."):
+                volume = volume_from_unitcell("unitcell.dat")
+            elif "POSCAR" in os.listdir("."):
+                volume = volume_from_structure("POSCAR")
+            else:
+                raise ValueError(
+                    "No volume found in input file and no file defining the structure detected in this directory. We reccomend specifying the volume of the cell in the input .yaml file."
+                )
         else:
-            volume = read_volume_from_structure_file(structure_file)
+            volume = input_dict["volume"]
+
+        if "edos" in input_dict.keys() and "dos" in input_dict.keys():
+            dos = DOS.from_dict(input_dict)
+        elif "totdos.dat" in os.listdir("."):
+            dos = read_dos_data(filename="totdos.dat", bandgap=input_dict["bandgap"], nelect=input_dict["nelect"])
+        elif "vasprun.xml" in os.listdir("."):
+            dos = DOS.from_vasprun("vasprun.xml", nelect=input_dict["nelect"])
+        else:
+            raise ValueError(
+                "No DOS data found in yaml file, and the dos could not be read from the current directory."
+            )
+
+
+        # if the solver parameters are not in the .yaml file, set them
+        if "convergence_tol" not in list(input_dict.keys()):
+            input_dict["convergence_tol"] = 1e-18
+        if "n_trial_steps" not in list(input_dict.keys()):
+            input_dict["n_trial_steps"] = 1500
+
+        defect_species = [
+             DefectSpecies.from_dict(d, volume) for d in input_dict["defect_species"]
+        ]
 
         return cls(
             dos=dos,
             volume=volume,
-            defect_species=input_dict["defect_species"],
+            defect_species=defect_species,
             temperature=input_dict["temperature"],
             convergence_tolerance=input_dict["convergence_tolerance"],
             n_trial_steps=input_dict["n_trial_steps"],
