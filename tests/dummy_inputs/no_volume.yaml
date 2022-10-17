@@ -1,0 +1,40 @@
+bandgap: 0.8084
+temperature: 300
+nelect: 18
+convergence_tolerance: 1e-12
+defect_species:
+  - V_Ga: 
+      nsites: 1
+      fixed_concentration: 0.32856e20
+      charge_states:
+        0:
+          formation_energy: 2.4451
+          degeneracy: 1
+        -1:
+          formation_energy: 0.0265
+          degeneracy: 1
+          fixed_concentration: 0.19e19
+        -2:
+          formation_energy: 2.3469
+          degeneracy: 1
+        -3:
+          formation_energy: 2.7146
+          degeneracy: 1
+  - Ga_Sb: 
+      nsites: 1
+      charge_states:
+        0:
+          formation_energy: 2.649
+          degeneracy: 1
+        -1: 
+          formation_energy: 2.0937
+          degeneracy: 1
+        -2: 
+          formation_energy: 2.2527
+          degeneracy: 1
+  - Ga_i:
+      nsites: 1
+      charge_states:
+        1: 
+          degeneracy: 1
+          fixed_concentration:  0.5e20

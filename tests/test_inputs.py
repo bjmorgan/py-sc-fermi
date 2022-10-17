@@ -34,8 +34,11 @@ test_dos_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "totd
 test_defect_system_yaml_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
 )
-test_exception_yaml_filename = os.path.join(
-    os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
+test_dos_exception_yaml_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "no_dos.yaml"
+)
+test_volume_exception_yaml_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "no_volume.yaml"
 )
 
 structure = Structure.from_file(test_poscar_filename)
@@ -68,9 +71,13 @@ class TestInputSet(unittest.TestCase):
         self.assertEqual(input_set.temperature, 300)
         self.assertEqual(len(input_set.defect_species), 3)
 
-    def test_from_yaml_raises(self):
+    def test_from_yaml_no_dos_raises(self):
         with self.assertRaises(ValueError):
-            InputSet.from_yaml(test_exception_yaml_filename)
+            InputSet.from_yaml(test_dos_exception_yaml_filename)
+
+    def test_from_yaml_no_volume_raises(self):
+        with self.assertRaises(ValueError):
+            InputSet.from_yaml(test_volume_exception_yaml_filename)
 
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
