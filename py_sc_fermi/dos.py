@@ -86,8 +86,8 @@ class DOS(object):
         """
         vr = Vasprun(path_to_vasprun, parse_potcar_file=False)
         densities = vr.complete_dos.densities
-        cbm = vr.eigenvalue_band_properties[2]
-        edos = vr.complete_dos.energies - cbm
+        vbm = vr.eigenvalue_band_properties[2]
+        edos = vr.complete_dos.energies - vbm
         if len(densities) == 2:
             tdos_data = np.stack(
                 [edos, np.abs(densities[Spin.up]), np.abs(densities[Spin.down])], axis=1
