@@ -15,9 +15,9 @@ class DefectChargeState:
     :param float fixed_concentration: the fixed concentration of the defect
         charge state per unit cell (Default ``None``)
 
-    :raises ValueError: If `energy` and `fixed concentration` == None. Defect
-        charge state may possess either a formation energy or a fixed concentration,
-        or both.
+    :raises ValueError: If ``energy == None`` and ``fixed concentration == None``.
+     ``DefectChargeState`` may possess either a formation energy 
+     or a fixed concentration, or both.
 
     .. note:: If both a formation energy and fixed_concentration are specified,
         the concentration of the ``DefectChargeState`` will treated as fixed.
@@ -35,7 +35,9 @@ class DefectChargeState:
 
         if energy == None and fixed_concentration == None:
             raise ValueError(
-                "You must specify either a fixed concentration or energy for this defect! \n Note, if you specify both, the concentration will treated as fixed"
+                """You must specify either a fixed concentration or energy for 
+                this defect! \n Note, if you specify both, the concentration
+                will treated as fixed"""
             )
         self._charge = charge
         self._degeneracy = degeneracy
@@ -44,7 +46,7 @@ class DefectChargeState:
 
     @property
     def energy(self) -> Optional[float]:
-        """:return: Formation energy of this charge state at E(VBM)"""
+        """:return: Formation energy of this charge state at E[VBM] (E_Fermi = 0)"""
         return self._energy
 
     @property
@@ -60,8 +62,8 @@ class DefectChargeState:
 
     @property
     def fixed_concentration(self) -> Optional[float]:
-        """:return: the fixed concentration of this defect charge state, or None
-        if the concentration is free to vary."""
+        """:return: the fixed concentration of this defect charge state, 
+        or ``None`` if the concentration is free to vary."""
         return self._fixed_concentration
 
     @classmethod
@@ -71,24 +73,24 @@ class DefectChargeState:
         """
         Create a DefectChargeState from a string. This method was envisaged for
         use as a way to read in defect charge states from an input file for
-        SC-Fermi. If a user does wish to specify a defect chage state using this
-        functionaility, the string should be in the form:
-             "`charge` `formation_energy` `degeneracy`"
+        SC-Fermi. If a user does wish to specify a defect charge state using this
+        functionality, the string should be in the form:
+             "``charge formation_energy degeneracy``"
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
         of 2 would be specified as:
-            "2 0.1 2"
+            ``2 0.1 2``
         if the charge state has a fixed concentration, the string should be in
         the form:
-            "`charge` `concentration`"
+            ``charge concentration``
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
         would be specified as:
-            "2 1e21"
+            ``2 1e21``
 
         :param str string: String representation of a defect charge state.
         :param float volume: Volume of the unit cell. Only required if the
             charge state has a fixed concentration.
-        :param bool frozen: If True, the parser will expect to read the string as a
-            fixed concentration DefectChargeState.
+        :param bool frozen: If ``True``, the parser will expect to read the string as a
+            fixed concentration ``DefectChargeState``.
         """
         string = string.strip()
         stripped_string = string.split()
@@ -110,8 +112,7 @@ class DefectChargeState:
                 )
 
     def fix_concentration(self, concentration: float) -> None:
-        """fix the net concentration (per unit cell) of this defect
-        species
+        """fix the net concentration (per unit cell) of this defect charge state
 
         :param float concentration: the fixed concentration of this defect
         """
@@ -125,7 +126,7 @@ class DefectChargeState:
         :return: Formation energy of this charge state when E_Fermi = E(VBM)
         :rtype: float
 
-        :raises ValueError: If `self.energy == None`.
+        :raises ValueError: If ``self.energy == None``.
         """
         if self.energy is not None:
             return self.energy + self.charge * e_fermi
@@ -144,7 +145,6 @@ class DefectChargeState:
         :return concentration: Concentration of this charge state at the specified
             Fermi energy and temperature.
         :rtype: float
-
         """
         if self.fixed_concentration == None:
             expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
