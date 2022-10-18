@@ -51,7 +51,7 @@ class InputSet:
                 )
                 dos = DOS(
                     dos=dos_data.dos,
-                    edos=dos_data.dos,
+                    edos=dos_data.edos,
                     nelect=input_dict["nelect"],
                     bandgap=input_dict["bandgap"],
                 )

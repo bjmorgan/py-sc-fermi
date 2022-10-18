@@ -31,6 +31,7 @@ test_bad_frozen_sc_fermi_input_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "bad_frozen_species.dat"
 )
 test_dos_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "totdos.dat")
+test_vasprun_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml")
 test_defect_system_yaml_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
 )
@@ -78,6 +79,22 @@ class TestInputSet(unittest.TestCase):
     def test_from_yaml_no_volume_raises(self):
         with self.assertRaises(ValueError):
             InputSet.from_yaml(test_volume_exception_yaml_filename)
+
+    def test_from_yaml_with_sc_fermi_files_totdos(self):
+        input_set = InputSet.from_yaml(
+            test_defect_system_yaml_filename, dos_file=test_dos_filename, structure_file=test_unitcell_filename
+        )
+        self.assertEqual(input_set.dos.nelect, 18)
+        self.assertEqual(input_set.dos.bandgap, 0.8084)
+        self.assertAlmostEqual(input_set.volume, volume)
+
+    def test_from_yaml_with_vasp_files(self):
+        input_set = InputSet.from_yaml(
+            test_defect_system_yaml_filename, dos_file=test_vasprun_filename, structure_file=test_poscar_filename
+        )
+        self.assertEqual(input_set.dos.nelect, 18)
+        self.assertEqual(input_set.dos.bandgap, 0.8084)
+        self.assertAlmostEqual(input_set.volume, volume)
 
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
@@ -132,6 +149,10 @@ class TestInputs(unittest.TestCase):
         self.assertAlmostEqual(
             read_volume_from_structure_file(test_unitcell_filename), volume
         )
+
+    def test_read_volume_from_structure_file_raises(self):
+        with self.assertRaises(ValueError):
+            read_volume_from_structure_file(test_volume_exception_yaml_filename)
 
 
 if __name__ == "__main__":
