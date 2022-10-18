@@ -10,8 +10,7 @@ import yaml
 import os
 
 InputFermiData = namedtuple(
-    "InputFermiData",
-    "spin_pol nelect bandgap temperature defect_species",
+    "InputFermiData", "spin_pol nelect bandgap temperature defect_species",
 )
 
 
@@ -44,7 +43,7 @@ class InputSet:
         with open(input_file, "r") as f:
             input_dict = yaml.safe_load(f)
 
-        if dos_file != '':
+        if dos_file != "":
             if dos_file.endswith(".dat"):
                 dos_data = read_dos_data(
                     input_dict["bandgap"], input_dict["nelect"], dos_file
@@ -61,21 +60,21 @@ class InputSet:
                 dos = DOS.from_vasprun(
                     dos_file, input_dict["nelect"], input_dict["bandgap"]
                 )
-        
+
         elif "edos" in input_dict.keys() and "dos" in input_dict.keys():
             dos = DOS.from_dict(input_dict)
-            
+
         # or if there is a `totdos.dat` in the current folder
         elif "totdos.dat" in os.listdir("."):
             dos = read_dos_data(
-                    filename="totdos.dat",
-                    bandgap=input_dict["bandgap"],
-                    nelect=input_dict["nelect"],
-                )
+                filename="totdos.dat",
+                bandgap=input_dict["bandgap"],
+                nelect=input_dict["nelect"],
+            )
         # or if there is a vasprun in the current folder
         elif "vasprun.xml" in os.listdir("."):
             dos = DOS.from_vasprun("vasprun.xml", nelect=input_dict["nelect"])
-    
+
         # if all else fails, raise an Error
 
         else:
@@ -86,9 +85,9 @@ class InputSet:
             )
 
         # read volume
-        if structure_file != '':
+        if structure_file != "":
             volume = read_volume_from_structure_file(structure_file)
-        
+
         elif "volume" not in input_dict.keys():
             if "unitcell.dat" in os.listdir("."):
                 volume = volume_from_unitcell("unitcell.dat")
@@ -100,7 +99,7 @@ class InputSet:
                 )
         else:
             volume = input_dict["volume"]
-        
+
         # if the solver parameters are not in the .yaml file, set them
         if "convergence_tol" not in list(input_dict.keys()):
             input_dict["convergence_tol"] = 1e-18
@@ -122,7 +121,13 @@ class InputSet:
 
     @classmethod
     def from_sc_fermi_inputs(
-        cls, input_file: str, structure_file: str, dos_file: str, frozen: bool = False
+        cls,
+        input_file: str,
+        structure_file: str,
+        dos_file: str,
+        n_trial_steps: int = 1000,
+        convergence_tolerance: float = 1e-18,
+        frozen: bool = False,
     ):
         """
         Generate an InputSet object from a SC-Fermi input file.
@@ -144,6 +149,8 @@ class InputSet:
             volume=volume,
             defect_species=input_data.defect_species,
             temperature=input_data.temperature,
+            n_trial_steps=n_trial_steps,
+            convergence_tolerance=convergence_tolerance,
         )
 
 
@@ -259,11 +266,7 @@ def read_input_fermi(
     return InputFermiData(spin_pol, nelect, bandgap, temperature, defect_species)
 
 
-def read_dos_data(
-    bandgap: float,
-    nelect: int,
-    filename: str = "totdos.dat",
-) -> DOS:
+def read_dos_data(bandgap: float, nelect: int, filename: str = "totdos.dat",) -> DOS:
     """
     Read in total DOS from `totdos.dat` file used in SC-Fermi.
 

@@ -54,9 +54,7 @@ class DefectSpecies(object):
         return self._nsites
 
     @property
-    def charge_states(
-        self,
-    ) -> Dict[int, DefectChargeState]:
+    def charge_states(self,) -> Dict[int, DefectChargeState]:
         """:return: The charge states of this defect species as s dictionary of
         ``{charge (int): :py:class:`DefectChargeState`}`` key-value pairs"""
         return self._charge_states
@@ -278,9 +276,7 @@ class DefectSpecies(object):
         else:
             return sum(self.charge_state_concentrations(e_fermi, temperature).values())
 
-    def fixed_conc_charge_states(
-        self,
-    ) -> Dict[int, DefectChargeState]:
+    def fixed_conc_charge_states(self,) -> Dict[int, DefectChargeState]:
         """:return: A dictionary of fixed-concentration defect charge states
         of this ``DefectSpecies.``. Each key-value pair is of the form
         ``{int: DefectChargeState}`` where the key is the charge
@@ -291,9 +287,7 @@ class DefectSpecies(object):
             if cs.fixed_concentration is not None
         }
 
-    def variable_conc_charge_states(
-        self,
-    ) -> Dict[int, DefectChargeState]:
+    def variable_conc_charge_states(self,) -> Dict[int, DefectChargeState]:
         """:return: A dictionary of variable-concentration defect charge states
         of this ``DefectSpecies.``. Each key-value pair is of the form
         ``{charge_state: DefectChargeState}``."""

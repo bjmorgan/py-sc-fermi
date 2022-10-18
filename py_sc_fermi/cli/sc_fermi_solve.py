@@ -52,7 +52,7 @@ def main():
     dos_file = args.dos_file
     frozen_defects = args.frozen_defects
     convergence_tol = args.convergence_tol
-    n_trial = args.n_trial  # This is not used?
+    n_trial = args.n_trial
 
     if input_file.endswith(".yaml"):
         defect_system = DefectSystem.from_yaml(input_file)
@@ -62,6 +62,8 @@ def main():
             structure_file=structure_file,
             dos_file=dos_file,
             frozen=frozen_defects,
+            convergence_tolerance=convergence_tol,
+            n_trial_steps=n_trial,
         )
         defect_system = DefectSystem.from_input_set(input_data)
     defect_system.report()

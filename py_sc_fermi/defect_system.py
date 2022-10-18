@@ -121,9 +121,7 @@ class DefectSystem(object):
         """
         return [ds for ds in self.defect_species if ds.name == name][0]
 
-    def get_sc_fermi(
-        self,
-    ) -> Tuple[float, float]:
+    def get_sc_fermi(self,) -> Tuple[float, float]:
         """
         Solve to find Fermi energy in electron volts for which the
         :py:class:`py_sc_fermi.defect_system.DefectSystem` is charge neutral
@@ -187,17 +185,13 @@ class DefectSystem(object):
         }
         return e_fermi, residual
 
-    def report(
-        self,
-    ) -> None:
+    def report(self,) -> None:
         """print a report in the style of
         `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
         which summarises key properties of the defect system."""
         print(self._get_report_string())
 
-    def _get_report_string(
-        self,
-    ) -> str:
+    def _get_report_string(self,) -> str:
         """generate string to facilitate self.report()"""
         string = ""
         e_fermi = self.get_sc_fermi()[0]
@@ -288,9 +282,7 @@ class DefectSystem(object):
         return transition_levels
 
     def as_dict(
-        self,
-        decomposed: bool = False,
-        per_volume: bool = True,
+        self, decomposed: bool = False, per_volume: bool = True,
     ) -> Dict[str, Any]:
         """Returns a dictionary of the properties of the ``DefectSystem`` object
 
