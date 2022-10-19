@@ -71,20 +71,22 @@ class DefectChargeState:
         cls, string: str, volume: Optional[float] = None, frozen: bool = False
     ):
         """
-        Create a DefectChargeState from a string. This method was envisaged for
-        use as a way to read in defect charge states from an input file for
-        SC-Fermi. If a user does wish to specify a defect charge state using this
+        Create a ``DefectChargeState`` from a given string. This method was
+        envisaged for use as a way to read in defect charge states from an input
+        file for SC-Fermi. 
+        
+        If a user does wish to specify a defect charge state using this
         functionality, the string should be in the form:
-             "``charge formation_energy degeneracy``"
+             **charge formation_energy degeneracy**
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
         of 2 would be specified as:
-            ``2 0.1 2``
+            ``"2 0.1 2"``
         if the charge state has a fixed concentration, the string should be in
         the form:
-            ``charge concentration``
+            **charge concentration**
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
         would be specified as:
-            ``2 1e21``
+            ``"2 1e21"``
 
         :param str string: String representation of a defect charge state.
         :param float volume: Volume of the unit cell. Only required if the
@@ -114,7 +116,7 @@ class DefectChargeState:
     def fix_concentration(self, concentration: float) -> None:
         """fix the net concentration (per unit cell) of this defect charge state
 
-        :param float concentration: the fixed concentration of this defect
+        :param ``float`` concentration: the fixed concentration of this defect
         """
         self._fixed_concentration = concentration
 
@@ -136,13 +138,13 @@ class DefectChargeState:
             )
 
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
-        """Calculate the concentration of this charge state at a
+        """Calculate the concentration of this ``DefectChargeState`` at a
         specified Fermi energy and temperature, per site in the unit
         cell.
 
         :param float e_fermi: Fermi energy.
         :param float temperature: Temperature.
-        :return concentration: Concentration of this charge state at the specified
+        :return concentration: Concentration at the specified
             Fermi energy and temperature.
         :rtype: float
         """
