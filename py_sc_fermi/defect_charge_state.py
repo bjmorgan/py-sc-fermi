@@ -9,10 +9,10 @@ class DefectChargeState:
     """Class describing a single charge state (of a ``DefectSpecies``).
        
        Args:
-          charge (int): charge of this ``DefectChargeState``
-          degeneracy (int): degeneracy per unit cell
-           energy (float): formation energy at E[Fermi] = 0
-           fixed_concentration (float): fixed concentration per unit cell
+            charge (int): charge of this ``DefectChargeState``
+            degeneracy (int): degeneracy per unit cell
+            energy (float): formation energy at E[Fermi] = 0
+            fixed_concentration (float): fixed concentration per unit cell
     """
 
     def __init__(
@@ -81,13 +81,13 @@ class DefectChargeState:
         
         If a user does wish to specify a defect charge state using this
         functionality, the string should be in the form:
-             **charge formation_energy degeneracy**
+             `charge  formation_energy  degeneracy`
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
         of 2 would be specified as:
             ``"2 0.1 2"``
         if the charge state has a fixed concentration, the string should be in
         the form:
-            **charge concentration**
+            `charge  concentration`
 
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
         would be specified as:
