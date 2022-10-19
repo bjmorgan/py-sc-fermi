@@ -17,7 +17,11 @@ class DefectChargeState:
         fixed_concentration: float = None,
     ):
         """
-
+        Args:
+            charge (int): charge of this ``DefectChargeState``
+            degeneracy (int): degeneracy per unit cell
+            energy (float): formation energy at E[Fermi] = 0
+            fixed_concentration (float): fixed concentration per unit cell
         """
         if energy == None and fixed_concentration == None:
             raise ValueError(
@@ -59,8 +63,12 @@ class DefectChargeState:
 
     @property
     def fixed_concentration(self) -> Optional[float]:
-        """:return: the fixed concentration of this defect charge state, 
-        or ``None`` if the concentration is free to vary."""
+        """fixed concentration of this ``DefectChargeState`` or ``None`` if the 
+        concentration is free to vary.
+
+        Returns:
+            Optional[float]: fixed concentration per unit cell
+        """
         return self._fixed_concentration
 
     @classmethod
@@ -129,7 +137,7 @@ class DefectChargeState:
 
     def get_formation_energy(self, e_fermi: float) -> float:
         """get the formation energy of this ``DefectChargeState`` at a given Fermi
-           energy
+        energy
 
         Args:
             e_fermi (float): Fermi energy at which to calculate the formation energy
