@@ -7,11 +7,12 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 class DefectChargeState:
     """Class describing a single charge state (of a ``DefectSpecies``).
+       
        Args:
-        charge (int): charge of this ``DefectChargeState``
-        degeneracy (int): degeneracy per unit cell
-        energy (float): formation energy at E[Fermi] = 0
-        fixed_concentration (float): fixed concentration per unit cell
+          charge (int): charge of this ``DefectChargeState``
+          degeneracy (int): degeneracy per unit cell
+           energy (float): formation energy at E[Fermi] = 0
+           fixed_concentration (float): fixed concentration per unit cell
     """
 
     def __init__(
