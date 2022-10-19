@@ -7,16 +7,16 @@ class DefectSpecies(object):
     """Class for individual defect species.
 
     :param str name: A unique identifying string for this defect species,
-        e.g. `V_O` might be an oxygen vacancy.
+        e.g. ``"V_O"`` might be used for an oxygen vacancy.
     :param int nsites: Number of sites energetically degenerate sites in the
         calculation cell where this defect can form in the unit cell (the site degeneracy).
     :param dict charge_states: A dictionary of :py:class:`DefectChargeState`
         for this defect. Each key-value pair takes the form
-        ``{charge (int): :py:class:`DefectChargeState}``
+        ``{charge (int): DefectChargeState}``
     :param float fixed_concentration: If set, this fixes the total concentration
-        of this defect species to this value (per calculation cell).
-        The concetration of the charge states will be able to change,
-        but the total concentration of the defect species will be fixed to this value.
+        of this :py:class:`DefectSpecies` to this value (per calculation cell).
+        The concentration of the :py:class:`DefectChargeState`s will be able to change,
+        but the total concentration of the :py:class:`DefectSpecies` will be fixed to this value.
     """
 
     def __init__(
@@ -68,8 +68,8 @@ class DefectSpecies(object):
 
     @property
     def fixed_concentration(self) -> Optional[float]:
-        """:return: The fixed concentration (per unit cell) of this defect
-        species, or `None` if the defect concentrations are free to change"""
+        """:return: The fixed concentration (per unit cell) of this 
+        py:class:`DefectSpecies`, or `None` if the defect concentrations are free to change"""
         return self._fixed_concentration
 
     def __repr__(self):
@@ -84,7 +84,7 @@ class DefectSpecies(object):
     @classmethod
     def from_dict(cls, defect_species_dict: dict, volume: Optional[float] = None):
         """
-        return a DefectSpecies object from a dictionary containing the defect
+        return a py:class:`DefectSpecies` object from a dictionary containing the defect
         species data.
 
         :param dict defect_species_dict: dictionary containing the defect species

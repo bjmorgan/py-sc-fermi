@@ -8,19 +8,20 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 class DefectChargeState:
     """Class describing an individual defect charge state
 
-    :param int charge: integer charge of the defect
-    :param float energy: Formation energy of this charge state at E(VBM)
-    :param int degeneracy: Degeneracy of this charge state
+    :param py:class:`int` charge: integer charge of the defect
+    :param py:class:`float` energy: Formation energy of this charge state at E[VBM]
+    (E[Fermi] = 0)
+    :param py:class:`int` degeneracy: Degeneracy of this charge state
         (e.g. spin/intrinsic degeneracy).
-    :param float fixed_concentration: the fixed concentration of the defect
+    :param py:class:`float` fixed_concentration: the fixed concentration of the defect
         charge state per unit cell (Default ``None``)
 
     :raises ValueError: If ``energy == None`` and ``fixed concentration == None``.
-     ``DefectChargeState`` may possess either a formation energy 
+     py:class:`DefectChargeState` may possess either a formation energy 
      or a fixed concentration, or both.
 
     .. note:: If both a formation energy and fixed_concentration are specified,
-        the concentration of the ``DefectChargeState`` will treated as fixed.
+        the concentration of the py:class:`DefectChargeState` will treated as fixed.
 
     """
 
@@ -31,7 +32,7 @@ class DefectChargeState:
         energy: float = None,
         fixed_concentration: float = None,
     ):
-        """Initialise a ``DefectChargeState`` instance."""
+        """Initialise a py:class:`DefectChargeState` instance."""
 
         if energy == None and fixed_concentration == None:
             raise ValueError(
@@ -71,26 +72,26 @@ class DefectChargeState:
         cls, string: str, volume: Optional[float] = None, frozen: bool = False
     ):
         """
-        Create a DefectChargeState from a string. This method was envisaged for
+        Create a py:class:`DefectChargeState` from a string. This method was envisaged for
         use as a way to read in defect charge states from an input file for
         SC-Fermi. If a user does wish to specify a defect charge state using this
         functionality, the string should be in the form:
-             "``charge formation_energy degeneracy``"
+             *charge formation_energy degeneracy*
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
         of 2 would be specified as:
-            ``2 0.1 2``
+            ``"2 0.1 2"``
         if the charge state has a fixed concentration, the string should be in
         the form:
-            ``charge concentration``
+            *charge concentration*
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
         would be specified as:
-            ``2 1e21``
+            ``"2 1e21"``
 
-        :param str string: String representation of a defect charge state.
-        :param float volume: Volume of the unit cell. Only required if the
+        :param py:class:`str` string: String representation of a defect charge state.
+        :param py:class:`float` volume: Volume of the unit cell. Only required if the
             charge state has a fixed concentration.
-        :param bool frozen: If ``True``, the parser will expect to read the string as a
-            fixed concentration ``DefectChargeState``.
+        :param py:class:`bool` frozen: If ``True``, the parser will expect to read the string as a
+            fixed concentration py:class:`DefectChargeState`.
         """
         string = string.strip()
         stripped_string = string.split()
@@ -114,7 +115,7 @@ class DefectChargeState:
     def fix_concentration(self, concentration: float) -> None:
         """fix the net concentration (per unit cell) of this defect charge state
 
-        :param float concentration: the fixed concentration of this defect
+        :param py:class:`float` concentration: the fixed concentration of this defect
         """
         self._fixed_concentration = concentration
 
@@ -122,9 +123,9 @@ class DefectChargeState:
         """Calculate the formation energy of this charge state at a
         specified Fermi energy.
 
-        :param float e_fermi: Fermi energy relative to the VBM (in eV).
+        :param py:class:`float` e_fermi: Fermi energy relative to the VBM (in eV).
         :return: Formation energy of this charge state when E_Fermi = E(VBM)
-        :rtype: float
+        :rtype: py:class:`float`
 
         :raises ValueError: If ``self.energy == None``.
         """
@@ -140,11 +141,11 @@ class DefectChargeState:
         specified Fermi energy and temperature, per site in the unit
         cell.
 
-        :param float e_fermi: Fermi energy.
-        :param float temperature: Temperature.
+        :param py:class:`float` e_fermi: Fermi energy.
+        :param py:class:`float` temperature: Temperature.
         :return concentration: Concentration of this charge state at the specified
             Fermi energy and temperature.
-        :rtype: float
+        :rtype: py:class:`float`
         """
         if self.fixed_concentration == None:
             expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
