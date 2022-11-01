@@ -26,19 +26,20 @@ class InputSet:
     @classmethod
     def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = ""):
         """
-        Generate a ``py_sc_fermi.inputs.InputSet`` object from a yaml file.
+        Generate an InputSet object from a given yaml file
 
-        :param str input_file: path to yaml file
-        :param str structure_file: path to structure file
-            (Default: ``''``)
-        :param str dos_file: path to dos file
-            (Default: ``''``)
-        :return: InputSet object
-        :rtype: py_sc_fermi.inputs.InputSet
+        Args:
+            input_file (str): path to yaml file to read
+            structure_file (str): path to structure file to read
+            dos_file (str): path to dos file to read
 
-        .. note::
+        Returns:
+            InputSet: full set of inputs for ``py-sc-fermi.DefectSystem``.
+
+        Note:
             Only the ``.yaml`` file is required. If the structure_file and dos_file
-            are not specified, the ``.yaml`` file must contain the volume and the density-of-states data.
+            are not specified, the ``.yaml`` file must contain the volume and
+            the density-of-states data.
         """
         with open(input_file, "r") as f:
             input_dict = yaml.safe_load(f)
@@ -95,7 +96,9 @@ class InputSet:
                 volume = volume_from_structure("POSCAR")
             else:
                 raise ValueError(
-                    "No volume found in input file and no file defining the structure detected in this directory. We reccomend specifying the volume of the cell in the input .yaml file."
+                    """No volume found in input file and no file defining the 
+                    structure detected in this directory. We recommend specifying
+                    the volume of the cell in the input .yaml file."""
                 )
         else:
             volume = input_dict["volume"]
@@ -128,17 +131,23 @@ class InputSet:
         n_trial_steps: int = 1000,
         convergence_tolerance: float = 1e-18,
         frozen: bool = False,
-    ):
-        """
-        Generate an InputSet object from a SC-Fermi input file.
+    ) -> "InputSet":
+        """Generate an InputSet object from a
+        `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_ -formatted input file.
 
-        :param str input_file: path to SC-Fermi input file
-        :param str structure_file: path to structure file
-        :param str dos_file: path to totdos file
-        :param bool frozen: whether the input file contains
-            any fixed concentration defects (Default: ``False``)
-        :return: InputSet object
-        :rtype: InputSet
+        Args:
+            input_file (str): path to file to read
+            structure_file (str): path to structure file to read
+            dos_file (str): path to dos file to read
+            n_trial_steps (int, optional): number of trial steps for py-sc-fermi
+              solver. Defaults to 1000.
+            convergence_tolerance (float, optional): convergence tolerance for
+              py-sc-fermi solver. Defaults to 1e-18.
+            frozen (bool, optional): True if any defects or defect charge states in
+              in the input file have fixed concentrations. Defaults to False.
+
+        Returns:
+            InputSet: full set of inputs for ``py-sc-fermi.DefectSystem``.
         """
 
         volume = read_volume_from_structure_file(structure_file)
@@ -155,12 +164,13 @@ class InputSet:
 
 
 def is_yaml(filename: str) -> bool:
-    """
-    Check if a file is a yaml file.
+    """True if file is readable as a yaml file
 
-    :param str filename: path to file
-    :return: True if file is a yaml file, False otherwise
-    :rtype: bool
+    Args:
+        filename (str): path to file to check
+
+    Returns:
+        bool: ``True`` if file is readable yaml, else ``False``.
     """
     try:
         with open(filename, "r") as f:
@@ -171,12 +181,14 @@ def is_yaml(filename: str) -> bool:
 
 
 def volume_from_unitcell(filename: str) -> float:
-    """
-    Get volume in A^3 from `unitcell.dat` file-type used in SC-Fermi.
+    """Get volume in A^3 from ``unitcell.dat`` file-type used in 
+    `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
 
-    :param str filename: path to `unitcell.dat` file
-    :return: volume in A^3
-    :rtype: float
+    Args:
+        filename (str): path to ``unitcell.dat`` file
+
+    Returns:
+        float: volume in A^3
     """
 
     with open(filename, "r") as f:
@@ -191,17 +203,23 @@ def volume_from_unitcell(filename: str) -> float:
 def read_input_fermi(
     filename: str, volume: float = None, frozen: bool = False
 ) -> InputFermiData:
-    """
-    Return all information from a input file correctly formated to work
-    for ``SC-Fermi``.
+    """Return all information from a input file correctly formatted to work
+    for `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_.
 
-    :param str filename: path to ``SC-Fermi` input file.
-    :param float volume: volume of unit cell
-    :param bool frozen: whether the input file contains any fixed concentration
-        ``DefectSpecies`` or ``DefectChargeState``s. I.e. whether this is an
-        input file for ``SC-Fermi`` or ``Frozen-SC-Fermi``.
-    :return: inputs (dict): set of input data for py_sc_fermi.DefectSystem
-    :rtype: Dict[str, Union[List[:py:class:`DefectSpecies`], float, int]]
+    Args:
+        filename (str): path to ``SC-Fermi`` -formatted input file.
+        volume (float, optional): unit cell volume. Only required if there are
+          fixed-concentration defects in input file. Defaults to None.
+        frozen (bool, optional): whether there are fixed-concentration defects
+          in the input file. Defaults to False.
+
+    Raises:
+        ValueError: if the ``volume`` is not specified, but ``frozen == True``
+        ValueError: if fixed-concentration defect does not have any charge-states
+          defined.
+
+    Returns:
+        InputFermiData: input for generating a ``DefectSystem``.
     """
 
     if volume == None and frozen == True:
@@ -267,43 +285,47 @@ def read_input_fermi(
 
 
 def read_dos_data(bandgap: float, nelect: int, filename: str = "totdos.dat",) -> DOS:
-    """
-    Read in total DOS from `totdos.dat` file used in SC-Fermi.
+    """read density of states data from an `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
+    formatted ``totdos.dat`` file.
 
-    :param float bandgap: bandgap of defect system in eV.
-    :param int nelect: number of electrons in defect system.
-    :param str filename: path to `totdos.dat` file. (Default: ``totdos.dat``)
-    :return: :py:class:`DOS`
-    :rtype: py_sc_fermi.dos.DOS
+    Args:
+        bandgap (float): bandgap of density-of-states data.
+        nelect (int): number of electrons in the density-of-states data
+        filename (str, optional): path to ``todos.dat`` file. Defaults to "totdos.dat".
+
+    Returns:
+        DOS: py-sc-Fermi ``DOS`` object
     """
     data = np.loadtxt(filename)
     edos = data[:, 0]
     dos = np.sum(np.abs(data[:, 1:]), axis=1)
-    # if np.any(data[:, 1:] < 0.0):
-    #     raise ValueError("Negative DOS values found")
     dos = DOS(dos=dos, edos=edos, nelect=nelect, bandgap=bandgap)
     return dos
 
 
 def volume_from_structure(structure_file: str) -> float:
-    """
-    Calculate the volume of a structure from any file readable by
-    :py:mod:pymatgen.
+    """get volume of any structure file readable by ``pymatgen``
 
-    :param str structure_file: path to file defining the structure.
-    :return: volume of structure
-    :rtype: float
+    Args:
+        structure_file (str): path to file defining structure
+
+    Returns:
+        float: volume of structure
     """
     return Structure.from_file(structure_file).volume
 
 
 def read_volume_from_structure_file(structure_file: str) -> float:
-    """
-    Read the volume of a structure from a file.
+    """read the volume of a structure defined in a given file.
 
-    :param str file: path to file defining the structure.
-    :return: volume of structure
-    :rtype: float
+    Args:
+        structure_file (str): path to the structure file.
+
+    Raises:
+        ValueError: if the structure file is not readable by ``py-sc-fermi``
+
+    Returns:
+        float: volume of structure
     """
     # if the structure is specified in the SC-Fermi format, calculate
     # the volume from that
