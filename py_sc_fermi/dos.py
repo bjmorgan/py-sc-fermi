@@ -8,14 +8,14 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
 class DOS(object):
-    """Class for handling density-of-states (DOS) data and its integration.
+    """Class for handling density-of-states data and its integration.
 
     Args:
-        dos (np.array): Density-of-states data.
-        edos (np.array): Energies associated with DOS.
+        dos (np.array): density-of-states data.
+        edos (np.array): energies associated with density-of-states data.
         bandgap (float): band gap 
-        nelect (int): number of electrons in DOS calculation
-        spin_polarised (bool): is the calculated DOS spin polarised?
+        nelect (int): number of electrons in density-of-states calculation
+        spin_polarised (bool): is the calculated density-of-states spin polarised?
     """
 
     def __init__(
@@ -26,7 +26,7 @@ class DOS(object):
         nelect: int,
         spin_polarised=False,
     ):
-        """Initialise a DOS instance."""
+        """Initialise a ``DOS`` instance."""
         self._dos = dos
         self._edos = edos
         self._bandgap = bandgap
@@ -54,7 +54,7 @@ class DOS(object):
         """edos
 
         Returns:
-            np.ndarray: energy associated with the DOS data
+            np.ndarray: energy associated with the density-of-states data
         """
         return self._edos
 
@@ -69,17 +69,17 @@ class DOS(object):
 
     @property
     def spin_polarised(self) -> bool:
-        """bool describing whether the DOS data is spin polarised or not
+        """bool describing whether the density-of-states data is spin-polarised or not
 
         Returns:
-            bool: spin polarised?
+            bool: True if the ``DOS`` is spin-polarised, else False
         """
         return self._spin_polarised
 
     @property
     def nelect(self) -> int:
-        """number of electrons in DOS calculation with which to normalise the
-           DOS with respect to.
+        """number of electrons in density of states calculation with which to
+        normalise the ``DOS`` with respect to.
 
         Returns:
             int: number of electrons
@@ -97,8 +97,8 @@ class DOS(object):
 
         Args:
             path_to_vasprun (str): path to vasprun file
-            nelect (int): number of eletrons in vasp calculation associated with
-                the vasprun
+            nelect (int): number of electrons in vasp calculation associated with
+              the vasprun
             bandgap (Optional[float], optional): bandgap. Defaults to None.
         """
         vr = Vasprun(path_to_vasprun, parse_potcar_file=False)
@@ -122,17 +122,18 @@ class DOS(object):
         )
 
     @classmethod
-    def from_dict(cls, dos_dict: dict):
-        """return a DOS object from a dictionary containing the DOS data.
-        If the density-of-states data is spin polarised, it should
-        be stored as a list of two arrays, one for each spin.
+    def from_dict(cls, dos_dict: dict) -> "DOS":
+        """return a ``DOS`` object from a dictionary containing the density-of-states
+        data. If the density-of-states data is spin polarised, it should
+        be stored as a list of two arrays, one for each spin. The order is not 
+        important.
 
         Args:
             dos_dict (dict): dictionary defining the density of states data
 
         Raises:
-            ValueError: raises error if DOS not formatted correctly with respect
-            to ``spin_polarised`` setting.
+            ValueError: raises error if density-of-states data not formatted 
+            correctly with respect to ``self.spin_polarised`` setting.
         """
         nelect = dos_dict["nelect"]
         bandgap = dos_dict["bandgap"]
@@ -166,29 +167,29 @@ class DOS(object):
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
-        density-of-states unit cell (self.nelect)
+        density-of-states unit cell (``self.nelect``)
         """
         integrated_dos = self.sum_dos()
         self._dos = self._dos / integrated_dos * self._nelect
 
     def emin(self) -> float:
-        """minimum energy in self.edos
+        """minimum energy in ``self.edos``
 
         Returns:
-            float: minimum energy in self.edos
+            float: minimum energy in ``self.edos``
         """
         return self._edos[0]
 
     def emax(self) -> float:
-        """maximum energy in self.edos
+        """maximum energy in ``self.edos``
 
         Returns:
-            float: maximum energy in self.edos
+            float: maximum energy in ``self.edos``
         """
         return self._edos[-1]
 
     def _p0_index(self) -> int:
-        """find index of the valence band maximum (vbm) in self.edos
+        """find index of the valence band maximum (vbm) in ``self.edos``
 
         Returns:
             int: index of vbm
@@ -196,7 +197,7 @@ class DOS(object):
         return np.where(self._edos <= 0)[0][-1]
 
     def _n0_index(self) -> int:
-        """find index of the conduction band minimum (cbm) in self.edos
+        """find index of the conduction band minimum (cbm) in ``self.edos``
 
         Returns:
             int: index of cbm

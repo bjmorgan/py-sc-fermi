@@ -73,25 +73,31 @@ class DefectChargeState:
     @classmethod
     def from_string(
         cls, string: str, volume: Optional[float] = None, frozen: bool = False
-    ):
+    ) -> "DefectChargeState":
         """
         Create a ``DefectChargeState`` from a given string. This method was
         envisaged for use as a way to read in defect charge states from an input
         file for SC-Fermi. 
         
         If a user does wish to specify a defect charge state using this
-        functionality, the string should be in the form:
-             `charge  formation_energy  degeneracy`
+        functionality, the string should be in the form: 
+        
+        `charge  formation_energy  degeneracy`
+        
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
-        of 2 would be specified as:
-            ``"2 0.1 2"``
+        of 2 would be specified as: 
+        
+        ``"2 0.1 2"``
+         
         if the charge state has a fixed concentration, the string should be in
-        the form:
-            `charge  concentration`
-
+        the form: 
+        
+        `charge  concentration` 
+        
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
-        would be specified as:
-            ``"2 1e21"``
+        would be specified as: 
+        
+        ``"2 1e21"`` 
 
         Args:
             string (str): string representation of the ``DefectChargeState``
