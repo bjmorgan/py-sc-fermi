@@ -7,12 +7,12 @@ kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 class DefectChargeState:
     """Class describing a single charge state (of a ``DefectSpecies``).
-       
-       Args:
-            charge (int): charge of this ``DefectChargeState``
-            degeneracy (int): degeneracy per unit cell
-            energy (float): formation energy at E[Fermi] = 0
-            fixed_concentration (float): fixed concentration per unit cell
+
+    Args:
+         charge (int): charge of this ``DefectChargeState``
+         degeneracy (int): degeneracy per unit cell
+         energy (float): formation energy at E[Fermi] = 0
+         fixed_concentration (float): fixed concentration per unit cell
     """
 
     def __init__(
@@ -62,7 +62,7 @@ class DefectChargeState:
 
     @property
     def fixed_concentration(self) -> Optional[float]:
-        """fixed concentration of this ``DefectChargeState`` or ``None`` if the 
+        """fixed concentration of this ``DefectChargeState`` or ``None`` if the
         concentration is free to vary.
 
         Returns:
@@ -77,33 +77,33 @@ class DefectChargeState:
         """
         Create a ``DefectChargeState`` from a given string. This method was
         envisaged for use as a way to read in defect charge states from an input
-        file for SC-Fermi. 
-        
+        file for `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_.
+
         If a user does wish to specify a defect charge state using this
-        functionality, the string should be in the form: 
-        
+        functionality, the string should be in the form:
+
         `charge  formation_energy  degeneracy`
-        
+
         i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
-        of 2 would be specified as: 
-        
+        of 2 would be specified as:
+
         ``"2 0.1 2"``
-         
+
         if the charge state has a fixed concentration, the string should be in
-        the form: 
-        
-        `charge  concentration` 
-        
+        the form:
+
+        `charge  concentration`
+
         i.e. a defect with charge 2, concentration of 1e21 per cm-3
-        would be specified as: 
-        
-        ``"2 1e21"`` 
+        would be specified as:
+
+        ``"2 1e21"``
 
         Args:
             string (str): string representation of the ``DefectChargeState``
             volume (Optional[float], optional): volume of the unit cell, only
                 if ``frozen == True``. Defaults to ``None``.
-            frozen (bool, optional): if ``True`` the concentration of this 
+            frozen (bool, optional): if ``True`` the concentration of this
                 ``DefectChargeState`` cannot change when solving for a self
                 consistent Fermi energy. Defaults to ``False``.
 
@@ -148,7 +148,7 @@ class DefectChargeState:
             e_fermi (float): Fermi energy at which to calculate the formation energy
 
         Raises:
-            ValueError: if ``DefectChargeState.energy == None`` 
+            ValueError: if ``DefectChargeState.energy == None``
 
         Returns:
             float: formation energy of ``DefectChargeState`` at ``e_fermi``

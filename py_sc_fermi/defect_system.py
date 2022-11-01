@@ -16,12 +16,12 @@ class DefectSystem(object):
           which are present in the ``DefectSystem``.
         volume (float): volume of the unit cell in Angstroms cubed
         dos (DOS): the ``DOS`` object associated with the unit cell
-        temperature (float): temperature at which self-consentient Fermi energy 
+        temperature (float): temperature at which self-consentient Fermi energy
           will be solved for.
         convergence_tolerance (float): the charge neutrality tolerance for the
           self-consistent Fermi energy solver. Defaults to ``1e-18``.
         n_trial_steps (int): the maximum number of steps to take in the
-          self-consistent Fermi energy solver. Defaults to 1500.        
+          self-consistent Fermi energy solver. Defaults to 1500.
     """
 
     def __init__(
@@ -125,7 +125,7 @@ class DefectSystem(object):
         Returns:
            Tuple[float, float]: Fermi energy, residual
 
-        Raises: 
+        Raises:
           RuntimeError: if the solver fails does not find a valid solution within
             ``self.dos.emin`` and ``self.dos.emax``
 
@@ -229,7 +229,7 @@ class DefectSystem(object):
             e_fermi (float): Fermi energy
 
         Returns:
-            Tuple[float, float]: charge contributions of positive (lhs) and 
+            Tuple[float, float]: charge contributions of positive (lhs) and
             negative (rhs) charge states of all defects
         """
         contrib = np.array(
@@ -244,7 +244,7 @@ class DefectSystem(object):
 
     def q_tot(self, e_fermi: float) -> float:
         """for a given Fermi energy, calculate the net charge density of the
-        ``DefectSystem`` as the difference between charge contributions from all 
+        ``DefectSystem`` as the difference between charge contributions from all
         positive species (including holes) and all negative species (including
         electrons).
 
@@ -263,8 +263,8 @@ class DefectSystem(object):
 
     def get_transition_levels(self) -> Dict[str, List[List]]:
         """Return transition_levels transition levels profiles of all ``DefectSpecies``
-         all defects as dictionary of ``{DefectSpecies.name : [e_fermi, e_formation]}`` 
-         over the whole density of states energy range.
+        all defects as dictionary of ``{DefectSpecies.name : [e_fermi, e_formation]}``
+        over the whole density of states energy range.
 
         Returns:
             Dict[str, List[List]]: Dictionary giving per-defect transition-level
@@ -281,10 +281,12 @@ class DefectSystem(object):
         return transition_levels
 
     def as_dict(
-        self, decomposed: bool = False, per_volume: bool = True,
+        self,
+        decomposed: bool = False,
+        per_volume: bool = True,
     ) -> Dict[str, Any]:
         """Returns a dictionary of the properties of the ``DefectSystem`` object
-           after solving for the self-consistent Fermi energy.
+        after solving for the self-consistent Fermi energy.
 
         Args:
             decomposed (bool, optional): if True, return a dictionary in which the
@@ -295,7 +297,7 @@ class DefectSystem(object):
               of cm^-3, else returns concentration per unit cell. Defaults to True.
 
         Returns:
-            Dict[str, Any]: dictionary specifying the Fermi Energy, 
+            Dict[str, Any]: dictionary specifying the Fermi Energy,
             hole concentration (``"p0"``), electron concentration
             (``"n0"``), temperature, and the defect concentrations.
         """

@@ -13,7 +13,7 @@ class DOS(object):
     Args:
         dos (np.array): density-of-states data.
         edos (np.array): energies associated with density-of-states data.
-        bandgap (float): band gap 
+        bandgap (float): band gap
         nelect (int): number of electrons in density-of-states calculation
         spin_polarised (bool): is the calculated density-of-states spin polarised?
     """
@@ -42,7 +42,7 @@ class DOS(object):
 
     @property
     def dos(self) -> np.ndarray:
-        """dos data
+        """density-of-states array
 
         Returns:
             np.ndarray: density-of-states data
@@ -51,7 +51,7 @@ class DOS(object):
 
     @property
     def edos(self) -> np.ndarray:
-        """edos
+        """energy associated with density-of-states data
 
         Returns:
             np.ndarray: energy associated with the density-of-states data
@@ -89,8 +89,8 @@ class DOS(object):
     @classmethod
     def from_vasprun(
         cls, path_to_vasprun: str, nelect: int, bandgap: Optional[float] = None
-    ):
-        """Generate py_sc_fermi.dos.DOS object from a VASP vasprun.xml
+    ) -> "DOS":
+        """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
         contained in the vasprun data and must be passed in. On the other hand,
         If the bandgap is not passed in, it can be read from the vasprun file.
@@ -125,15 +125,15 @@ class DOS(object):
     def from_dict(cls, dos_dict: dict) -> "DOS":
         """return a ``DOS`` object from a dictionary containing the density-of-states
         data. If the density-of-states data is spin polarised, it should
-        be stored as a list of two arrays, one for each spin. The order is not 
+        be stored as a list of two arrays, one for each spin. The order is not
         important.
 
         Args:
             dos_dict (dict): dictionary defining the density of states data
 
         Raises:
-            ValueError: raises error if density-of-states data not formatted 
-            correctly with respect to ``self.spin_polarised`` setting.
+            ValueError: raises error if density-of-states data not formatted
+              correctly with respect to ``self.spin_polarised`` setting.
         """
         nelect = dos_dict["nelect"]
         bandgap = dos_dict["bandgap"]
