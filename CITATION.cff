@@ -8,5 +8,5 @@ authors:
   given-names: "Benjamin J."
   orcid: "https://orcid.org/0000-0002-3056-8233"
 title: "py-sc-Fermi"
-version: 0.2.1
+version: 0.3.0
 url: "https://github.com/bjmorgan/py-sc-fermi"
