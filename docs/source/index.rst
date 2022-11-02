@@ -7,6 +7,7 @@ py-sc-fermi
    :maxdepth: 4
    :caption: contents
 
+   installation
    usage_notes
    tutorials
    cli_tutorial
