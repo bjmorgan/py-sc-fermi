@@ -32,32 +32,19 @@ bibliography: paper.bib
 
 # Summary
 
-`py-sc-fermi` is a Python package for calculating point defect concentrations in crystalline materials under the constraint of net&mdash;charge&ndash;neutrality given the formation energies of all defect species in the system and an electronic density of states both obtained from a set of electronic structure calculations (e.g. density functional theory).
+`py-sc-fermi` is a Python package for calculating point defect concentrations in functional materials under the constraint of net&mdash;charge&ndash;neutrality given the formation energies of all defect species in the system and an electronic density of states both obtained from a set of electronic structure calculations (e.g. density functional theory).
 
-Point defects are atomic-scale imperfections in functional materials that influence energy conversion [@TLC], charge transport [@batteries] and the thermodynamics of their formation controls the limit to which we are able to tune materials properties via synthesis conditions and doping strategies [@thermoelectrics,@TCOs]. Attempts to quantify the concentrations of these defect species has become a common practice in materials modelling community in an attempt to desgin novel, highly efficient electronic materials and to rationlise and optimise the properties of known materials [@LLZO-elect].
+Point defects are atomic-scale imperfections in functional materials that influence charge transport [@batteries], energy conversion [@TLC], and optical properties [@paper-on-color-centres] amongst many others. Studying the thermodynamics of point defect formation guides us in understanding the limit to which we are able to tune materials properties via synthesis conditions and doping strategies [@thermoelectrics,@TCOs,@LLZO-orig]. Attempts to quantify the prevalence of different point defects species has become a common practice in materials modelling community in an attempt to design novel, highly efficient electronic materials and to rationlise and optimise the properties of known materials [@LLZO-elect]. 
 
-The principle of charge conservation tells us that the total electric charge in an isolated system never changes; point defects can introduce a local (integer) charge but these must sum to zero across the full defective system. `py-sc-fermi` provides a numerical approach for calculating point defect populations in functional materials under the condition that the removal and addition of ions throughout the material maintains overall net charge neutrality.
-
-The concentration $c$ of point defect $X$ carrying charge $q$ is given by a Boltzmann distribution,
+The main challenge in calculating point defect populations comes from the fact that point defects carry integer charge but the principle of charge conservation, which tells us that the total electric charge in an isolated system never changes, tells us these local integer charge must sum to zero over the full defective system. In other words, all charged defect concentrations are mutually dependent. Stated mathematically,
 
 $$
-c[X^q] = n\exp\left(\frac{-E_\mathrm{f}[X^q]}{k_\mathrm{B}T}\right)
+0 = \sum_{X^𝑞} q[𝑋^𝑞] + n_0 − p_0,
 $$
 
-where $n$ is the defect's degeneracy (a function of the number of symmetrically equivalent ways defect $X^q$ can form), $E_\mathrm{f}[X^q]$ is the formation energy of the defect and $k_\mathrm{B}$ and $T$ are the Boltzmann constant and temperature respectively. Crucially, $E_\mathrm{f}[X^q]$ is a function of the Fermi energy, and therefore as is $c[X^q]$. The Fermi energy is unknown, but can be solved for self-consistently by observing the condition of charge neutrality,
+where the first term is the sum over all the charge contributions from each defect $X$ in its set of all possible charge states $q$ is the concentration and $n_0$ and $p_0$ are the concentrations of free electrons and holes respectively. All the variables in equation 1 are directly or indirectly functions of the Fermi energy. Under a fixed set of growth conditions, the only unknown variable in the calculation of each term is the Fermi energy, and so the populations of all charged species in the system can be solved for self consistently.
 
-$$
-0 = \sum_{X^𝑞} c[𝑋^𝑞] + n_0 − p_0,
-$$
-
-where $n_0$ and $p_0$ are the concentrations of free electrons and holes respectively. $n_0$ and $p_0$ are given by a Fermi-Dirac distribution, which is also a function of the Fermi energy. This gives us a means to solve for the concentrations of electronic charge carriers (holes and electrons) and point defects in which an initial Fermi energy is defined, and then iteratively updated until a self-consistent charge neutral solution is found.
-
-The value of the Fermi energy itself can be used as a general desciptor for the electronic transport properties of the material [@SbTCOs]; the calculated concentrations of electronic charge carriers can be used–in combination with a method to solve for mobility [@amset]–to calculate electronic conductivity, a key figure of merit in many functional materials, and the concentration of the point defects can be used to make inferences about defect processes and the doping response of the material [@LLZO,@BiSI].
-
- <!-- In other words, the charge contributions of all the charged defects plus any positive holes and negative electrons must sum to zero. The concentration of free electrons and holes are determined by the Fermi-Dirac distribuition, which is a function of the Fermi level.
-
-Likewise the concentration of a charged defect is a function of its formation energy, which is in turn a function of the Fermi level $E_\mathrm{Fermi}$ (the input defect formation energies for `py-sc-Fermi` are given for $E_\mathrm{Fermi} = 0$). It is possible to construct simultaneous equations using the Fermi-Dirac distribution and the formation energy of a defect, adjusting the Fermi energy until the charge neutrality condition is satisfied, also known as a "self consistent Fermi energy" approach. An excellent discussion of the theory is avaiable in the paper published alongside the 
-FORTRAN code that formed the intitial inspiration for `py-sc-fermi`, `SC-FERMI` [@Buckeridge2019-fm]. -->
+`py-sc-fermi` provides a numerical approach for calculating point defect populations in functional materials in which an initial Fermi energy is guessed, and this is updated over multiple cycles until the value is found which  satisfies charge neutrality (within a specified tolerance). The value of the Fermi energy itself can be used as a general descriptor for the electronic transport properties of the material [@SbTCOs]; the calculated concentrations of electronic charge carriers can be used–in combination with a method to solve for mobility [@amset]–to calculate electronic conductivity, a key figure of merit in many functional materials, and the concentration of the point defects can be used to make inferences about defect processes and the doping response of the material [@LLZO,@BiSI].
 
 # Statement of need
 

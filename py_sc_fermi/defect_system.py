@@ -85,7 +85,7 @@ class DefectSystem(object):
         )
 
     @classmethod
-    def from_yaml(cls, filename: str) -> "DefectSystem":
+    def from_yaml(cls, filename: str, structure_file="", dos_file="") -> "DefectSystem":
         """generate ``DefectSystem`` via a yaml file.
 
         Args:
@@ -96,7 +96,7 @@ class DefectSystem(object):
             DefectSystem: ``DefectSystem`` corresponding to provided yaml file
         """
 
-        input_set = InputSet.from_yaml(filename)
+        input_set = InputSet.from_yaml(filename, structure_file, dos_file)
         return cls(
             defect_species=input_set.defect_species,
             dos=input_set.dos,

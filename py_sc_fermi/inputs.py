@@ -105,8 +105,8 @@ class InputSet:
             volume = input_dict["volume"]
 
         # if the solver parameters are not in the .yaml file, set them
-        if "convergence_tol" not in list(input_dict.keys()):
-            input_dict["convergence_tol"] = 1e-18
+        if "convergence_tolerance" not in list(input_dict.keys()):
+            input_dict["convergence_tolerance"] = 1e-18
         if "n_trial_steps" not in list(input_dict.keys()):
             input_dict["n_trial_steps"] = 1500
 

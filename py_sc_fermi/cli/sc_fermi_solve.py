@@ -13,13 +13,13 @@ def parse_command_line_arguments():
         "-s",
         "--structure_file",
         help="Path to structure file giving the volume of a defect system",
-        default="unitcell.dat",
+        default="",
     )
     parser.add_argument(
         "-d",
         "--dos_file",
         help="Path to file specifying the totdos of the system",
-        default="totdos.dat",
+        default="",
     )
     parser.add_argument(
         "-f",
@@ -55,7 +55,9 @@ def main():
     n_trial = args.n_trial
 
     if input_file.endswith(".yaml"):
-        defect_system = DefectSystem.from_yaml(input_file)
+        defect_system = DefectSystem.from_yaml(
+            input_file, structure_file=structure_file, dos_file=dos_file
+        )
     else:
         input_data = InputSet.from_sc_fermi_inputs(
             input_file=input_file,
