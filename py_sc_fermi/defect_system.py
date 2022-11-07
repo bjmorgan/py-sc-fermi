@@ -91,6 +91,10 @@ class DefectSystem(object):
         Args:
             filename (str): path to yaml file containing the ``DefectSystem``
               data
+            structure_file (str): path to file containing volume information.
+              Defaults to an empty string.
+            dos_file (str): path to file containing dos information. Defaults
+              to an empty string.
 
         Returns:
             DefectSystem: ``DefectSystem`` corresponding to provided yaml file
