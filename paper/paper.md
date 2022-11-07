@@ -72,6 +72,6 @@ One feature in particular we would like to draw attention to is the ability to a
 
 # Acknowledgements
 
-The authors are grateful for feature requests and user testing from Seán Kavanagh, Joe Willis, Jiayi Cen, Sabrine Hachmioune, and Lavan Ganeshkumar. This work was supported by the Faraday Institution grant number FIRG017. D.O.S. acknowledges support from the European Research Council, ERC (Grant 758345). B.J.M. acknowledges support from the Royal Society (UF13032 and URF\R\191006).
+The authors are grateful for feature requests and user testing from Seán Kavanagh, Joe Willis, Jiayi Cen, Sabrine Hachmioune, and Lavan Ganeshkumar. This work was supported by the Faraday Institution grant number FIRG017. D.O.S. acknowledges support from the European Research Council, ERC (Grant 758345). B.J.M. acknowledges support from the Royal Society (UF13032 and URF\\R\\191006).
 
 # References
