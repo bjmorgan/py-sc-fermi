@@ -39,24 +39,26 @@ Point defects are atomic-scale imperfections in functional materials that influe
 The main challenge in calculating point defect populations comes from the fact that point defects carry integer charge but the principle of charge conservation, which tells us that the total electric charge in an isolated system never changes, tells us these local integer charge must sum to zero over the full defective system. In other words, all charged defect concentrations are mutually dependent. Stated mathematically,
 
 $$
-0 = \sum_{X^𝑞} q[𝑋^𝑞] + n_0 − p_0,
+\begin{equation}
+0 = \sum_{X^𝑞} q[𝑋^𝑞] + n_0 − p_0
+\end{equation}
 $$
 
-where the first term is the sum over all the charge contributions from each defect $X$ in its set of all possible charge states $q$ is the concentration and $n_0$ and $p_0$ are the concentrations of free electrons and holes respectively. All the variables in equation 1 are directly or indirectly functions of the Fermi energy. Under a fixed set of growth conditions, the only unknown variable in the calculation of each term is the Fermi energy, and so the populations of all charged species in the system can be solved for self consistently.
+where the first term is the sum over all the charge contributions from each defect $X$ in its set of all possible charge states $q$ is the concentration and $n_0$ and $p_0$ are the concentrations of free electrons and holes respectively. All the variables in equation 1 are directly or indirectly functions of the electron chemical potential: the Fermi energy. Under a fixed set of growth conditions, the only unknown variable in the calculation of each term is the Fermi energy, and so the populations of all charged species in the system can be solved for self consistently.
 
-`py-sc-fermi` provides a numerical approach for calculating point defect populations in functional materials in which an initial Fermi energy is guessed, and this is updated over multiple cycles until the value is found which  satisfies charge neutrality (within a specified tolerance). The value of the Fermi energy itself can be used as a general descriptor for the electronic transport properties of the material [@SbTCOs]; the calculated concentrations of electronic charge carriers can be used–in combination with a method to solve for mobility [@amset]–to calculate electronic conductivity, a key figure of merit in many functional materials, and the concentration of the point defects can be used to make inferences about defect processes and the doping response of the material [@LLZO,@BiSI].
+`py-sc-fermi` provides a numerical approach for the self-consistent solution. An initial Fermi energy is guessed, and this is updated over multiple cycles until the value is found which satisfies charge neutrality (within a specified tolerance). The value of the Fermi energy itself can be used as a general descriptor for the electronic transport properties of the material [@SbTCOs]; the calculated concentrations of electronic charge carriers can be used&mdash;in combination with a method to solve for mobility [@amset]&mdash;to calculate electronic conductivity (a key figure of merit in many functional materials) and the concentration of the point defects can be used to make inferences about defect processes and the doping response of the material [@LLZO,@BiSI].
 
 # Statement of need
 
 `py-sc-fermi` is a Python package for determining the self-consistent Fermi energy of a material from knowledge of the point defect
 energetics, allowing for quantification of point defect concentrations. While we aware of other scientific software that allows for these and related calculations [@Neilson2022-cj,Arrigoni2021-oc,@Ogawa2022-sn,@Buckeridge2019-fm], to our knowledge `py-sc-fermi` is unique amongst these in providing all of the following features:
 
-  - built on a flexible Python API which allows for rapid prototyping and convergence testing with respect to the calculated self-consistent Fermi energy
+  - built on a flexible Python API which allows for rapid prototyping and convergence testing of the solved-for Fermi energy.
   - is not part of a larger "point-defects workflow" package, making it as flexible as possible for the end user
-  - agnostic towards the choice of simulation code used to generate the input data
-  - possess both command-line functionality for those with little python experience and an object-oriented API that allows the user to construct objects representing individual defects or complete systems of defects directly, allowing easy use with input data generated from any electronic structure simulation code.* 
+  - agnostic towards the choice of simulation code used to generate the input data*
+  - possess both command-line functionality for those with little python experience and an object-oriented API that allows the user to construct objects representing individual defects or complete systems of defects directly.* 
   - allows for constraints on the concentrations of any combination of defects and specific charge states of that defect, including the simulation of the influence of effective dopants.
-  - fully documented and unit-tested.
+  - fully documented with good unit-test coverage.
 
 The code has already been used in a number of studies including some focussed on rationalising the 
 properties of known materials [@LLZO-elect,@Squires2021-je] and also predicting the properties of novel materials [@SbTCOs], in addition, the code can also assist with the visualisation of defect energetics in a flexible manner [@Fe2O3].
@@ -72,6 +74,6 @@ One feature in particular we would like to draw attention to is the ability to a
 
 # Acknowledgements
 
-The authors are grateful for feature requests and user testing from Seán Kavanagh, Joe Willis, and Jiayi Cen.
+The authors are grateful for feature requests and user testing from Seán Kavanagh, Joe Willis, and Jiayi Cen, Sabrine, and Lavan.
 
 # References
