@@ -39,7 +39,7 @@ Point defects are atomic-scale imperfections in functional materials that strong
 The main challenge in calculating point defect populations comes from the fact that point defects carry integer charge but the principle of charge conservation requires that these local integer charges sum to zero over the full defective system. Simply put, the concentrations of all charged point defects are mutually dependent. Stated mathematically,
 
 \begin{equation}
-0 = \sum_{X,𝑞} q c_{X,q} + n_0 − p_0
+0 = \sum_{X,q} q \left[ X,q \right] + n_0 - p_0
 \end{equation}
 
 where the first term is the sum over all the charge contributions from each defect $X$ in each of its accessible charge states $q$ and $n_0$ and $p_0$ are the concentrations of free electrons and holes respectively. All the variables in equation 1 are directly or indirectly functions of the electron chemical potential: the Fermi energy. Under a fixed set of growth conditions, the only unknown variable in the calculation of each term is the Fermi energy, and so the populations of all charged species in the system can be solved for self consistently [@Buckeridge2019-fm].
