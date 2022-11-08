@@ -58,12 +58,13 @@ The resulting self-consistent Fermi energy can be used as a general descriptor f
 This code allows the quantification of point defect and electronic carrier concentrations.
 Other software exists that is written to perform similar calculations [@Neilson2022-cj; @Arrigoni2021-oc; @Ogawa2022-sn; @Buckeridge2019-fm].
 To the best of our knowledge `py-sc-fermi` is unique in providing all of the following features:
-  - It is built on a flexible Python API which allows for rapid prototyping and convergence testing of the solved-for Fermi energy.
-  - It is is not part of a larger &ldquo;point-defects workflow&rdquo; package, making it as flexible as possible for the end user.
-  - It is agnostic towards the choice of simulation code used to generate the input data.
-  - It possess both command-line functionality for those with little Python experience and an object-oriented API that allows the user to easily construct objects representing individual defects or complete systems of defects.
-  - It allows for constraints on the concentrations of any combination of defects and specific charge states of that defect, including the simulation of the influence of effective dopants.
-  - It is fully documented with good unit-test coverage.
+
+- It is built on a flexible Python API which allows for rapid prototyping and convergence testing of the solved-for Fermi energy.
+- It is is not part of a larger &ldquo;point-defects workflow&rdquo; package, making it as flexible as possible for the end user.
+- It is agnostic towards the choice of simulation code used to generate the input data.
+- It possess both command-line functionality for those with little Python experience and an object-oriented API that allows the user to easily construct objects representing individual defects or complete systems of defects.
+- It allows for constraints on the concentrations of any combination of defects and specific charge states of that defect, including the simulation of the influence of effective dopants.
+- It is fully documented with good unit-test coverage.
 
 The code has already been used in a number of studies including some focussed on rationalising the 
 properties of known materials [@LLZO-elect; @Squires2021-je] and also predicting the properties of novel materials [@Jackson2022-la], in addition, the code can also assist with the visualisation of defect energetics in a flexible manner [@Haouari2021-xz].
