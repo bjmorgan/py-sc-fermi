@@ -50,7 +50,7 @@ In practice, self-consistent defect concentrations are calculated by imposing th
 Here, the first term is the sum over charge contributions from each defect $X$ in each of its accessible charge states $q$, and $n_0$ and $p_0$ are the concentrations of free electrons and electron holes respectively.
 
 `py-sc-fermi` provides a Python implementation of an interative numerical approach for calculating the self-consistent solution for an arbitrary set of point-defects.
-The resulting self-consistent Fermi energy can be used as a general descriptor for the electronic-transport properties of the material [@Jackson2022-la]; the calculatedi electronic charge carrier concentrations  can be used to calculate electronic conductivities [@LLZO-elect]; the point defect concentrations, and how these vary with synthesis conditions or doping protocol, can be used to model how the formation of competing defects affects material properties of interest [@Kavanagh2021-bj; @Ganose2018-eu] as well as quantifiying the doping response of the material [@Squires2019-is; @Squires2021-je].
+The resulting self-consistent Fermi energy can be used as a general descriptor for the electronic-transport properties of the material [@Jackson2022-la]; the calculated electronic charge carrier concentrations can be used to calculate electronic conductivities [@LLZO-elect]; the point defect concentrations, and how these vary with synthesis conditions or doping protocol, can be used to model how the formation of competing defects affects material properties of interest [@Kavanagh2021-bj; @Ganose2018-eu] as well as quantifiying the doping response of the material [@Squires2019-is; @Squires2021-je].
 
 # Statement of need
 
@@ -71,9 +71,9 @@ properties of known materials [@LLZO-elect; @Squires2021-je] and also predicting
 
 One feature in particular we would like to draw attention to is the ability to arbitrarily fix the concentrations of specific defects or individual defect charge states.
 Defect and electronic carrier concentrations are functions of temperature.
-In the case of a material with initial defect concentrations determined under high-temperature synethesis conditions, that is then rapidly cooled, some or all of these defect populations may be &ldquo;frozen in&rdquo; (kinetically trapped) at their initial high-temperature values, while other defect populations may adjust to find a new pseudo-equilibrium. 
+In the case of a material with initial defect concentrations determined under high-temperature synthesis conditions, that is then rapidly cooled, some or all of these defect populations may be &ldquo;frozen in&rdquo; (kinetically trapped) at their initial high-temperature values, while other defect populations may adjust to find a new pseudo-equilibrium [@Maier2003-pc]. 
 `py-sc-fermi` allows this scenario to be modelled through a two-step calculation, where in the second step some defect concentrations are fixed to their high temperature &ldquo;synthesis&rdquo; values.
-The new pseudo-equilibrium defect concentrations can be quickly computed as a function of quenching temperature, allow defect concentrations to be calculated under a range of synthesis and quench scenarios [@LLZO-elect].  
+The new pseudo-equilibrium defect concentrations can be quickly computed as a function of quenching temperature, allowing defect concentrations to be calculated under a range of synthesis and quench scenarios [@LLZO-elect].  
 
 There is some minor convenience functionality for users of the Vienna Ab initio Software Package (VASP).
 
