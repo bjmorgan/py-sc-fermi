@@ -19,8 +19,8 @@ class DefectChargeState:
         self,
         charge: int,
         degeneracy: int = 1,
-        energy: float = None,
-        fixed_concentration: float = None,
+        energy: Optional[float] = None,
+        fixed_concentration: Optional[float] = None,
     ):
         if energy == None and fixed_concentration == None:
             raise ValueError(
