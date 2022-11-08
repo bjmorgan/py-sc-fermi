@@ -38,7 +38,7 @@ is preferred:
       project. A more detailed discussion can take place there before
       the changes are accepted.
 
-### Citing
+## Citing
 
 If you use `py-sc-fermi` in your work, please consider citing the following: 
 - this repository (see `cite this repository` in the sidebar)
