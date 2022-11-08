@@ -5,7 +5,7 @@ from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
-from typing import List
+from typing import Optional, List
 import yaml
 import os
 
@@ -202,7 +202,7 @@ def volume_from_unitcell(filename: str) -> float:
 
 
 def read_input_fermi(
-    filename: str, volume: float = None, frozen: bool = False
+    filename: str, volume: Optional[float] = None, frozen: bool = False
 ) -> InputFermiData:
     """Return all information from a input file correctly formatted to work
     for `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_.

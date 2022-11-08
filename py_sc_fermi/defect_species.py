@@ -22,7 +22,7 @@ class DefectSpecies(object):
         name: str,
         nsites: int,
         charge_states: Dict[int, DefectChargeState],
-        fixed_concentration: float = None,
+        fixed_concentration: Optional[float] = None,
     ):
         """Instantiate a DefectSpecies object."""
 
