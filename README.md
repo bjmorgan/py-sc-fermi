@@ -10,9 +10,37 @@ The necessary inputs are (charged) defect formation energies, an (electronic) de
 
 Documentation and usage guides can be found [here](https://py-sc-fermi.readthedocs.io/en/latest/).
 
+## Contributing
+
+### Bugs reports and feature requests
+
+There are probably still some bugs. If you think you've found
+one, please report it on the [issue tracker](https://github.com/bjmorgan/py-sc-fermi/issues).
+This is also the place to propose ideas for new features or ask
+questions about the design of `py-sc-fermi`.
+Poor documentation is considered a bug, but please be as specific as
+possible when asking for improvements.
+
+### Code contributions
+
+We welcome help in improving the package with your
+external contributions. This is managed through Github pull requests;
+for external contributions
+[fork and pull](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork)
+is preferred:
+
+   1. First open an Issue to discuss the proposed contribution. This
+      discussion might include how the changes fit `py-sc-fermi` scope and a
+      general technical approach.
+   2. Make your own project fork and implement the changes
+      there.
+   3. Open a pull request to merge the changes into the main
+      project. A more detailed discussion can take place there before
+      the changes are accepted.
+
 ### Citing
 
-If you use py-sc-Fermi in your work, please consider citing the following: 
+If you use `py-sc-fermi` in your work, please consider citing the following: 
 - this repository (see `cite this repository` in the sidebar)
 - the paper associated with the FORTRAN code [`SC-Fermi`](https://github.com/jbuckeridge/sc-fermi) on which this code was initially based, which provides an excellent discussion of both the underlying theory and the self-consistent Fermi-energy searching algorithm. 
 
