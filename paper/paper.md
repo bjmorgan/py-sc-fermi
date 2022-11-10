@@ -1,5 +1,5 @@
 ---
-title: 'py-sc-fermi: self-consistent Fermi energies in functional materials'
+title: 'py-sc-fermi: self-consistent Fermi energies and defect concentrations from electronic structure calculations'
 tags:
   - Python
   - materials modelling
@@ -32,43 +32,55 @@ bibliography: paper.bib
 
 # Summary
 
-`py-sc-fermi` is a Python package for calculating point defect concentrations in functional materials under the constraint of net&ndash;charge-neutrality. The required inputs for a given material are the formation energies of all point defects and the electronic density of states. These can be obtained obtained from a set of electronic structure calculations (e.g. density functional theory calculations).
+`py-sc-fermi` is a Python package for calculating point defect concentrations in crystalline materials, under the constraint of net&ndash;charge-neutrality.
+The required inputs are the formation energies of all point defects of interest and the electronic density of states.
+These can be obtained obtained from electronic structure calculations, e.g., density functional theory calculations.
 
-Point defects are atomic-scale imperfections in functional materials that strongly influence&mdash;for example&mdash;electronic structure [@Pastor2022-xa], charge transport [@batteries], and energy conversion processes [@TLC]. Studying the thermodynamics of point defect formation informs us of the limits to which we are able to tune materials properties via synthesis conditions and doping strategies [@thermoelectric; @Squires2019-is; @Park2018-np]. Attempts to quantify the prevalence of different point defects species has become common practice in materials modelling community with respect to both designing novel, highly efficient electronic materials [@Jackson2022-la; @Ganose2018-eu; @Toriyama2021-ch] and to rationlise and optimise the properties of known materials [@Kim2018-eg; @Shimoda2022-vs; @LLZO-elect]. 
+Point defects are atomic-scale imperfections crystalline materials, which can strongly affect a range of material properties, including electronic structure [@Pastor2022-xa], charge transport [@batteries], and energy-conversion processes [@TLC].
+Point defect concentrations are generally sensitive to synthesis conditions and to the inclusion of extrinsic dopants.
+By understanding the thermodynamics of point-defect formation, it is possible to predict the response of specific material properties to changes in synthesis or doping protocols [@thermoelectric; @Squires2019-is; @Park2018-np].
+Attempts to quantitatively model point-defect populations in functional materials has become common practice in the materials modelling community, often with the aim of informing the design of novel, highly performant materials [@Jackson2022-la; @Ganose2018-eu; @Toriyama2021-ch] and to rationlise and optimise the properties of known materials [@Kim2018-eg; @Shimoda2022-vs; @LLZO-elect]. 
 
-The main challenge in calculating point defect populations comes from the fact that point defects carry integer charge but the principle of charge conservation requires that these local integer charges sum to zero over the full defective system. Simply put, the concentrations of all charged point defects are mutually dependent. The condition of charge neutraility as applied to a bulk material containing charged point defects can be stated mathematically as,
-
+While the formation energies of charge-neutral point defects can be calculated simply, e.g., from electronic structure calculations, the formation energies of charged defects depend on the electronic chemical potential (Fermi energy), which, in turn, depends on the net population of all charged defects in the system.
+The concentrations of charged point defects are therefore mutually dependent, and must be solved as a unified self-consistent system.
+In practice, self-consistent defect concentrations are calculated by imposing the constraint of net-charge neutrality [@Buckeridge2019-fm],
 \begin{equation}
-0 = \sum_{X,q} q \left[ X,q \right] - n_0 + p_0
+0 = \sum_{X,q} q \left[ X,q \right] - n_0 + p_0.
 \end{equation}
+Here, the first term is the sum over charge contributions from each defect $X$ in each of its accessible charge states $q$, and $n_0$ and $p_0$ are the concentrations of free electrons and electron holes respectively.
 
-where the first term is the sum over all the charge contributions from each defect $X$ in each of its accessible charge states $q$ and $n_0$ and $p_0$ are the concentrations of free electrons and electron holes respectively. All the variables in equation 1 are directly or indirectly functions of the electron chemical potential: the Fermi energy. Under a fixed set of growth conditions, the only unknown variable in the calculation of each term is the Fermi energy, and so, by enforcing the condition of net&ndash;charge-neutrality the populations of all charged species in the system can be solved for self consistently [@Buckeridge2019-fm].
-
-`py-sc-fermi` provides a numerical approach for the self-consistent solution. An initial Fermi energy is guessed, and this is updated over multiple cycles until the value is found which satisfies equation 1 (within a specified tolerance). The self-consistent Fermi energy itself can then be used as a general descriptor for the electronic transport properties of the material [@Jackson2022-la]; the calculated concentrations of electronic charge carriers can be used to calculate electronic conductivity [@LLZO-elect] and the concentration of the point defects themselves can be used to evaluate the effect of different defect processes on properties of interest [@Kavanagh2021-bj; @Ganose2018-eu] and the doping response of the material [@Squires2019-is; @Squires2021-je].
+`py-sc-fermi` provides a Python implementation of an interative numerical approach for calculating the self-consistent solution for an arbitrary set of point-defects.
+The resulting self-consistent Fermi energy can be used as a general descriptor for the electronic-transport properties of the material [@Jackson2022-la]; the calculated electronic charge carrier concentrations can be used to calculate electronic conductivities [@LLZO-elect]; the point defect concentrations, and how these vary with synthesis conditions or doping protocol, can be used to model how the formation of competing defects affects material properties of interest [@Kavanagh2021-bj; @Ganose2018-eu] as well as quantifiying the doping response of the material [@Squires2019-is; @Squires2021-je].
 
 # Statement of need
 
-`py-sc-fermi` is a Python package for determining the self-consistent Fermi energy of a material from knowledge of the point defect
-energetics, allowing for quantification of point defect and electronic carrier concentrations. While we aware of other software that allows for these and related calculations [@Neilson2022-cj; @Arrigoni2021-oc; @Ogawa2022-sn; @Buckeridge2019-fm], to the best of our knowledge `py-sc-fermi` is unique amongst these in providing all of the following features:
+`py-sc-fermi` is a Python package for determining the self-consistent Fermi energy of a material from pre-calculated point defect data.
+This code allows the quantification of point defect and electronic carrier concentrations.
+Other software exists that is written to perform similar calculations [@Neilson2022-cj; @Arrigoni2021-oc; @Ogawa2022-sn; @Buckeridge2019-fm].
+To the best of our knowledge `py-sc-fermi` is unique in providing all of the following features:
 
-  - It is built on a flexible Python API which allows for rapid prototyping and convergence testing of the solved-for Fermi energy.
-  - It is is not part of a larger "point-defects workflow" package, making it as flexible as possible for the end user.
-  - It is agnostic towards the choice of simulation code used to generate the input data*.
-  - It possess both command-line functionality for those with little python experience and an object-oriented API that allows the user to construct objects representing individual defects or complete systems of defects directly.
-  - It allows for constraints on the concentrations of any combination of defects and specific charge states of that defect, including the simulation of the influence of effective dopants.
-  - It is fully documented with good unit-test coverage.
+- It is built on a flexible Python API which allows for rapid prototyping and convergence testing of the solved-for Fermi energy.
+- It is is not part of a larger &ldquo;point-defects workflow&rdquo; package, making it as flexible as possible for the end user.
+- It is agnostic towards the choice of simulation code used to generate the input data.
+- It possess both command-line functionality for those with little Python experience and an object-oriented API that allows the user to easily construct objects representing individual defects or complete systems of defects.
+- It allows for constraints on the concentrations of any combination of defects and specific charge states of that defect, including the simulation of the influence of effective dopants.
+- It is fully documented with good unit-test coverage.
 
 The code has already been used in a number of studies including some focussed on rationalising the 
 properties of known materials [@LLZO-elect; @Squires2021-je] and also predicting the properties of novel materials [@Jackson2022-la], in addition, the code can also assist with the visualisation of defect energetics in a flexible manner [@Haouari2021-xz].
 
-One feature in particular we would like to draw attention to is the ability to arbitrarily fix the concentrations of specific defects (or individual defect charge states). Defect and electronic carrier concentrations are functions of temperature; consider a material in which defects form at high (synthesis) temperature, but then the system is rapidly cooled to low (operating) temperature. Kinetic barriers for defect reorganising may be too high for full re-equilibration of some or all defect concentrations (and thererfore the Fermi energy). Within `py-sc-fermi` this scenario can by simulated by fixing concentrations of some subset of defects at their synthesis temperature and the  system can then be resampled under pseudo-equilbrium lower temperatures allowing for defect properties under a range of different scenarios [@LLZO-elect].  
+One feature in particular we would like to draw attention to is the ability to arbitrarily fix the concentrations of specific defects or individual defect charge states.
+Defect and electronic carrier concentrations are functions of temperature.
+In the case of a material with initial defect concentrations determined under high-temperature synthesis conditions, that is then rapidly cooled, some or all of these defect populations may be &ldquo;frozen in&rdquo; (kinetically trapped) at their initial high-temperature values, while other defect populations may adjust to find a new pseudo-equilibrium [@Maier2003-pc]. 
+`py-sc-fermi` allows this scenario to be modelled through a two-step calculation, where in the second step some defect concentrations are fixed to their high temperature &ldquo;synthesis&rdquo; values.
+The new pseudo-equilibrium defect concentrations can be quickly computed as a function of quenching temperature, allowing defect concentrations to be calculated under a range of synthesis and quench scenarios [@LLZO-elect].  
 
-*There is some minor convenience functionality for users of the Vienna Ab initio Software Package (VASP).
-
-
+There is some minor convenience functionality for users of the Vienna Ab initio Software Package (VASP).
 
 # Acknowledgements
 
-The authors are grateful for feature requests and user testing from Seán Kavanagh, Joe Willis, Jiayi Cen, Sabrine Hachmioune, and Lavan Ganeshkumar. This work was supported by the Faraday Institution grant number FIRG017. D.O.S. acknowledges support from the European Research Council, ERC (Grant 758345). B.J.M. acknowledges support from the Royal Society (UF13032 and URF\\R\\191006).
+The authors are grateful for feature requests and user testing from Seán Kavanagh, Joe Willis, Jiayi Cen, Sabrine Hachmioune, and Lavan Ganeshkumar.
+This work was supported by the Faraday Institution grant number FIRG017. D.O.S. acknowledges support from the European Research Council, ERC (Grant 758345).
+B.J.M. acknowledges support from the Royal Society (UF13032 and URF\\R\\191006).
 
 # References
