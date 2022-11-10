@@ -6,7 +6,7 @@
       
 `py-sc-fermi` is a materials modelling code for calculating self-consistent Fermi energies and defect concentrations under thermodynamic equilibrium (or quasi-equilibrium) given defect formation energies. For the theory, see [this paper](https://doi.org/10.1016/j.cpc.2019.06.017).   
 
-The necessary inputs are (charged) defect formation energies, an (electronic) density of states, and the volume of the unit cell. Having this data, a `DefectSystem` object can be inititalised, properties of which include the self consistent Fermi energy, defect concentrations, and defect transition levels. 
+The necessary inputs are (charged) defect formation energies, an (electronic) density of states, and the volume of the unit cell. Having this data, a `DefectSystem` object can be inititalised, from which the self consistent Fermi energy, defect concentrations, defect transition levels and electron and hole concentrations can be calculated. 
 
 Documentation and usage guides can be found [here](https://py-sc-fermi.readthedocs.io/en/latest/).
 
