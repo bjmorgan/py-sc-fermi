@@ -1,5 +1,5 @@
 ---
-title: 'py-sc-fermi: self-consistent Fermi energies in functional materials'
+title: 'py-sc-fermi: self-consistent Fermi energies and defect concentrations from electronic structure calculations'
 tags:
   - Python
   - materials modelling
