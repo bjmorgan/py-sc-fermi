@@ -14,8 +14,7 @@ Documentation and usage guides can be found [here](https://py-sc-fermi.readthedo
 
 ### Bugs reports and feature requests
 
-There are probably still some bugs. If you think you've found
-one, please report it on the [issue tracker](https://github.com/bjmorgan/py-sc-fermi/issues).
+If you think you've found a bug, please report it on the [issue tracker](https://github.com/bjmorgan/py-sc-fermi/issues).
 This is also the place to propose ideas for new features or ask
 questions about the design of `py-sc-fermi`.
 Poor documentation is considered a bug, but please be as specific as
