@@ -3,7 +3,7 @@
 ![Build Status](https://github.com/bjmorgan/py-sc-fermi/actions/workflows/build.yml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/bjmorgan/py-sc-fermi/badge.svg?branch=main)](https://coveralls.io/github/bjmorgan/py-sc-fermi?branch=main)
 [![Documentation Status](https://readthedocs.org/projects/py-sc-fermi/badge/?version=latest)](https://py-sc-fermi.readthedocs.io/en/latest/?badge=latest)
-Markdown: [![status](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7/status.svg)](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7)
+[![status](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7/status.svg)](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7)
 
 `py-sc-fermi` is a materials modelling code for calculating self-consistent Fermi energies and defect concentrations under thermodynamic equilibrium (or quasi-equilibrium) given defect formation energies. For the theory, see [this paper](https://doi.org/10.1016/j.cpc.2019.06.017).   
 
