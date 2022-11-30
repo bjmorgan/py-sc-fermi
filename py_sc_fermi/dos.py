@@ -34,7 +34,7 @@ class DOS(object):
         self._spin_polarised = spin_polarised
 
         if self.spin_polarised == True:
-            new_dos = np.sum(dos, axis = 0)
+            new_dos = np.sum(dos, axis=0)
             self._dos = new_dos
         elif self.spin_polarised == False:
             self._dos = dos
@@ -113,16 +113,11 @@ class DOS(object):
         vbm = vr.eigenvalue_band_properties[2]
         edos = vr.complete_dos.energies - vbm
         if len(densities) == 2:
-            tdos_data = np.stack(
-                [edos, np.abs(densities[Spin.up]), np.abs(densities[Spin.down])], axis=1
-            )
+            dos = [densities[Spin.up], densities[Spin.down]]
             spin_pol = True
         else:
-            tdos_data = np.stack([edos, np.abs(densities[Spin.up])], axis=1)
+            dos = densities[Spin.up]
             spin_pol = False
-        edos = tdos_data[:, 0]
-        dos = tdos_data[:, 1:]
-        dos = dos.flatten()
 
         if bandgap is None:
             bandgap = float(vr.eigenvalue_band_properties[0])
@@ -154,13 +149,9 @@ class DOS(object):
             spin_pol = False
         elif shape[0] == 2:
             spin_pol = True
-        
+
         return cls(
-            nelect=nelect,
-            bandgap=bandgap,
-            edos=edos,
-            dos=dos,
-            spin_polarised=spin_pol,
+            nelect=nelect, bandgap=bandgap, edos=edos, dos=dos, spin_polarised=spin_pol,
         )
 
     def sum_dos(self) -> np.ndarray:
