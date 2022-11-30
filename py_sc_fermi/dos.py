@@ -113,10 +113,10 @@ class DOS(object):
         vbm = vr.eigenvalue_band_properties[2]
         edos = vr.complete_dos.energies - vbm
         if len(densities) == 2:
-            dos = [densities[Spin.up], densities[Spin.down]]
+            dos = np.array([densities[Spin.up], densities[Spin.down]])
             spin_pol = True
         else:
-            dos = densities[Spin.up]
+            dos = np.array(densities[Spin.up])
             spin_pol = False
 
         if bandgap is None:
