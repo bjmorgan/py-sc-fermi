@@ -58,9 +58,7 @@ class DefectSpecies(object):
         return self._nsites
 
     @property
-    def charge_states(
-        self,
-    ) -> Dict[int, DefectChargeState]:
+    def charge_states(self,) -> Dict[int, DefectChargeState]:
         """
 
         Returns:
@@ -313,9 +311,7 @@ class DefectSpecies(object):
         else:
             return sum(self.charge_state_concentrations(e_fermi, temperature).values())
 
-    def fixed_conc_charge_states(
-        self,
-    ) -> Dict[int, DefectChargeState]:
+    def fixed_conc_charge_states(self,) -> Dict[int, DefectChargeState]:
         """get ``DefectChargeState`` objects of this ``DefectSpecies`` with fixed
         concentration (i.e those for which ``DefectChargeState.fixed_concentration != None``)
 

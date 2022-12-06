@@ -27,11 +27,18 @@ class DOS(object):
         spin_polarised=False,
     ):
         """Initialise a ``DOS`` instance."""
-        self._dos = dos
+        # self._dos = dos
         self._edos = edos
         self._bandgap = bandgap
         self._nelect = nelect
         self._spin_polarised = spin_polarised
+
+        if self.spin_polarised == True:
+            new_dos = np.sum(dos, axis=0)
+            self._dos = new_dos
+        elif self.spin_polarised == False:
+            self._dos = dos
+
         self.normalise_dos()
 
         if self.bandgap > self.emax():
@@ -106,15 +113,12 @@ class DOS(object):
         vbm = vr.eigenvalue_band_properties[2]
         edos = vr.complete_dos.energies - vbm
         if len(densities) == 2:
-            tdos_data = np.stack(
-                [edos, np.abs(densities[Spin.up]), np.abs(densities[Spin.down])], axis=1
-            )
+            dos = np.array([densities[Spin.up], densities[Spin.down]])
             spin_pol = True
         else:
-            tdos_data = np.stack([edos, np.abs(densities[Spin.up])], axis=1)
+            dos = np.array(densities[Spin.up])
             spin_pol = False
-        edos = tdos_data[:, 0]
-        dos = np.sum(tdos_data[:, 1:], axis=1)
+
         if bandgap is None:
             bandgap = float(vr.eigenvalue_band_properties[0])
         return cls(
@@ -137,23 +141,17 @@ class DOS(object):
         """
         nelect = dos_dict["nelect"]
         bandgap = dos_dict["bandgap"]
-        raw_dos = np.array(dos_dict["dos"])
+        dos = np.array(dos_dict["dos"])
         edos = np.array(dos_dict["edos"])
-        shape = raw_dos.shape
+
+        shape = dos.shape
         if len(shape) == 1:
-            new_dos = raw_dos
             spin_pol = False
         elif shape[0] == 2:
-            new_dos = np.sum(raw_dos, axis=0)
             spin_pol = True
-        else:
-            raise ValueError("dos_dict['dos'] is not in the correct format.")
+
         return cls(
-            nelect=nelect,
-            bandgap=bandgap,
-            edos=edos,
-            dos=new_dos,
-            spin_polarised=spin_pol,
+            nelect=nelect, bandgap=bandgap, edos=edos, dos=dos, spin_polarised=spin_pol,
         )
 
     def sum_dos(self) -> np.ndarray:

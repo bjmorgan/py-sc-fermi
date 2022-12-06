@@ -285,9 +285,7 @@ class DefectSystem(object):
         return transition_levels
 
     def as_dict(
-        self,
-        decomposed: bool = False,
-        per_volume: bool = True,
+        self, decomposed: bool = False, per_volume: bool = True,
     ) -> Dict[str, Any]:
         """Returns a dictionary of the properties of the ``DefectSystem`` object
         after solving for the self-consistent Fermi energy.
