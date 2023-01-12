@@ -284,8 +284,10 @@ class DefectSystem(object):
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
-    def as_dict(
-        self, decomposed: bool = False, per_volume: bool = True,
+    def concentration_dict(
+        self,
+        decomposed: bool = False,
+        per_volume: bool = True,
     ) -> Dict[str, Any]:
         """Returns a dictionary of the properties of the ``DefectSystem`` object
         after solving for the self-consistent Fermi energy.
@@ -335,3 +337,22 @@ class DefectSystem(object):
                 for ds in self.defect_species
             }
             return {**run_stats, **decomp_concs}
+
+    def as_dict(self) -> dict:
+        """
+
+        Returns:
+            dict: _description_
+        """
+
+        defect_system_dict = dict(
+            volume=self.volume,
+            temperature=self.temperature,
+            n_trial_steps=self.n_trial_steps,
+            defect_species=[
+                defect_species.as_dict() for defect_species in self.defect_species
+            ],
+            convergence_tolerance=self.convergence_tolerance,
+            dos=self.dos.as_dict(),
+        )
+        return defect_system_dict

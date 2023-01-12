@@ -132,6 +132,44 @@ class DefectChargeState:
                     fixed_concentration=float(stripped_string[2]) / 1e24 * volume,
                 )
 
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> "DefectChargeState":
+        """generate ``DefectChargeState`` from a dictionary representation
+
+        Returns:
+            ``DefectChargeState``: relevant ``DefectChargeState`` object
+        """
+        if "fixed_concentration" in dictionary.keys():
+            return DefectChargeState(
+                degeneracy=dictionary["degeneracy"],
+                energy=dictionary["energy"],
+                charge=dictionary["charge"],
+                fixed_concentration=dictionary["fixed_concentration"],
+            )
+        else:
+            return DefectChargeState(
+                degeneracy=dictionary["degeneracy"],
+                energy=dictionary["energy"],
+                charge=dictionary["charge"],
+            )
+
+    def as_dict(self) -> dict:
+        """generate a dictionary representation of the ``DefectChargeState``
+
+        Returns:
+            dict: dictionary representation of the ``DefectChargeState``
+        """
+
+        defect_dict = {
+            "degeneracy": self.degeneracy,
+            "energy": self.energy,
+            "charge": self.charge,
+        }
+        if self.fixed_concentration != None:
+            defect_dict.update({"fixed_concentration": self.fixed_concentration})
+
+        return defect_dict
+
     def fix_concentration(self, concentration: float) -> None:
         """Fixes the concentration (per unit cell) of this ``DefectChargeState``
 

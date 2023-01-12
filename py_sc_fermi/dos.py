@@ -154,6 +154,17 @@ class DOS(object):
             nelect=nelect, bandgap=bandgap, edos=edos, dos=dos, spin_polarised=spin_pol,
         )
 
+    def as_dict(self) -> dict:
+        """_summary_
+
+        Returns:
+            dict: _description_
+        """
+
+        return dict(
+            nelect=self.nelect, bandgap=self.bandgap, edos=self.edos, dos=self.dos
+        )
+
     def sum_dos(self) -> np.ndarray:
         """
         Returns:

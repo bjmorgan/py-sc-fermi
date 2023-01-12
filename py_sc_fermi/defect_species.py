@@ -58,18 +58,21 @@ class DefectSpecies(object):
         return self._nsites
 
     @property
-    def charge_states(self,) -> Dict[int, DefectChargeState]:
+    def charge_states(
+        self,
+    ) -> Dict[int, DefectChargeState]:
         """
 
         Returns:
-            Dict[int, DefectChargeState]: The charge states of this defect species as s dictionary of
-            ``{charge (int): DefectChargeState}`` key-value pairs"""
+            Dict[int, DefectChargeState]: The charge states of this defect 
+            species as a dictionary of ``{charge (int): DefectChargeState}``
+            key-value pairs"""
         return self._charge_states
 
     @property
     def charges(self) -> List[int]:
-        """list of all the charges of the ``DefectChargeState`` objects that comprise
-        this ``DefectSpecies``
+        """list of all the charges of the ``DefectChargeState`` objects that 
+        comprise this ``DefectSpecies``
 
         Returns:
             List[int]: list of charge states of this ``DefectSpecies``
@@ -82,13 +85,14 @@ class DefectSpecies(object):
         concentration of this defect is variable.
 
         Returns:
-            Optional[float]: fixed concentration per unit cell of the ``DefectSpecies``
+            Optional[float]: fixed concentration per unit cell of the 
+            ``DefectSpecies``
         """
         return self._fixed_concentration
 
     def __repr__(self):
         to_return = f"\n{self.name}, nsites={self.nsites}"
-        if self.fixed_concentration != None:
+        if self.fixed_concentration is not None:
             to_return += f"\nfixed [c] = {self.fixed_concentration}"
         to_return += "\n" + "".join(
             [f"  {cs.__repr__()}\n" for cs in self.charge_states.values()]
@@ -125,9 +129,10 @@ class DefectSpecies(object):
                 formation_energy = None
             else:
                 formation_energy = float(c["formation_energy"])
-            if formation_energy == None and fixed_concentration == None:
+            if formation_energy is None and fixed_concentration is None:
                 raise ValueError(
-                    f"{name, n} must have one or both fixed concentration or formation energy"
+                    f"""{name, n} must have one or both fixed concentration or
+                    formation energy"""
                 )
             charge_state = DefectChargeState(
                 charge=n,
@@ -204,6 +209,27 @@ class DefectSpecies(object):
             self.variable_conc_charge_states().values(),
             key=lambda x: x.get_formation_energy(e_fermi),
         )
+
+    def as_dict(self) -> dict:
+        """get representation of ``DefectSpecies`` as a dictionary
+
+        Returns:
+            dict: dictionary representation of ``DefectChargeState``
+        """
+
+        charge_state_dicts = {
+            k: v.as_dict()
+            for k, v in self.charge_states.items()
+        }
+        defect_dict = {
+            "name": self.name,
+            "nsites": self.nsites,
+            "charge_states": charge_state_dicts,
+        }
+        if self.fixed_concentration is not None:
+            defect_dict.update({"fixed_concentration": self.fixed_concentration})
+
+        return defect_dict
 
     def min_energy_charge_state(self, e_fermi: float) -> DefectChargeState:
         """Returns the defect charge state with the minimum energy at a given
@@ -311,9 +337,12 @@ class DefectSpecies(object):
         else:
             return sum(self.charge_state_concentrations(e_fermi, temperature).values())
 
-    def fixed_conc_charge_states(self,) -> Dict[int, DefectChargeState]:
+    def fixed_conc_charge_states(
+        self,
+    ) -> Dict[int, DefectChargeState]:
         """get ``DefectChargeState`` objects of this ``DefectSpecies`` with fixed
-        concentration (i.e those for which ``DefectChargeState.fixed_concentration != None``)
+        concentration 
+        (i.e those for which ``DefectChargeState.fixed_concentration != None``)
 
         Returns:
             Dict[int, DefectChargeState]: key-value pairs of charge on fixed
