@@ -162,7 +162,7 @@ class DOS(object):
         """
 
         return dict(
-            nelect=self.nelect, bandgap=self.bandgap, edos=self.edos, dos=self.dos
+            nelect=int(self.nelect), bandgap=float(self.bandgap), edos=list(self.edos), dos=list(self.dos)
         )
 
     def sum_dos(self) -> np.ndarray:
