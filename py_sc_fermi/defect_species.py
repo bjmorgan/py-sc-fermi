@@ -218,7 +218,7 @@ class DefectSpecies(object):
         """
 
         charge_state_dicts = {
-            k: v.as_dict()
+            int(k): v.as_dict()
             for k, v in self.charge_states.items()
         }
         defect_dict = {
