@@ -346,13 +346,13 @@ class DefectSystem(object):
         """
 
         defect_system_dict = dict(
-            volume=self.volume,
-            temperature=self.temperature,
-            n_trial_steps=self.n_trial_steps,
+            volume=float(self.volume),
+            temperature=float(self.temperature),
+            n_trial_steps=int(self.n_trial_steps),
             defect_species=[
                 defect_species.as_dict() for defect_species in self.defect_species
             ],
-            convergence_tolerance=self.convergence_tolerance,
+            convergence_tolerance=float(self.convergence_tolerance),
             dos=self.dos.as_dict(),
         )
         return defect_system_dict
