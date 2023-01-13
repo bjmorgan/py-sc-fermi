@@ -222,12 +222,12 @@ class DefectSpecies(object):
             for k, v in self.charge_states.items()
         }
         defect_dict = {
-            "name": self.name,
-            "nsites": self.nsites,
+            "name": str(self.name),
+            "nsites": int(self.nsites),
             "charge_states": charge_state_dicts,
         }
         if self.fixed_concentration is not None:
-            defect_dict.update({"fixed_concentration": self.fixed_concentration})
+            defect_dict.update({"fixed_concentration": float(self.fixed_concentration)})
 
         return defect_dict
 

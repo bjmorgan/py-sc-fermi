@@ -161,12 +161,12 @@ class DefectChargeState:
         """
 
         defect_dict = {
-            "degeneracy": self.degeneracy,
-            "energy": self.energy,
-            "charge": self.charge,
+            "degeneracy": int(self.degeneracy),
+            "energy": float(self.energy),
+            "charge": int(self.charge),
         }
         if self.fixed_concentration != None:
-            defect_dict.update({"fixed_concentration": self.fixed_concentration})
+            defect_dict.update({"fixed_concentration": float(self.fixed_concentration)})
 
         return defect_dict
 
