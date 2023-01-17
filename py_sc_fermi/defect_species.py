@@ -159,7 +159,7 @@ class DefectSpecies(object):
             return cls(
                 name,
                 defect_species_dict[name]["nsites"],
-                charge_states={cs.charge: cs for cs in charge_states},
+                charge_states={int(cs.charge): cs for cs in charge_states},
             )
 
     @classmethod
