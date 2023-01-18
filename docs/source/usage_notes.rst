@@ -4,8 +4,8 @@ Usage notes
   of states data was calculated, and any volumes, degeneracies and numbers of electrons provided should be 
   consitent with this structure for the reported defect concentrations to be accurate. In most cases, inconsistent
   specification of these values will lead to incorrect Fermi energies.
-- All Fermi energies reported by the code, and provided in inputs are referenced to the VBM, which in turn
-  must be referenced to 0 in the input density of states data.
+- The reported Fermi energy and transition levels reported are referenced to 0 eV; the code expects that the input
+  density of states data is zeroed on the valence band maximum.
 - The code operates using the following units,
   and all user-input must be consistent:
   
