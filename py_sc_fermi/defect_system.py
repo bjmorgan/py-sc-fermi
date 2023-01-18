@@ -192,6 +192,7 @@ class DefectSystem(object):
         """generate string to facilitate self.report()"""
         string = ""
         e_fermi = self.get_sc_fermi()[0]
+        string += f"Temperature :      {self.temperature}  (K)\n"
         string += f"SC Fermi level :      {e_fermi}  (eV)\n"
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
         string += "Concentrations:\n"
