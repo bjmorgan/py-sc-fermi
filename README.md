@@ -11,6 +11,22 @@ The necessary inputs are (charged) defect formation energies, an (electronic) de
 
 Documentation and usage guides can be found [here](https://py-sc-fermi.readthedocs.io/en/latest/).
 
+## Installation
+
+py-sc-fermi can be installed with pip:
+
+```
+pip install py-sc-fermi
+```
+
+Alternatively, the latest development build can be installed by cloning this repository and installing with pip:
+
+```
+git clone https://github.com/bjmorgan/py-sc-fermi.git
+cd py-sc-fermi
+pip install .
+```
+
 ## Contributing
 
 ### Bugs reports and feature requests
