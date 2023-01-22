@@ -19,4 +19,7 @@ Usage notes
   which are defective, but will report in cm :superscript:`-3`. The documentation should always specify what kind of concentration
   is expected by a particular function, if it does not, this is a bug! Please report it. 
  
- - Although in principle the code could be patched to account for temperature-dependent defect formation energy data (if this is something you would be interested in, please let us know!), as this is a rare practice in the field, we currently only calculate defect concentrations with respect to the "0K" formation energies, following the model of [Zhang and Northrup](https://doi.org/10.1103/PhysRevLett.67.2339)
+- Although in principle the code could be patched to account for temperature-dependent defect formation energy data
+  (if this is something you would be interested in, please let us know!), as this is a rare practice in the field, 
+  we currently only calculate defect concentrations with respect to the "0K" formation energies, following the model 
+  of `Zhang and Northrup`_https://doi.org/10.1103/PhysRevLett.67.2339
