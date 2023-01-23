@@ -149,7 +149,6 @@ class DefectSystem(object):
         direction = +1.0
         e_fermi = (emin + emax) / 2.0
         step = 1.0
-        converged = False
         reached_e_min = False
         reached_e_max = False
 
@@ -167,7 +166,6 @@ class DefectSystem(object):
                 reached_e_min = True
                 direction = +1.0
             if abs(q_tot) < self.convergence_tolerance:
-                converged = True
                 break
             if q_tot > 0.0:
                 if direction == +1.0:
@@ -201,7 +199,7 @@ class DefectSystem(object):
         for ds in self.defect_species:
             concall = ds.get_concentration(e_fermi, self.temperature)
             if ds.fixed_concentration == None:
-                string += f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3\n"
+                string += f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3, (percentage of defective sites: {(concall / ds.nsites) * 100:.3} %)\n"
             else:
                 string += (
                     f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3 [fixed]\n"
@@ -336,3 +334,25 @@ class DefectSystem(object):
                 for ds in self.defect_species
             }
             return {**run_stats, **decomp_concs}
+
+    def site_percentages(
+        self, 
+    ) -> Dict[str, float]:
+        """Returns a dictionary of the DefectSpecies in the DefectSystem which
+        giving the percentage of the sites in the structure that will host that 
+        defect.
+
+        Returns:
+            Dict[str, Any]: dictionary specifying the per-DefectSpecies site
+            concentrations.
+        """
+
+        e_fermi = self.get_sc_fermi()[0]
+
+        sum_concs = {
+                str(ds.name): float(
+                    (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
+                )
+                for ds in self.defect_species
+            }
+        return sum_concs
