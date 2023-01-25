@@ -13,7 +13,7 @@ doi: 10.5281/zenodo.7566489
 url: https://github.com/bjmorgan/py-sc-fermi
 license: MIT
 preferred-citation:
-  type: article:
+  type: article
   authors:
     - family-names: "Squires"
       given-names: "Alexander G."
