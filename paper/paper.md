@@ -71,7 +71,7 @@ The code has been used in a number of studies, including some focussed on ration
 properties of known materials [@LLZO-elect; @Squires2021-je] and others focussed on predicting the properties of novel materials [@Jackson2022-la].
 The code can also assist with visualising defect energetics [@Haouari2021-xz].
 
-One notable feature is the ability to arbitrarily fix the concentrations of specific defects or individual defect charge states.
+One notable feature of `py-sc-fermi` is the ability to fix the concentrations of specific defects or individual defect charge states.
 Defect and electronic carrier concentrations are functions of temperature.
 The initial defect concentrations in a material are often determined by high-temperature synthesis conditions.
 Subsequent rapid cooling can result in some or all of these defect populations being &ldquo;frozen in&rdquo; (kinetically trapped) at their initial high-temperature values, while other defect populations remain free to vary, and establish new pseudo-equilibrium defect concentations [@Maier2003-pc]. 
