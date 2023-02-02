@@ -17,15 +17,15 @@ authors:
     orcid: 0000-0002-3056-8233
     affiliation: "2, 4"
 affiliations:
- - name: Department of Chemistry, University College London, 20 Gordon Street, London WC1H 0AJ, UK
+ - name: Department of Chemistry, University College London, London, United Kingdom
    index: 1
- - name: Department of Chemistry, University of Bath, Bath BA2 7AY, UK
+ - name: Department of Chemistry, University of Bath, Bath, United Kingdom
    index: 2
- - name: Thomas Young Centre, University College London, Gower Street, London WC1E 6BT, UK
+ - name: Thomas Young Centre, University College London, London, United Kingdom
    index: 3
- - name: The Faraday Institution, Didcot OX11 ORA, UK
+ - name: The Faraday Institution, Didcot, United Kingdom
    index: 4
-date: 20 oct 20
+date: 2 Feb 23
 bibliography: paper.bib
 
 ---
@@ -51,7 +51,7 @@ In practice, self-consistent defect concentrations are calculated by imposing th
 Here, the first term is a sum over charge contributions from each defect $X$ in each of its accessible charge states $q$, and $n_0$ and $p_0$ are the concentrations of free electrons and electron holes respectively.
 
 `py-sc-fermi` provides a Python implementation of an iterative numerical approach for calculating the self-consistent solution for an arbitrary set of point-defects.
-The resulting self-consistent Fermi energy can be used as a general descriptor for the electronic-transport properties of a material [@Jackson2022-la]&emdash;the calculated electronic charge-carrier concentrations can be used to calculate electronic conductivities [@LLZO-elect]&emdash;and the point-defect concentrations, and how these vary with synthesis conditions or doping protocol, can be used to model how the formation of competing defects affects material properties of interest [@Kavanagh2021-bj; @Ganose2018-eu] as well as quantifiying the doping response of a material [@Squires2019-is; @Squires2021-je].
+The resulting self-consistent Fermi energy can be used as a general descriptor for the electronic-transport properties of a material [@Jackson2022-la]&emdash;the calculated electronic charge-carrier concentrations can be used to calculate electronic conductivities [@LLZO-elect]&emdash;and the point-defect concentrations, and how these vary with synthesis conditions or doping protocol, can be used to model how the formation of competing defects affects material properties of interest [@Kavanagh2021-bj; @Ganose2018-eu] as well as quantifying the doping response of a material [@Squires2019-is; @Squires2021-je].
 
 # Statement of need
 
@@ -74,7 +74,7 @@ The code can also assist with visualising defect energetics [@Haouari2021-xz].
 One notable feature of `py-sc-fermi` is the ability to fix the concentrations of specific defects or individual defect charge states.
 Defect and electronic carrier concentrations are functions of temperature.
 The initial defect concentrations in a material are often determined by high-temperature synthesis conditions.
-Subsequent rapid cooling can result in some or all of these defect populations being &ldquo;frozen in&rdquo; (kinetically trapped) at their initial high-temperature values, while other defect populations remain free to vary, and establish new pseudo-equilibrium defect concentations [@Maier2003-pc]. 
+Subsequent rapid cooling can result in some or all of these defect populations being &ldquo;frozen in&rdquo; (kinetically trapped) at their initial high-temperature values, while other defect populations remain free to vary, and establish new pseudo-equilibrium defect concentrations [@Maier2003-pc]. 
 `py-sc-fermi` allows this scenario to be modelled through a two-step calculation, where in the second step some defect concentrations are fixed to their high temperature &ldquo;synthesis&rdquo; values.
 The new pseudo-equilibrium defect concentrations can be quickly computed as a function of quenching temperature, allowing defect concentrations to be calculated under a range of synthesis and quench scenarios [@LLZO-elect].  
 
