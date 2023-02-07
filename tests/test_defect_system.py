@@ -121,6 +121,19 @@ class TestDefectSystem(unittest.TestCase):
             {"Fermi Energy": 1, "p0": 1, "n0": 1, "O_i": 1, "v_O": 1},
         )
 
+    def test_site_percentages(self):
+        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
+        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
+        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
+        self.defect_system.defect_species[0].nsites = 1
+        self.defect_system.defect_species[1].nsites = 1
+        self.defect_system.defect_species[0].name = "v_O"
+        self.defect_system.defect_species[1].name = "O_i"
+        self.assertEqual(
+            self.defect_system.site_percentages(), {"v_O": 100, "O_i": 100}
+        )
+
     def test__get_report_string(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[0.5, {}])
         self.defect_system.dos.carrier_concentrations = Mock(return_value=(100, 100))

@@ -1,0 +1,36 @@
+{
+  "title": "py-sc-fermi: self-consistent Fermi energies and defect concentrations from electronic structure calculations",
+  "creators": [{
+      "orcid": "0000-0001-6967-3690",
+      "name": "Squires, Alexander G,",
+      "affiliation": "Department of Chemistry, University College London, 20 Gordon Street, London WC1H 0AJ, UK"
+  },{
+      "orcid": "0000-0001-9174-8601",
+      "name": "Scanlon, David O,",
+      "affiliation": "Department of Chemistry, University College London, 20 Gordon Street, London WC1H 0AJ, UK"
+  },{
+      "orcid": "0000-0002-3056-8233",
+      "name": "Morgan, Benjamin J.",
+      "affiliation": "Department of Chemistry, University of Bath, Claverton Down, Bath, BA2 7AY, UK."
+  }],
+  "description": "a Python package for calculating point defect concentrations in crystalline materials",
+  "access_right": "open",
+  "license": "MIT",
+  "grants": [{
+      "code": "FIRG017",
+      "funder": "The Faraday Institution"
+  },{
+      "code": "758345",
+      "funder": "ERC"
+  },{
+      "code": "UF13032",
+      "funder": "The Royal Society"
+  },{
+      "code": "URF\\R\\191006",
+      "funder": "The Royal Society"
+  }],
+  "related_identifiers": [{
+      "identifier": "doi:10.21105/joss.04962",
+      "relation": "isCitedBy"
+  }]
+}

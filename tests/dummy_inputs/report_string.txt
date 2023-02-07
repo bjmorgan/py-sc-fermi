@@ -1,3 +1,4 @@
+Temperature :      298  (K)
 SC Fermi level :      0.5  (eV)
 Concentrations:
 n (electrons)  : 1e+24 cm^-3

@@ -8,5 +8,22 @@ authors:
   given-names: "Benjamin J."
   orcid: "https://orcid.org/0000-0002-3056-8233"
 title: "py-sc-Fermi"
-version: 0.3.0
-url: "https://github.com/bjmorgan/py-sc-fermi"
+version: 1.0.0
+doi: 10.5281/zenodo.7566489
+url: https://github.com/bjmorgan/py-sc-fermi
+license: MIT
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Squires"
+      given-names: "Alexander G."
+    - family-names: "Scanlon"
+      given-names: "David O."
+    - family-names: "Morgan"
+      given-names: "Benjamin J."
+  title: "py-sc-fermi: self-consistent Fermi energies and defect concentrations from electronic structure calculations"
+  year: 2023
+  journal: "Journal of Open Source Software"
+  doi: "10.21105/joss.04962"
+   
+   
