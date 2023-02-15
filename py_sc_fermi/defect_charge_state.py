@@ -1,6 +1,7 @@
 import numpy as np  # type: ignore
 from scipy.constants import physical_constants  # type: ignore
 from typing import Optional
+import warnings
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -147,9 +148,10 @@ class DefectChargeState:
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
         for k in dictionary.keys():
             if k not in valid_keys:
-                Warning(
+                warnings.warn(
                     f"ignoring {k}, not recognised as valid DefectChargeState input"
                 )
+                
 
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(

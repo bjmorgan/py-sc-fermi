@@ -97,6 +97,17 @@ class TestDefectChargeState(unittest.TestCase):
         self.assertEqual(defect_charge_state.charge, 1)
         self.assertEqual(defect_charge_state.fixed_concentration, 0.1234)
 
+    def test_defect_charge_state_from_dict_warns(self):
+        dictionary = {
+            "degeneracy": 2,
+            "energy": 0.1234,
+            "charge": 1,
+            "fixed_concentration": 0.1234,
+            "foo": "bar"
+        }
+        with self.assertWarns(UserWarning):
+            DefectChargeState.from_dict(dictionary)
+
     def test_defect_charge_state_from_string(self):
         string = "1 0.1234 2"
         defect_charge_state = DefectChargeState.from_string(string)
