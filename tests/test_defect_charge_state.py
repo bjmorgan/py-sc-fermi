@@ -76,10 +76,30 @@ class TestDefectChargeState(unittest.TestCase):
         )
         self.assertEqual(conc, 1.0)
 
+    def test_defect_charge_state_from_dict(self):
+        dictionary = {"degeneracy": 2, "energy": 0.1234, "charge": 1}
+        defect_charge_state = DefectChargeState.from_dict(dictionary)
+        self.assertEqual(defect_charge_state.degeneracy, 2)
+        self.assertEqual(defect_charge_state.energy, 0.1234)
+        self.assertEqual(defect_charge_state.charge, 1)
+        self.assertEqual(defect_charge_state.fixed_concentration, None)
+
+    def test_defect_charge_state_from_dict_with_fixed_concentration(self):
+        dictionary = {
+            "degeneracy": 2,
+            "energy": 0.1234,
+            "charge": 1,
+            "fixed_concentration": 0.1234,
+        }
+        defect_charge_state = DefectChargeState.from_dict(dictionary)
+        self.assertEqual(defect_charge_state.degeneracy, 2)
+        self.assertEqual(defect_charge_state.energy, 0.1234)
+        self.assertEqual(defect_charge_state.charge, 1)
+        self.assertEqual(defect_charge_state.fixed_concentration, 0.1234)
+
     def test_defect_charge_state_from_string(self):
         string = "1 0.1234 2"
         defect_charge_state = DefectChargeState.from_string(string)
-        print(defect_charge_state)
         self.assertEqual(defect_charge_state.degeneracy, 2)
         self.assertEqual(defect_charge_state.energy, 0.1234)
         self.assertEqual(defect_charge_state.charge, 1)
@@ -100,8 +120,7 @@ class TestDefectChargeState(unittest.TestCase):
 
     def test__repr__(self):
         self.assertEqual(
-            str(self.defect_charge_state),
-            "q=+1.0, e=0.1234, deg=2",
+            str(self.defect_charge_state), "q=+1.0, e=0.1234, deg=2",
         )
 
 

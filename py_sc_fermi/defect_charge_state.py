@@ -134,11 +134,23 @@ class DefectChargeState:
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectChargeState":
-        """generate ``DefectChargeState`` from a dictionary representation
+        """generate a dictionary from a ``DefectChargeState`` object
+
+        Args:
+            dictionary (dict): dictionary defining ``DefectChargeState``. Any
+              fixed concentration given should be provided per-unit cell
 
         Returns:
-            ``DefectChargeState``: relevant ``DefectChargeState`` object
+            DefectChargeState: object described by `dictionary`
         """
+
+        valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
+        for k in dictionary.keys():
+            if k not in valid_keys:
+                Warning(
+                    f"ignoring {k}, not recognised as valid DefectChargeState input"
+                )
+
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
