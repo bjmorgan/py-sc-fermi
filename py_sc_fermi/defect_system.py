@@ -338,10 +338,10 @@ class DefectSystem(object):
             return {**run_stats, **decomp_concs}
 
     def site_percentages(
-        self, 
+        self,
     ) -> Dict[str, float]:
         """Returns a dictionary of the DefectSpecies in the DefectSystem which
-        giving the percentage of the sites in the structure that will host that 
+        giving the percentage of the sites in the structure that will host that
         defect.
 
         Returns:
@@ -352,11 +352,11 @@ class DefectSystem(object):
         e_fermi = self.get_sc_fermi()[0]
 
         sum_concs = {
-                str(ds.name): float(
-                    (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
-                )
-                for ds in self.defect_species
-            }
+            str(ds.name): float(
+                (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
+            )
+            for ds in self.defect_species
+        }
         return sum_concs
 
     def as_dict(self) -> dict:

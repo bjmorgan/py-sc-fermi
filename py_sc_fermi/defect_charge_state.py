@@ -156,7 +156,6 @@ class DefectChargeState:
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
-                energy=dictionary["energy"],
                 charge=dictionary["charge"],
                 fixed_concentration=dictionary["fixed_concentration"],
             )

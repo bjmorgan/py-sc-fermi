@@ -276,10 +276,9 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test_from_dict(self):
         d = {
-            "V_O": {
-                "nsites": 2,
-                "charge_states": {1: {"formation_energy": 0, "degeneracy": 1}},
-            }
+            "name": "V_O",
+            "nsites": 2,
+            "charge_states": [{"charge": 1, "energy": 0, "degeneracy": 1}],
         }
         self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
         self.assertEqual(DefectSpecies.from_dict(d).nsites, 2)
@@ -288,21 +287,18 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test_from_dict_with_fixed_concentration(self):
         d = {
-            "V_O": {
-                "nsites": 2,
-                "charge_states": {1: {"fixed_concentration": 100, "degeneracy": 1}},
-                "fixed_concentration": 100,
-            }
+            "name": "V_O",
+            "nsites": 2,
+            "charge_states": [
+                {"charge": 1, "fixed_concentration": 100, "degeneracy": 1}
+            ],
+            "fixed_concentration": 100,
         }
-        self.assertEqual(DefectSpecies.from_dict(d, volume=1e24).name, "V_O")
-        self.assertEqual(DefectSpecies.from_dict(d, volume=1e24).nsites, 2)
+        self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
+        self.assertEqual(DefectSpecies.from_dict(d).nsites, 2)
+        self.assertEqual(DefectSpecies.from_dict(d).fixed_concentration, 100)
         self.assertEqual(
-            DefectSpecies.from_dict(d, volume=1e24).fixed_concentration, 100
-        )
-        self.assertEqual(
-            DefectSpecies.from_dict(d, volume=1e24)
-            .charge_states[1]
-            .fixed_concentration,
+            DefectSpecies.from_dict(d).charge_states[1].fixed_concentration,
             100,
         )
 

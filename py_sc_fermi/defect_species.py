@@ -64,14 +64,14 @@ class DefectSpecies(object):
         """
 
         Returns:
-            Dict[int, DefectChargeState]: The charge states of this defect 
+            Dict[int, DefectChargeState]: The charge states of this defect
             species as a dictionary of ``{charge (int): DefectChargeState}``
             key-value pairs"""
         return self._charge_states
 
     @property
     def charges(self) -> List[int]:
-        """list of all the charges of the ``DefectChargeState`` objects that 
+        """list of all the charges of the ``DefectChargeState`` objects that
         comprise this ``DefectSpecies``
 
         Returns:
@@ -85,7 +85,7 @@ class DefectSpecies(object):
         concentration of this defect is variable.
 
         Returns:
-            Optional[float]: fixed concentration per unit cell of the 
+            Optional[float]: fixed concentration per unit cell of the
             ``DefectSpecies``
         """
         return self._fixed_concentration
@@ -100,7 +100,7 @@ class DefectSpecies(object):
         return to_return
 
     @classmethod
-    def from_dict(cls, defect_species_dict: dict, volume: Optional[float] = None):
+    def from_dict(cls, defect_species_dict: dict):
         """return a ``DefectSpecies`` object from a dictionary containing the defect
         species data. Primarily for use defining a full ``DefectSystem`` from a
         .yaml file.
@@ -108,8 +108,6 @@ class DefectSpecies(object):
         Args:
             defect_species_dict (dict): dictionary containing the defect species
                data.
-            volume (Optional[float], optional): volume of the unit cell.
-               Defaults to ``None``.
 
         Raises:
             ValueError: if any of the ``DefectChargeState`` objects specified have no
@@ -118,48 +116,25 @@ class DefectSpecies(object):
         Returns:
             DefectChargeState: as specified by the provided dictionary
         """
-        charge_states = []
-        name = list(defect_species_dict.keys())[0]
-        for n, c in defect_species_dict[name]["charge_states"].items():
-            if "fixed_concentration" not in list(c.keys()):
-                fixed_concentration = None
-            elif volume is not None:
-                fixed_concentration = float(c["fixed_concentration"]) / 1e24 * volume
-            if "formation_energy" not in list(c.keys()):
-                formation_energy = None
-            else:
-                formation_energy = float(c["formation_energy"])
-            if formation_energy is None and fixed_concentration is None:
-                raise ValueError(
-                    f"""{name, n} must have one or both fixed concentration or
-                    formation energy"""
-                )
-            charge_state = DefectChargeState(
-                charge=n,
-                energy=formation_energy,
-                degeneracy=c["degeneracy"],
-                fixed_concentration=fixed_concentration,
-            )
-            charge_states.append(charge_state)
-
-        if (
-            "fixed_concentration" in defect_species_dict[name].keys()
-            and volume is not None
-        ):
-            fixed_concentration = (
-                float(defect_species_dict[name]["fixed_concentration"]) / 1e24 * volume
-            )
+        defect_charge_list = [
+            DefectChargeState.from_dict(charge_state_dictionary)
+            for charge_state_dictionary in defect_species_dict["charge_states"]
+        ]
+        defect_charge_states = {
+            charge_state.charge: charge_state for charge_state in defect_charge_list
+        }
+        if "fixed_concentration" not in defect_species_dict.keys():
             return cls(
-                name,
-                defect_species_dict[name]["nsites"],
-                charge_states={cs.charge: cs for cs in charge_states},
-                fixed_concentration=fixed_concentration,
+                name=defect_species_dict["name"],
+                nsites=defect_species_dict["nsites"],
+                charge_states=defect_charge_states,
             )
         else:
             return cls(
-                name,
-                defect_species_dict[name]["nsites"],
-                charge_states={int(cs.charge): cs for cs in charge_states},
+                name=defect_species_dict["name"],
+                nsites=defect_species_dict["nsites"],
+                charge_states=defect_charge_states,
+                fixed_concentration=defect_species_dict["fixed_concentration"],
             )
 
     @classmethod
@@ -218,8 +193,7 @@ class DefectSpecies(object):
         """
 
         charge_state_dicts = {
-            int(k): v.as_dict()
-            for k, v in self.charge_states.items()
+            int(k): v.as_dict() for k, v in self.charge_states.items()
         }
         defect_dict = {
             "name": str(self.name),
@@ -341,7 +315,7 @@ class DefectSpecies(object):
         self,
     ) -> Dict[int, DefectChargeState]:
         """get ``DefectChargeState`` objects of this ``DefectSpecies`` with fixed
-        concentration 
+        concentration
         (i.e those for which ``DefectChargeState.fixed_concentration != None``)
 
         Returns:
