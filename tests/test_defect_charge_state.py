@@ -97,6 +97,20 @@ class TestDefectChargeState(unittest.TestCase):
         self.assertEqual(defect_charge_state.charge, 1)
         self.assertEqual(defect_charge_state.fixed_concentration, 0.1234)
 
+    def test_defect_system_as_dict(self):
+        dictionary = self.defect_charge_state.as_dict()
+        self.assertEqual(dictionary["degeneracy"],2)
+        self.assertEqual(dictionary["energy"],0.1234)
+        self.assertEqual(dictionary["charge"],1)
+
+    def test_defect_system_as_dict_fixed_concentration(self):
+        self.defect_charge_state.fix_concentration(1)
+        dictionary = self.defect_charge_state.as_dict()
+        self.assertEqual(dictionary["degeneracy"],2)
+        self.assertEqual(dictionary["energy"],0.1234)
+        self.assertEqual(dictionary["charge"],1)
+        self.assertEqual(dictionary["fixed_concentration"],1)
+
     def test_defect_charge_state_from_dict_warns(self):
         dictionary = {
             "degeneracy": 2,
