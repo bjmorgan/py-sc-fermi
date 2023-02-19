@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock, PropertyMock, patch
+from unittest.mock import Mock
 
 import os
 from py_sc_fermi.defect_species import DefectSpecies

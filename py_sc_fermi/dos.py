@@ -27,7 +27,6 @@ class DOS(object):
         spin_polarised=False,
     ):
         """Initialise a ``DOS`` instance."""
-        # self._dos = dos
         self._edos = edos
         self._bandgap = bandgap
         self._nelect = nelect
@@ -134,35 +133,37 @@ class DOS(object):
 
         Args:
             dos_dict (dict): dictionary defining the density of states data
-
-        Raises:
-            ValueError: raises error if density-of-states data not formatted
-              correctly with respect to ``self.spin_polarised`` setting.
         """
         nelect = dos_dict["nelect"]
         bandgap = dos_dict["bandgap"]
         dos = np.array(dos_dict["dos"])
         edos = np.array(dos_dict["edos"])
-
-        shape = dos.shape
-        if len(shape) == 1:
-            spin_pol = False
-        elif shape[0] == 2:
-            spin_pol = True
+        spin_pol = dos_dict["spin_pol"]
 
         return cls(
             nelect=nelect, bandgap=bandgap, edos=edos, dos=dos, spin_polarised=spin_pol,
         )
 
     def as_dict(self) -> dict:
-        """_summary_
+        """Return a dictionary representation of the DOS object
 
         Returns:
-            dict: _description_
+            dict: DOS as dictionary
+
+        Note:
+            The defect dictionary will always report the DOS data is not spin
+            polarised, even if the input data was. This is an artefact related
+            to maintaining the ability of `py-sc-fermi` to read files formatted
+            for the FORTRAN SC-Fermi code. Future versions will consider how 
+            the code parses these files such that this is no longer an issue.
         """
 
         return dict(
-            nelect=int(self.nelect), bandgap=float(self.bandgap), edos=list(self.edos), dos=list(self.dos)
+            nelect=int(self.nelect),
+            bandgap=float(self.bandgap),
+            edos=list(self.edos),
+            dos=list(self.dos),
+            spin_pol=False,
         )
 
     def sum_dos(self) -> np.ndarray:

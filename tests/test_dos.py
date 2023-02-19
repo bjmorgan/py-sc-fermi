@@ -104,6 +104,7 @@ class TestDos(unittest.TestCase):
                 "edos": np.linspace(-10.0, 10.0, 101),
                 "bandgap": 3.0,
                 "nelect": 10,
+                "spin_pol": False
             }
         )
         self.assertEqual(dos.nelect, 10)
@@ -118,6 +119,7 @@ class TestDos(unittest.TestCase):
                 "edos": np.linspace(-10.0, 10.0, 101),
                 "bandgap": 3.0,
                 "nelect": 10,
+                "spin_pol": True
             }
         )
         self.assertEqual(dos.nelect, 10)
@@ -127,16 +129,15 @@ class TestDos(unittest.TestCase):
         )
         self.assertEqual(dos.spin_polarised, True)
 
-    # def test_from_dict_raises(self):
-    #     with self.assertRaises(ValueError):
-    #         self.dos.from_dict(
-    #             {
-    #                 "dos": np.array([np.ones(101), np.ones(101), np.ones(101)]),
-    #                 "edos": np.linspace(-10.0, 10.0, 101),
-    #                 "bandgap": 3.0,
-    #                 "nelect": 10,
-    #             }
-    #         )
+    def test_as_dict(self):
+        self.dos._dos = [1,2,3,4,5]
+        self.dos._edos = [1,2,3,4,5]
+        dictionary = self.dos.as_dict()
+        self.assertEqual(dictionary["spin_pol"],False)
+        self.assertEqual(dictionary["nelect"], 10)
+        self.assertEqual(dictionary["bandgap"], 3)
+        self.assertEqual(dictionary["edos"], [1,2,3,4,5])
+        self.assertEqual(dictionary["dos"], [1,2,3,4,5])
 
 
 if __name__ == "__main__":
