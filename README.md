@@ -57,7 +57,7 @@ is preferred:
 ## Citing
 
 If you use `py-sc-fermi` in your work, please consider citing the following: 
-- this repository (see `cite this repository` in the sidebar)
-- the paper associated with the FORTRAN code [`SC-Fermi`](https://github.com/jbuckeridge/sc-fermi) on which this code was initially based, which provides an excellent discussion of both the underlying theory and the self-consistent Fermi-energy searching algorithm. 
+- the JOSS paper associated with the [`py-sc-fermi`](https://joss.theoj.org/papers/10.21105/joss.04962)
+- the paper associated with the FORTRAN code [`SC-Fermi`](https://github.com/jbuckeridge/sc-fermi) on which this code was initially based, which provides an excellent discussion of the underlying theory. 
 
    > J. Buckeridge, Equilibrium point defect and charge carrier concentrations in a material determined through calculation of the self-consistent Fermi energy, Computer Physics      Communications, Volume 244, 2019, Pages 329-342, ISSN 0010-4655, https://doi.org/10.1016/j.cpc.2019.06.017.
