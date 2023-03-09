@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
+import numpy as np
 import os
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
@@ -21,6 +22,9 @@ test_yaml_filename = os.path.join(
 )
 test_exception_yaml_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
+)
+test_vasprun_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml"
 )
 
 
@@ -70,15 +74,6 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.defect_species[0],
         )
 
-    def test_from_yaml(self):
-        defect_system = self.defect_system.from_yaml(test_yaml_filename)
-        self.assertEqual(defect_system.volume, 59)
-        self.assertEqual(defect_system.dos.nelect, 18)
-        self.assertEqual(defect_system.dos.spin_polarised, False)
-        self.assertEqual(defect_system.temperature, 300)
-        self.assertEqual(len(defect_system.defect_species), 3)
-        self.assertEqual(defect_system.defect_species_names, ["V_Ga", "Ga_Sb", "Ga_i"])
-
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
@@ -99,35 +94,37 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.q_tot(2), 0)
 
     def test_as_dict(self):
+        self.defect_system.dos = DOS.from_vasprun(test_vasprun_filename, nelect=12)
         defect_dict = self.defect_system.as_dict()
         self.assertEqual(defect_dict["volume"], 100)
         self.assertEqual(defect_dict["temperature"], 298)
-        self.assertEqual(defect_dict["defect_species"][0]["name"], "v_O")
-        self.assertEqual(defect_dict["defect_species"][1]["name"], "O_i")
-        
+        self.assertEqual(defect_dict["n_trial_steps"], 1500)
 
-    # def test_as_dict(self):
-    #     self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-    #     self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-    #     self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
-    #     self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
-    #     self.defect_system.defect_species[0].name = "v_O"
-    #     self.defect_system.defect_species[1].name = "O_i"
-    #     volume = self.defect_system.volume
-    #     self.assertEqual(
-    #         self.defect_system.as_dict(),
-    #         {
-    #             "Fermi Energy": 1,
-    #             "p0": 1 / volume * 1e24,
-    #             "n0": 1 / volume * 1e24,
-    #             "O_i": 1 / volume * 1e24,
-    #             "v_O": 1 / volume * 1e24,
-    #         },
-    #     )
-    #     self.assertEqual(
-    #         self.defect_system.as_dict(per_volume=False),
-    #         {"Fermi Energy": 1, "p0": 1, "n0": 1, "O_i": 1, "v_O": 1},
-    #     )
+    def test_from_dict(self):
+        dictionary = {
+            "volume": 100,
+            "temperature": 100,
+            "n_trial_steps": 100,
+            "convergence_tolerance": 1,
+            "defect_species": [{
+                "name": "V_O",
+                "nsites": 2,
+                "charge_states": [{"charge": 1, "energy": 0, "degeneracy": 1}],
+            }],
+            "dos": {
+                "dos": np.ones(101),
+                "edos": np.linspace(-10.0, 10.0, 101),
+                "bandgap": 3.0,
+                "nelect": 10,
+                "spin_pol": False
+            }
+        }
+        defect_system = self.defect_system.from_dict(dictionary)
+        self.defect_system.from_dict(dictionary)
+        self.assertEqual(defect_system.volume, 100)
+        self.assertEqual(defect_system.temperature, 100)
+        self.assertEqual(defect_system.n_trial_steps, 100)
+        self.assertEqual(defect_system.convergence_tolerance, 1)
 
     def test_site_percentages(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])

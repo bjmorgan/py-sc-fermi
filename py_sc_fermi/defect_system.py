@@ -126,12 +126,12 @@ class DefectSystem(object):
             DefectSystem: ``DefectSystem`` corresponding to provided yaml file
         """
         return cls(
-            defect_species=[DefectSpecies.from_dict(defect_species) for defect_species in dictionary["defect_species"]],
             dos=DOS.from_dict(dictionary["dos"]),
             volume=dictionary["volume"],
             temperature=dictionary["temperature"],
             convergence_tolerance=dictionary["convergence_tolerance"],
             n_trial_steps=dictionary["n_trial_steps"],
+            defect_species=[DefectSpecies.from_dict(defect_species) for defect_species in dictionary["defect_species"]],
         )
 
     def defect_species_by_name(self, name: str) -> DefectSpecies:
