@@ -109,6 +109,30 @@ class DefectSystem(object):
             convergence_tolerance=input_set.convergence_tolerance,
             n_trial_steps=input_set.n_trial_steps,
         )
+    
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> "DefectSystem":
+        """generate ``DefectSystem`` from a dictionary
+
+        Args:
+            filename (str): path to yaml file containing the ``DefectSystem``
+              data
+            structure_file (str): path to file containing volume information.
+              Defaults to an empty string.
+            dos_file (str): path to file containing dos information. Defaults
+              to an empty string.
+
+        Returns:
+            DefectSystem: ``DefectSystem`` corresponding to provided yaml file
+        """
+        return cls(
+            defect_species=[DefectSpecies.from_dict(defect_species) for defect_species in dictionary["defect_species"]],
+            dos=DOS.from_dict(dictionary["dos"]),
+            volume=dictionary["volume"],
+            temperature=dictionary["temperature"],
+            convergence_tolerance=dictionary["convergence_tolerance"],
+            n_trial_steps=dictionary["n_trial_steps"],
+        )
 
     def defect_species_by_name(self, name: str) -> DefectSpecies:
         """return a ``DefectSpecies`` contained within the ``DefectSystem``

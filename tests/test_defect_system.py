@@ -99,27 +99,35 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.q_tot(2), 0)
 
     def test_as_dict(self):
-        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[0].name = "v_O"
-        self.defect_system.defect_species[1].name = "O_i"
-        volume = self.defect_system.volume
-        self.assertEqual(
-            self.defect_system.as_dict(),
-            {
-                "Fermi Energy": 1,
-                "p0": 1 / volume * 1e24,
-                "n0": 1 / volume * 1e24,
-                "O_i": 1 / volume * 1e24,
-                "v_O": 1 / volume * 1e24,
-            },
-        )
-        self.assertEqual(
-            self.defect_system.as_dict(per_volume=False),
-            {"Fermi Energy": 1, "p0": 1, "n0": 1, "O_i": 1, "v_O": 1},
-        )
+        defect_dict = self.defect_system.as_dict()
+        self.assertEqual(defect_dict["volume"], 100)
+        self.assertEqual(defect_dict["temperature"], 298)
+        self.assertEqual(defect_dict["defect_species"][0]["name"], "v_O")
+        self.assertEqual(defect_dict["defect_species"][1]["name"], "O_i")
+        
+
+    # def test_as_dict(self):
+    #     self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
+    #     self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+    #     self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
+    #     self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
+    #     self.defect_system.defect_species[0].name = "v_O"
+    #     self.defect_system.defect_species[1].name = "O_i"
+    #     volume = self.defect_system.volume
+    #     self.assertEqual(
+    #         self.defect_system.as_dict(),
+    #         {
+    #             "Fermi Energy": 1,
+    #             "p0": 1 / volume * 1e24,
+    #             "n0": 1 / volume * 1e24,
+    #             "O_i": 1 / volume * 1e24,
+    #             "v_O": 1 / volume * 1e24,
+    #         },
+    #     )
+    #     self.assertEqual(
+    #         self.defect_system.as_dict(per_volume=False),
+    #         {"Fermi Energy": 1, "p0": 1, "n0": 1, "O_i": 1, "v_O": 1},
+    #     )
 
     def test_site_percentages(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])

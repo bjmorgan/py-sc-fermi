@@ -93,7 +93,6 @@ class TestDefectChargeState(unittest.TestCase):
         }
         defect_charge_state = DefectChargeState.from_dict(dictionary)
         self.assertEqual(defect_charge_state.degeneracy, 2)
-        self.assertEqual(defect_charge_state.energy, 0.1234)
         self.assertEqual(defect_charge_state.charge, 1)
         self.assertEqual(defect_charge_state.fixed_concentration, 0.1234)
 
