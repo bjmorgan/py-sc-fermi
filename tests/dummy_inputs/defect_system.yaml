@@ -2,6 +2,7 @@ bandgap: 0.8084
 temperature: 300
 nelect: 18
 volume: 59
+spin_pol: False
 dos: [-1,1,1,1,1,1]
 edos: [-1,1,1,1,1,1]
 convergence_tolerance: 1e-12

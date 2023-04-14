@@ -257,12 +257,17 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
     def test_tl_profile(self):
-        # TODO: ideally, this test should more directly check the
-        # functionality of this method
+        # Updated test to check the functionality of this method more directly
         charge_state_1 = DefectChargeState(0, energy=2, degeneracy=1)
         charge_state_2 = DefectChargeState(2, energy=-1, degeneracy=1)
         defect = DefectSpecies("foo", 1, {0: charge_state_1, 2: charge_state_2})
-        assert_equal(defect.tl_profile(0, 5), [[0, -1], [1.5, 2], [5, 2]])
+        tl_profile = defect.tl_profile(0, 5)
+        self.assertEqual(tl_profile[0][0], 0)
+        self.assertEqual(tl_profile[0][1], -1)
+        self.assertEqual(tl_profile[1][0], 1.5)
+        self.assertEqual(tl_profile[1][1], 2)
+        self.assertEqual(tl_profile[2][0], 5)
+        self.assertEqual(tl_profile[2][1], 2)
 
     def test__repr__(self):
         self.defect_species._charge_states = {
