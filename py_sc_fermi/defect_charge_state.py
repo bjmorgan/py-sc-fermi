@@ -23,7 +23,7 @@ class DefectChargeState:
         energy: Optional[float] = None,
         fixed_concentration: Optional[float] = None,
     ):
-        if energy == None and fixed_concentration == None:
+        if energy is None and fixed_concentration is None:
             raise ValueError(
                 """You must specify either a fixed concentration or energy for 
                 this defect! \n Note, if you specify both, the concentration
@@ -114,7 +114,6 @@ class DefectChargeState:
         Returns:
             ``DefectChargeState``: relevant ``DefectChargeState`` object
         """
-        string = string.strip()
         stripped_string = string.split()
         if frozen is False:
             return cls(
@@ -146,11 +145,10 @@ class DefectChargeState:
         """
 
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
-        for k in dictionary.keys():
-            if k not in valid_keys:
-                warnings.warn(
-                    f"ignoring {k}, not recognised as valid DefectChargeState input"
-                )
+        unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
+        if unrecognized_keys:
+            warnings.warn(
+                f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}")
                 
 
         if "fixed_concentration" in dictionary.keys():
@@ -223,7 +221,7 @@ class DefectChargeState:
         Returns:
             float: Concentration at the specified Fermi energy and temperature.
         """
-        if self.fixed_concentration == None:
+        if self.fixed_concentration is None:
             expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
             concentration = self.degeneracy * np.exp(expfac)
         else:
