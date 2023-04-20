@@ -118,7 +118,7 @@ class DefectSpecies(object):
         """
         defect_charge_list = [
             DefectChargeState.from_dict(charge_state_dictionary)
-            for charge_state_dictionary in defect_species_dict["charge_states"]
+            for charge_state_dictionary in defect_species_dict["charge_states"].values()
         ]
         defect_charge_states = {
             charge_state.charge: charge_state for charge_state in defect_charge_list
