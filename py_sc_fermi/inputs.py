@@ -10,7 +10,8 @@ import yaml
 import os
 
 InputFermiData = namedtuple(
-    "InputFermiData", "spin_pol nelect bandgap temperature defect_species",
+    "InputFermiData",
+    "spin_pol nelect bandgap temperature defect_species",
 )
 
 
@@ -284,7 +285,11 @@ def read_input_fermi(
     return InputFermiData(spin_pol, nelect, bandgap, temperature, defect_species)
 
 
-def read_dos_data(bandgap: float, nelect: int, filename: str = "totdos.dat",) -> DOS:
+def read_dos_data(
+    bandgap: float,
+    nelect: int,
+    filename: str = "totdos.dat",
+) -> DOS:
     """read density of states data from an `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
     formatted ``totdos.dat`` file.
 

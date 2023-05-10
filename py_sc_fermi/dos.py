@@ -1,18 +1,20 @@
 import numpy as np
-from typing import Tuple, Optional
-from pymatgen.io.vasp import Vasprun  # type: ignore
-from pymatgen.electronic_structure.core import Spin  # type: ignore
-from scipy.constants import physical_constants  # type: ignore
+from typing import Tuple, Optional, List, Dict
+from scipy.constants import physical_constants
+
+from pymatgen.io.vasp import Vasprun
+from pymatgen.electronic_structure.core import Spin
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
-class DOS(object):
-    """Class for handling density-of-states data and its integration.
+class DOS:
+    """
+    Class for handling density-of-states data and its integration.
 
     Args:
-        dos (np.array): density-of-states data.
-        edos (np.array): energies associated with density-of-states data.
+        dos (np.ndarray): density-of-states data.
+        edos (np.ndarray): energies associated with density-of-states data.
         bandgap (float): band gap
         nelect (int): number of electrons in density-of-states calculation
         spin_polarised (bool): is the calculated density-of-states spin polarised?
@@ -24,18 +26,17 @@ class DOS(object):
         edos: np.ndarray,
         bandgap: float,
         nelect: int,
-        spin_polarised=False,
+        spin_polarised: bool = False,
     ):
-        """Initialise a ``DOS`` instance."""
         self._edos = edos
         self._bandgap = bandgap
         self._nelect = nelect
         self._spin_polarised = spin_polarised
 
-        if self.spin_polarised == True:
+        if self.spin_polarised:
             new_dos = np.sum(dos, axis=0)
             self._dos = new_dos
-        elif self.spin_polarised == False:
+        else:
             self._dos = dos
 
         self.normalise_dos()
@@ -141,7 +142,11 @@ class DOS(object):
         spin_pol = dos_dict["spin_pol"]
 
         return cls(
-            nelect=nelect, bandgap=bandgap, edos=edos, dos=dos, spin_polarised=spin_pol,
+            nelect=nelect,
+            bandgap=bandgap,
+            edos=edos,
+            dos=dos,
+            spin_polarised=spin_pol,
         )
 
     def as_dict(self) -> dict:
@@ -154,7 +159,7 @@ class DOS(object):
             The defect dictionary will always report the DOS data is not spin
             polarised, even if the input data was. This is an artefact related
             to maintaining the ability of `py-sc-fermi` to read files formatted
-            for the FORTRAN SC-Fermi code. Future versions will consider how 
+            for the FORTRAN SC-Fermi code. Future versions will consider how
             the code parses these files such that this is no longer an issue.
         """
 

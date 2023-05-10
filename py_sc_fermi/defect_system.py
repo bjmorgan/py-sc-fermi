@@ -33,7 +33,6 @@ class DefectSystem(object):
         convergence_tolerance: float = 1e-18,
         n_trial_steps: int = 1500,
     ):
-
         self.defect_species = defect_species
         self.volume = volume
         self.dos = dos
@@ -109,7 +108,7 @@ class DefectSystem(object):
             convergence_tolerance=input_set.convergence_tolerance,
             n_trial_steps=input_set.n_trial_steps,
         )
-    
+
     @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectSystem":
         """generate ``DefectSystem`` from a dictionary
@@ -131,7 +130,10 @@ class DefectSystem(object):
             temperature=dictionary["temperature"],
             convergence_tolerance=dictionary["convergence_tolerance"],
             n_trial_steps=dictionary["n_trial_steps"],
-            defect_species=[DefectSpecies.from_dict(defect_species) for defect_species in dictionary["defect_species"]],
+            defect_species=[
+                DefectSpecies.from_dict(defect_species)
+                for defect_species in dictionary["defect_species"]
+            ],
         )
 
     def defect_species_by_name(self, name: str) -> DefectSpecies:

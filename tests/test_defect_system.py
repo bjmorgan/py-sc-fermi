@@ -109,7 +109,7 @@ class TestDefectSystem(unittest.TestCase):
             "defect_species": [{
                 "name": "V_O",
                 "nsites": 2,
-                "charge_states": [{"charge": 1, "energy": 0, "degeneracy": 1}],
+                "charge_states": {1 : {"charge": 1, "energy": 0, "degeneracy": 1}},
             }],
             "dos": {
                 "dos": np.ones(101),

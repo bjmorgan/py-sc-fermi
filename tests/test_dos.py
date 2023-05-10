@@ -1,6 +1,5 @@
 import unittest
-from unittest import mock
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import numpy as np
 import os
 from py_sc_fermi.dos import DOS
@@ -12,20 +11,22 @@ test_vasprun_filename = os.path.join(
 
 
 class TestDOSInit(unittest.TestCase):
-    def test_DOS_is_initialised(self):
-        dos_data = np.random.random(100)
-        edos = np.linspace(-10.0, 10.0, 100)
-        bandgap = 3.0
-        nelect = 10
+    def setUp(self):
+        self.dos_data = np.random.random(100)
+        self.edos = np.linspace(-10.0, 10.0, 100)
+        self.bandgap = 3.0
+        self.nelect = 10
+
+    def test_initialisation_calls_normalise_dos(self):
         with patch(
             "py_sc_fermi.dos.DOS.normalise_dos", autospec=True
         ) as mock_normalise_dos:
-            dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=nelect)
+            dos = DOS(dos=self.dos_data, edos=self.edos, bandgap=self.bandgap, nelect=self.nelect)
             self.assertEqual(mock_normalise_dos.call_count, 1)
-        np.testing.assert_equal(dos._dos, dos_data)
-        np.testing.assert_equal(dos._edos, edos)
-        self.assertEqual(dos._bandgap, bandgap)
-        self.assertEqual(dos._nelect, nelect)
+        np.testing.assert_equal(dos._dos, self.dos_data)
+        np.testing.assert_equal(dos._edos, self.edos)
+        self.assertEqual(dos._bandgap, self.bandgap)
+        self.assertEqual(dos._nelect, self.nelect)
 
 
 class TestDos(unittest.TestCase):
@@ -42,6 +43,9 @@ class TestDos(unittest.TestCase):
             nelect=nelect,
             spin_polarised=spin_polarised,
         )
+
+    def tearDown(self):
+        del self.dos
 
     def test_dos_property(self):
         np.testing.assert_equal(self.dos.dos, self.dos._dos)

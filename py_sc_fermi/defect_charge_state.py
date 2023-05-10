@@ -147,9 +147,7 @@ class DefectChargeState:
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
         unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
         if unrecognized_keys:
-            warnings.warn(
-                f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}")
-                
+            warnings.warn(f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}")
 
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(

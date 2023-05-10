@@ -283,7 +283,7 @@ class TestDefectSpecies(unittest.TestCase):
         d = {
             "name": "V_O",
             "nsites": 2,
-            "charge_states": [{"charge": 1, "energy": 0, "degeneracy": 1}],
+            "charge_states": {1 : {"charge": 1, "energy": 0, "degeneracy": 1}},
         }
         self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
         self.assertEqual(DefectSpecies.from_dict(d).nsites, 2)
@@ -294,9 +294,9 @@ class TestDefectSpecies(unittest.TestCase):
         d = {
             "name": "V_O",
             "nsites": 2,
-            "charge_states": [
+            "charge_states": { 1 : 
                 {"charge": 1, "fixed_concentration": 100, "degeneracy": 1}
-            ],
+            },
             "fixed_concentration": 100,
         }
         self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
