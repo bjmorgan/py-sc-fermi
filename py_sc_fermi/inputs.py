@@ -111,7 +111,7 @@ class InputSet:
             input_dict["n_trial_steps"] = 1500
 
         defect_species = [
-            DefectSpecies.from_dict(d, volume) for d in input_dict["defect_species"]
+            DefectSpecies.from_dict(d) for d in input_dict["defect_species"]
         ]
 
         return cls(
