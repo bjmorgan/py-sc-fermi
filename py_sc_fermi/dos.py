@@ -1,9 +1,9 @@
 import numpy as np
-from typing import Tuple, Optional, List, Dict
-from scipy.constants import physical_constants
+from typing import Tuple, Optional
+from scipy.constants import physical_constants # type: ignore
 
-from pymatgen.io.vasp import Vasprun
-from pymatgen.electronic_structure.core import Spin
+from pymatgen.io.vasp import Vasprun # type: ignore
+from pymatgen.electronic_structure.core import Spin # type: ignore
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 

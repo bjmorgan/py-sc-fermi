@@ -6,7 +6,7 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure
 from typing import Optional, List
-import yaml
+import yaml # type: ignore
 import os
 
 InputFermiData = namedtuple(
