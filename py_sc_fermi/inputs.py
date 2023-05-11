@@ -25,7 +25,7 @@ class InputSet:
     n_trial_steps: int = 1500
 
     @classmethod
-    def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = ""):
+    def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = "", fixed_conc_units: str = "cm^-3"):
         """
         Generate an InputSet object from a given yaml file
 
@@ -113,6 +113,21 @@ class InputSet:
         defect_species = [
             DefectSpecies.from_dict(d) for d in input_dict["defect_species"]
         ]
+
+        print(defect_species)
+
+        if fixed_conc_units == "cm^-3":
+            for ds in defect_species:
+                if ds.fixed_concentration is not None:
+                    ds.fix_concentration(ds.fixed_concentration / 1e24 * volume)
+                for charge_state in ds.charge_states:
+                        print(charge_state)
+                        if ds.charge_states[charge_state].fixed_concentration is not None:
+                            ds.charge_states[charge_state].fix_concentration(
+                                (ds.charge_states[charge_state].fixed_concentration / 1e24 * volume)
+                            )
+
+        print(defect_species)
 
         return cls(
             dos=dos,
