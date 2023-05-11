@@ -54,40 +54,11 @@ class TestCustomWarningManager(unittest.TestCase):
                         though you should always check the final results are reasonable.""")
         self.assertEqual(mock_stdout.getvalue().strip(), expected_warning.strip())
 
-    @patch('warnings.warn')
-    def test_other_warning(self, mock_warn):
-        self.warning_manager.custom_warning('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
-        mock_warn.assert_called_once_with('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
-
-
-class TestCustomWarningManager(unittest.TestCase):
-    def setUp(self):
-        self.warning_manager = CustomWarningManager()
-
     @patch('sys.stdout', new_callable=StringIO)
-    def test_dos_overflow_warning(self, mock_stdout):
-        self.warning_manager.custom_warning('overflow', RuntimeWarning, 'dos_file.py', 42)
-        expected_warning = textwrap.dedent(
-                        """DOSOverflowWarning: An overflow occurred during computation of
-                        electron and hole concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable.""")
-        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning.strip())
-
-    @patch('sys.stdout', new_callable=StringIO)
-    def test_defect_overflow_warning(self, mock_stdout):
-        self.warning_manager.custom_warning('overflow', RuntimeWarning, 'defect_file.py', 42)
-        expected_warning = textwrap.dedent(
-                        """DefectOverflowWarning: An overflow occurred during computation of
-                        defect concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable.""")
-        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning.strip())
-
-    @patch('warnings.warn')
-    def test_other_warning(self, mock_warn):
+    def test_other_warning(self, mock_stdout):
         self.warning_manager.custom_warning('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
-        mock_warn.assert_called_once_with('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
+        expected_warning = "RuntimeWarning: other warning"
+        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning)
 
 
 class TestDefectSystemInit(unittest.TestCase):

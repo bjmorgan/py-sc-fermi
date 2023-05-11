@@ -14,7 +14,7 @@ class CustomWarningManager:
 
     def custom_warning(self, message, category, filename, lineno, file=None, line=None):
         if category == RuntimeWarning:
-            if "dos" in str(filename):
+            if "dos" in str(filename) and "overflow" in str(message):
                 if not self.dos_overflow_warning_issued:
                     print(
                         """DOSOverflowWarning: An overflow occurred during computation of
@@ -23,7 +23,7 @@ class CustomWarningManager:
                         though you should always check the final results are reasonable."""
                     )
                     self.dos_overflow_warning_issued = True
-            elif "defect" in str(filename):
+            elif "defect" in str(filename) and "overflow" in str(message):
                 if not self.defect_overflow_warning_issued:
                     print(
                         """DefectOverflowWarning: An overflow occurred during computation of
@@ -33,7 +33,7 @@ class CustomWarningManager:
                     )
                     self.defect_overflow_warning_issued = True
             else:
-                warnings.warn(message, category, filename, lineno, file, line)
+                print(f"RuntimeWarning: {message}")
 
 
 # Create a CustomWarningManager and set the custom_warning method as the warning handler

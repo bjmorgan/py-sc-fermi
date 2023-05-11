@@ -5,11 +5,11 @@ volume: 59
 spin_pol: False
 dos: [-1,1,1,1,1,1]
 edos: [-1,1,1,1,1,1]
-convergence_tolerance: 1e-12
+convergence_tolerance: 1.0e-12
 defect_species:
   - name: "v_Ga" 
     nsites: 1
-    fixed_concentration: 0.32856e20
+    fixed_concentration: 0.32856e+20
     charge_states:
       0:
         charge: 0
@@ -19,7 +19,7 @@ defect_species:
         charge: -1
         energy: 0.0265
         degeneracy: 1
-        fixed_concentration: 0.19e19
+        fixed_concentration: 0.19e+19
       -2:
         charge: -2
         energy: 2.3469
@@ -49,4 +49,4 @@ defect_species:
       1: 
         charge: 1
         degeneracy: 1
-        fixed_concentration:  0.5e20
+        fixed_concentration:  0.5e+20
