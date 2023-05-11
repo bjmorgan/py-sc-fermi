@@ -3,9 +3,9 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
 import numpy as np
-
 import warnings
-import numpy as np
+
+
 
 class CustomWarningManager:
     def __init__(self):
@@ -14,24 +14,32 @@ class CustomWarningManager:
 
     def custom_warning(self, message, category, filename, lineno, file=None, line=None):
         if category == RuntimeWarning:
-            if 'dos' in str(filename):
+            if "dos" in str(filename):
                 if not self.dos_overflow_warning_issued:
-                    print("""DOSOverflowWarning: An overflow occurred during computation of
-                          electron and hole concentrations. This is likely a natural result of the use of
-                          a numerical solver for the Fermi energy search. This can likely be ignored
-                          though you should always check the final results are reasonable.""")
+                    print(
+                        """DOSOverflowWarning: An overflow occurred during computation of
+                        electron and hole concentrations. This is likely a natural result of the use of
+                        a numerical solver for the Fermi energy search. This can likely be ignored
+                        though you should always check the final results are reasonable."""
+                    )
                     self.dos_overflow_warning_issued = True
-            elif 'defect' in str(filename):
+            elif "defect" in str(filename):
                 if not self.defect_overflow_warning_issued:
-                    print("""DefectOverflowWarning: An overflow occurred during computation of
-                          defect concentrations. This is likely a natural result of the use of
-                          a numerical solver for the Fermi energy search. This can likely be ignored
-                          though you should always check the final results are reasonable.""")
+                    print(
+                        """DefectOverflowWarning: An overflow occurred during computation of
+                        defect concentrations. This is likely a natural result of the use of
+                        a numerical solver for the Fermi energy search. This can likely be ignored
+                        though you should always check the final results are reasonable."""
+                    )
                     self.defect_overflow_warning_issued = True
+            else:
+                warnings.warn(message, category, filename, lineno, file, line)
+
 
 # Create a CustomWarningManager and set the custom_warning method as the warning handler
 warning_manager = CustomWarningManager()
 warnings.showwarning = warning_manager.custom_warning
+
 
 class DefectSystem(object):
     """This class is used to calculate the self consistent Fermi energy for
@@ -182,17 +190,21 @@ class DefectSystem(object):
 
         # loop until convergence or max number of steps reached
         with warnings.catch_warnings():
-            warnings.filterwarnings('once')
+            warnings.filterwarnings("once")
             for i in range(self.n_trial_steps):
                 q_tot = self.q_tot(e_fermi=e_fermi)
                 if e_fermi > emax:
                     if reached_e_min or reached_e_max:
-                        raise RuntimeError(f"No solution found between {emin} and {emax}")
+                        raise RuntimeError(
+                            f"No solution found between {emin} and {emax}"
+                        )
                     reached_e_max = True
                     direction = -1.0
                 if e_fermi < emin:
                     if reached_e_max or reached_e_min:
-                        raise RuntimeError(f"No solution found between {emin} and {emax}")
+                        raise RuntimeError(
+                            f"No solution found between {emin} and {emax}"
+                        )
                     reached_e_min = True
                     direction = +1.0
                 if abs(q_tot) < self.convergence_tolerance:
@@ -314,7 +326,9 @@ class DefectSystem(object):
         return transition_levels
 
     def as_dict(
-        self, decomposed: bool = False, per_volume: bool = True,
+        self,
+        decomposed: bool = False,
+        per_volume: bool = True,
     ) -> Dict[str, Any]:
         """Returns a dictionary of the properties of the ``DefectSystem`` object
         after solving for the self-consistent Fermi energy.
@@ -366,10 +380,10 @@ class DefectSystem(object):
             return {**run_stats, **decomp_concs}
 
     def site_percentages(
-        self, 
+        self,
     ) -> Dict[str, float]:
         """Returns a dictionary of the DefectSpecies in the DefectSystem which
-        giving the percentage of the sites in the structure that will host that 
+        giving the percentage of the sites in the structure that will host that
         defect.
 
         Returns:
@@ -380,9 +394,9 @@ class DefectSystem(object):
         e_fermi = self.get_sc_fermi()[0]
 
         sum_concs = {
-                str(ds.name): float(
-                    (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
-                )
-                for ds in self.defect_species
-            }
+            str(ds.name): float(
+                (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
+            )
+            for ds in self.defect_species
+        }
         return sum_concs
