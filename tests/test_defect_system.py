@@ -235,6 +235,41 @@ class TestDefectSystem(unittest.TestCase):
             {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
         )
 
+    def test_concentration_dict(self):
+        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
+        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
+        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
+        self.defect_system.defect_species[0].charge_state_concentrations = Mock(return_value={1: 1})
+        self.defect_system.defect_species[1].charge_state_concentrations = Mock(return_value={-1: 1})
+        self.defect_system.defect_species[0].charge_states = {1: 1}
+        self.defect_system.defect_species[1].charge_states = {-1: 1}
+        self.defect_system.defect_species[0].name = "v_O"
+        self.defect_system.defect_species[1].name = "O_i"
+        self.defect_system.volume = 100
+
+        expected_dict = {
+            "Fermi Energy": 1.0,
+            "p0": 1.0e22,
+            "n0": 1.0e22,
+            "v_O": 1.0e22,
+            "O_i": 1.0e22
+        }
+        result_dict = self.defect_system.concentration_dict()
+        self.assertEqual(result_dict, expected_dict)
+
+        expected_decomposed_dict = {
+            "Fermi Energy": 1.0,
+            "p0": 1.0e22,
+            "n0": 1.0e22,
+            "v_O": {1: 1.0e22},
+            "O_i": {-1: 1.0e22}
+        }
+        result_decomposed_dict = self.defect_system.concentration_dict(decomposed=True)
+        self.assertEqual(result_decomposed_dict, expected_decomposed_dict)
+
+
+
     def test__repr__(self):
         self.defect_system.defect_species = []
         self.defect_system.dos.nelect = 100
