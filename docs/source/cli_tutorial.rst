@@ -15,9 +15,11 @@ energies. In this case defect system is defined by a ``.yaml`` file structured l
           nsites: 1 # site degeneracy of the defect species
           charge_states:
             0: # charge of first charge state
+              charge: 0
               formation_energy: 2 # formation energy of first charge state
               degeneracy: 1 # degeneracy of first charge state
             -1:
+              charge: -1
               formation_energy: 1
               degeneracy: 2
       ... # repeat for each defect in your system
@@ -74,6 +76,7 @@ and specify the concentration of a defect charge state like so::
             nsites: 1
             charge_states:
                 -1:
+                    charge: -1
                     formation_energy: 1
                     fixed_concentration: 1e20
                     degeneracy: 1
