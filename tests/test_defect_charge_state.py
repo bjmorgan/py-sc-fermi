@@ -15,14 +15,14 @@ class TestDefectChargeStateInit(unittest.TestCase):
         self.assertEqual(defect_charge_state._degeneracy, degeneracy)
         self.assertEqual(defect_charge_state.fixed_concentration, None)
 
-    def test_bad_energy_and_concentration(self):
+    def test_init_raises_error_on_none_energy_and_concentration(self):
         with self.assertRaises(ValueError):
             DefectChargeState(1, None, None)
 
 
-class TestDefectChargeState(unittest.TestCase):
+class TestDefectChargeStateChargeProperty(unittest.TestCase):
     def setUp(self):
-        charge = 1.0
+        charge = 1
         energy = 0.1234
         degeneracy = 2
         self.defect_charge_state = DefectChargeState(
@@ -34,9 +34,29 @@ class TestDefectChargeState(unittest.TestCase):
             self.defect_charge_state.charge, self.defect_charge_state._charge
         )
 
+
+class TestDefectChargeStateEnergyProperty(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
+        )
+
     def test_energy_property(self):
         self.assertEqual(
             self.defect_charge_state.energy, self.defect_charge_state._energy
+        )
+
+
+class TestDefectChargeStateDegeneracyProperty(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
         )
 
     def test_degeneracy_property(self):
@@ -44,20 +64,50 @@ class TestDefectChargeState(unittest.TestCase):
             self.defect_charge_state.degeneracy, self.defect_charge_state._degeneracy
         )
 
+
+class TestDefectChargeStateFixConcentration(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
+        )
+
     def test_fix_concentration(self):
         self.assertEqual(self.defect_charge_state.fixed_concentration, None)
         self.defect_charge_state.fix_concentration(1)
         self.assertEqual(self.defect_charge_state.fixed_concentration, 1)
 
+
+class TestDefectChargeStateGetFormationEnergy(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
+        )
+
     def test_get_formation_energy(self):
         e_fermi = 1.2
         formation_energy = self.defect_charge_state.get_formation_energy(e_fermi)
-        self.assertEqual(formation_energy, 0.1234 + (1.0 * 1.2))
+        self.assertAlmostEqual(formation_energy, 0.1234 + (1.0 * 1.2), places=4)
 
     def test_get_formation_energy_raises(self):
         with self.assertRaises(ValueError):
             self.defect_charge_state._energy = None
             self.defect_charge_state.get_formation_energy(0.1234)
+
+
+class TestDefectChargeStateGetConcentration(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
+        )
 
     def test_get_concentration(self):
         e_fermi = 1.2
@@ -65,7 +115,7 @@ class TestDefectChargeState(unittest.TestCase):
         conc = self.defect_charge_state.get_concentration(
             e_fermi=e_fermi, temperature=temperature
         )
-        self.assertEqual(conc, 8.311501552630706e-23)
+        self.assertAlmostEqual(conc, 8.311501552630706e-23, places=25)
 
     def test_get_concentration_with_fixed_concentration(self):
         e_fermi = 1.2
@@ -76,10 +126,74 @@ class TestDefectChargeState(unittest.TestCase):
         )
         self.assertEqual(conc, 1.0)
 
+
+class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
+        )
+
+    def test_defect_charge_state_from_dict(self):
+        dictionary = {"degeneracy": 2, "energy": 0.1234, "charge": 1}
+        defect_charge_state = DefectChargeState.from_dict(dictionary)
+        self.assertEqual(defect_charge_state.degeneracy, 2)
+        self.assertEqual(defect_charge_state.energy, 0.1234)
+        self.assertEqual(defect_charge_state.charge, 1)
+        self.assertEqual(defect_charge_state.fixed_concentration, None)
+
+    def test_defect_charge_state_from_dict_with_fixed_concentration(self):
+        dictionary = {
+            "degeneracy": 2,
+            "energy": 0.1234,
+            "charge": 1,
+            "fixed_concentration": 0.1234,
+        }
+        defect_charge_state = DefectChargeState.from_dict(dictionary)
+        self.assertEqual(defect_charge_state.degeneracy, 2)
+        self.assertEqual(defect_charge_state.charge, 1)
+        self.assertEqual(defect_charge_state.fixed_concentration, 0.1234)
+
+    def test_defect_system_as_dict(self):
+        dictionary = self.defect_charge_state.as_dict()
+        self.assertEqual(dictionary["degeneracy"], 2)
+        self.assertEqual(dictionary["energy"], 0.1234)
+        self.assertEqual(dictionary["charge"], 1)
+
+    def test_defect_system_as_dict_fixed_concentration(self):
+        self.defect_charge_state.fix_concentration(1)
+        dictionary = self.defect_charge_state.as_dict()
+        self.assertEqual(dictionary["degeneracy"], 2)
+        self.assertEqual(dictionary["energy"], 0.1234)
+        self.assertEqual(dictionary["charge"], 1)
+        self.assertEqual(dictionary["fixed_concentration"], 1)
+
+    def test_defect_charge_state_from_dict_warns(self):
+        dictionary = {
+            "degeneracy": 2,
+            "energy": 0.1234,
+            "charge": 1,
+            "fixed_concentration": 0.1234,
+            "foo": "bar"
+        }
+        with self.assertWarns(UserWarning):
+            DefectChargeState.from_dict(dictionary)
+
+
+class TestDefectChargeStateStringOperations(unittest.TestCase):
+    def setUp(self):
+        charge = 1
+        energy = 0.1234
+        degeneracy = 2
+        self.defect_charge_state = DefectChargeState(
+            charge=charge, energy=energy, degeneracy=degeneracy
+        )
+
     def test_defect_charge_state_from_string(self):
         string = "1 0.1234 2"
         defect_charge_state = DefectChargeState.from_string(string)
-        print(defect_charge_state)
         self.assertEqual(defect_charge_state.degeneracy, 2)
         self.assertEqual(defect_charge_state.energy, 0.1234)
         self.assertEqual(defect_charge_state.charge, 1)
@@ -90,7 +204,7 @@ class TestDefectChargeState(unittest.TestCase):
         defect_charge_state = DefectChargeState.from_string(
             string, frozen=True, volume=100
         )
-        self.assertEqual(defect_charge_state.fixed_concentration, 1.234e-23)
+        self.assertAlmostEqual(defect_charge_state.fixed_concentration, 1.234e-23, places=25)
         self.assertEqual(defect_charge_state.charge, 1)
 
     def test_defect_charge_state_from_string_raises(self):
@@ -98,10 +212,9 @@ class TestDefectChargeState(unittest.TestCase):
         with self.assertRaises(ValueError):
             DefectChargeState.from_string(string, frozen=True, volume=None)
 
-    def test__repr__(self):
+    def test_repr(self):
         self.assertEqual(
-            str(self.defect_charge_state),
-            "q=+1.0, e=0.1234, deg=2",
+            str(self.defect_charge_state), "q=+1, e=0.1234, deg=2",
         )
 
 

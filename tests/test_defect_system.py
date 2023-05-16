@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 from io import StringIO
 
+import numpy as np
 import os
 import textwrap
 from py_sc_fermi.defect_species import DefectSpecies
@@ -23,6 +24,9 @@ test_yaml_filename = os.path.join(
 )
 test_exception_yaml_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
+)
+test_vasprun_filename = os.path.join(
+    os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml"
 )
 
 
@@ -50,10 +54,11 @@ class TestCustomWarningManager(unittest.TestCase):
                         though you should always check the final results are reasonable.""")
         self.assertEqual(mock_stdout.getvalue().strip(), expected_warning.strip())
 
-    @patch('warnings.warn')
-    def test_other_warning(self, mock_warn):
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_other_warning(self, mock_stdout):
         self.warning_manager.custom_warning('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
-        mock_warn.assert_called_once_with('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
+        expected_warning = "RuntimeWarning: other warning"
+        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning)
 
 
 class TestDefectSystemInit(unittest.TestCase):
@@ -102,15 +107,6 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.defect_species[0],
         )
 
-    def test_from_yaml(self):
-        defect_system = self.defect_system.from_yaml(test_yaml_filename)
-        self.assertEqual(defect_system.volume, 59)
-        self.assertEqual(defect_system.dos.nelect, 18)
-        self.assertEqual(defect_system.dos.spin_polarised, False)
-        self.assertEqual(defect_system.temperature, 300)
-        self.assertEqual(len(defect_system.defect_species), 3)
-        self.assertEqual(defect_system.defect_species_names, ["V_Ga", "Ga_Sb", "Ga_i"])
-
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
@@ -131,27 +127,37 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.q_tot(2), 0)
 
     def test_as_dict(self):
-        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[0].name = "v_O"
-        self.defect_system.defect_species[1].name = "O_i"
-        volume = self.defect_system.volume
-        self.assertEqual(
-            self.defect_system.as_dict(),
-            {
-                "Fermi Energy": 1,
-                "p0": 1 / volume * 1e24,
-                "n0": 1 / volume * 1e24,
-                "O_i": 1 / volume * 1e24,
-                "v_O": 1 / volume * 1e24,
-            },
-        )
-        self.assertEqual(
-            self.defect_system.as_dict(per_volume=False),
-            {"Fermi Energy": 1, "p0": 1, "n0": 1, "O_i": 1, "v_O": 1},
-        )
+        self.defect_system.dos = DOS.from_vasprun(test_vasprun_filename, nelect=12)
+        defect_dict = self.defect_system.as_dict()
+        self.assertEqual(defect_dict["volume"], 100)
+        self.assertEqual(defect_dict["temperature"], 298)
+        self.assertEqual(defect_dict["n_trial_steps"], 1500)
+
+    def test_from_dict(self):
+        dictionary = {
+            "volume": 100,
+            "temperature": 100,
+            "n_trial_steps": 100,
+            "convergence_tolerance": 1,
+            "defect_species": [{
+                "name": "V_O",
+                "nsites": 2,
+                "charge_states": {1 : {"charge": 1, "energy": 0, "degeneracy": 1}},
+            }],
+            "dos": {
+                "dos": np.ones(101),
+                "edos": np.linspace(-10.0, 10.0, 101),
+                "bandgap": 3.0,
+                "nelect": 10,
+                "spin_pol": False
+            }
+        }
+        defect_system = self.defect_system.from_dict(dictionary)
+        self.defect_system.from_dict(dictionary)
+        self.assertEqual(defect_system.volume, 100)
+        self.assertEqual(defect_system.temperature, 100)
+        self.assertEqual(defect_system.n_trial_steps, 100)
+        self.assertEqual(defect_system.convergence_tolerance, 1)
 
     def test_site_percentages(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
@@ -228,6 +234,41 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.get_transition_levels(),
             {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
         )
+
+    def test_concentration_dict(self):
+        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
+        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
+        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
+        self.defect_system.defect_species[0].charge_state_concentrations = Mock(return_value={1: 1})
+        self.defect_system.defect_species[1].charge_state_concentrations = Mock(return_value={-1: 1})
+        self.defect_system.defect_species[0].charge_states = {1: 1}
+        self.defect_system.defect_species[1].charge_states = {-1: 1}
+        self.defect_system.defect_species[0].name = "v_O"
+        self.defect_system.defect_species[1].name = "O_i"
+        self.defect_system.volume = 100
+
+        expected_dict = {
+            "Fermi Energy": 1.0,
+            "p0": 1.0e22,
+            "n0": 1.0e22,
+            "v_O": 1.0e22,
+            "O_i": 1.0e22
+        }
+        result_dict = self.defect_system.concentration_dict()
+        self.assertEqual(result_dict, expected_dict)
+
+        expected_decomposed_dict = {
+            "Fermi Energy": 1.0,
+            "p0": 1.0e22,
+            "n0": 1.0e22,
+            "v_O": {1: 1.0e22},
+            "O_i": {-1: 1.0e22}
+        }
+        result_decomposed_dict = self.defect_system.concentration_dict(decomposed=True)
+        self.assertEqual(result_decomposed_dict, expected_decomposed_dict)
+
+
 
     def test__repr__(self):
         self.defect_system.defect_species = []

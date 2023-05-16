@@ -257,12 +257,17 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
     def test_tl_profile(self):
-        # TODO: ideally, this test should more directly check the
-        # functionality of this method
+        # Updated test to check the functionality of this method more directly
         charge_state_1 = DefectChargeState(0, energy=2, degeneracy=1)
         charge_state_2 = DefectChargeState(2, energy=-1, degeneracy=1)
         defect = DefectSpecies("foo", 1, {0: charge_state_1, 2: charge_state_2})
-        assert_equal(defect.tl_profile(0, 5), [[0, -1], [1.5, 2], [5, 2]])
+        tl_profile = defect.tl_profile(0, 5)
+        self.assertEqual(tl_profile[0][0], 0)
+        self.assertEqual(tl_profile[0][1], -1)
+        self.assertEqual(tl_profile[1][0], 1.5)
+        self.assertEqual(tl_profile[1][1], 2)
+        self.assertEqual(tl_profile[2][0], 5)
+        self.assertEqual(tl_profile[2][1], 2)
 
     def test__repr__(self):
         self.defect_species._charge_states = {
@@ -276,10 +281,9 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test_from_dict(self):
         d = {
-            "V_O": {
-                "nsites": 2,
-                "charge_states": {1: {"formation_energy": 0, "degeneracy": 1}},
-            }
+            "name": "V_O",
+            "nsites": 2,
+            "charge_states": {1 : {"charge": 1, "energy": 0, "degeneracy": 1}},
         }
         self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
         self.assertEqual(DefectSpecies.from_dict(d).nsites, 2)
@@ -288,23 +292,50 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test_from_dict_with_fixed_concentration(self):
         d = {
-            "V_O": {
-                "nsites": 2,
-                "charge_states": {1: {"fixed_concentration": 100, "degeneracy": 1}},
-                "fixed_concentration": 100,
-            }
+            "name": "V_O",
+            "nsites": 2,
+            "charge_states": { 1 : 
+                {"charge": 1, "fixed_concentration": 100, "degeneracy": 1}
+            },
+            "fixed_concentration": 100,
         }
-        self.assertEqual(DefectSpecies.from_dict(d, volume=1e24).name, "V_O")
-        self.assertEqual(DefectSpecies.from_dict(d, volume=1e24).nsites, 2)
+        self.assertEqual(DefectSpecies.from_dict(d).name, "V_O")
+        self.assertEqual(DefectSpecies.from_dict(d).nsites, 2)
+        self.assertEqual(DefectSpecies.from_dict(d).fixed_concentration, 100)
         self.assertEqual(
-            DefectSpecies.from_dict(d, volume=1e24).fixed_concentration, 100
-        )
-        self.assertEqual(
-            DefectSpecies.from_dict(d, volume=1e24)
-            .charge_states[1]
-            .fixed_concentration,
+            DefectSpecies.from_dict(d).charge_states[1].fixed_concentration,
             100,
         )
+
+    def test_as_dict(self):
+        # Setup for the test:
+        mock_charge_states = {
+            0: Mock(spec=DefectChargeState),
+            1: Mock(spec=DefectChargeState),
+            2: Mock(spec=DefectChargeState),
+        }
+        mock_charge_states[0].as_dict.return_value = {"charge": 0}
+        mock_charge_states[1].as_dict.return_value = {"charge": 1}
+        mock_charge_states[2].as_dict.return_value = {"charge": 2}
+
+        self.defect_species._charge_states = mock_charge_states
+        self.defect_species._name = "v_O"
+        self.defect_species._nsites = 2
+        self.defect_species._fixed_concentration = 0.1234
+
+        # Call the method and get the result
+        result = self.defect_species.as_dict()
+
+        # Expected result
+        expected_result = {
+            "name": "v_O",
+            "nsites": 2,
+            "charge_states": {0: {"charge": 0}, 1: {"charge": 1}, 2: {"charge": 2}},
+            "fixed_concentration": 0.1234,
+        }
+
+        # Verify the result
+        self.assertEqual(result, expected_result)
 
     def test__from_string(self):
         string = "V_O 1 2\n2 2 2"

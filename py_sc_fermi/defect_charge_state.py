@@ -1,6 +1,7 @@
 import numpy as np  # type: ignore
 from scipy.constants import physical_constants  # type: ignore
 from typing import Optional
+import warnings
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -22,7 +23,7 @@ class DefectChargeState:
         energy: Optional[float] = None,
         fixed_concentration: Optional[float] = None,
     ):
-        if energy == None and fixed_concentration == None:
+        if energy is None and fixed_concentration is None:
             raise ValueError(
                 """You must specify either a fixed concentration or energy for 
                 this defect! \n Note, if you specify both, the concentration
@@ -113,7 +114,6 @@ class DefectChargeState:
         Returns:
             ``DefectChargeState``: relevant ``DefectChargeState`` object
         """
-        string = string.strip()
         stripped_string = string.split()
         if frozen is False:
             return cls(
@@ -131,6 +131,53 @@ class DefectChargeState:
                     charge=int(stripped_string[1]),
                     fixed_concentration=float(stripped_string[2]) / 1e24 * volume,
                 )
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> "DefectChargeState":
+        """generate a dictionary from a ``DefectChargeState`` object
+
+        Args:
+            dictionary (dict): dictionary defining ``DefectChargeState``. Any
+              fixed concentration given should be provided per-unit cell
+
+        Returns:
+            DefectChargeState: object described by `dictionary`
+        """
+
+        valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
+        unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
+        if unrecognized_keys:
+            warnings.warn(f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}")
+
+        if "fixed_concentration" in dictionary.keys():
+            return DefectChargeState(
+                degeneracy=dictionary["degeneracy"],
+                charge=dictionary["charge"],
+                fixed_concentration=dictionary["fixed_concentration"],
+            )
+        else:
+            return DefectChargeState(
+                degeneracy=dictionary["degeneracy"],
+                energy=dictionary["energy"],
+                charge=dictionary["charge"],
+            )
+
+    def as_dict(self) -> dict:
+        """generate a dictionary representation of the ``DefectChargeState``
+
+        Returns:
+            dict: dictionary representation of the ``DefectChargeState``
+        """
+
+        defect_dict = {
+            "degeneracy": int(self.degeneracy),
+            "energy": self.energy,
+            "charge": int(self.charge),
+        }
+        if self.fixed_concentration != None:
+            defect_dict.update({"fixed_concentration": self.fixed_concentration})
+
+        return defect_dict
 
     def fix_concentration(self, concentration: float) -> None:
         """Fixes the concentration (per unit cell) of this ``DefectChargeState``
@@ -172,7 +219,7 @@ class DefectChargeState:
         Returns:
             float: Concentration at the specified Fermi energy and temperature.
         """
-        if self.fixed_concentration == None:
+        if self.fixed_concentration is None:
             expfac = -self.get_formation_energy(e_fermi) / (kboltz * temperature)
             concentration = self.degeneracy * np.exp(expfac)
         else:

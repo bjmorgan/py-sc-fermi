@@ -10,7 +10,8 @@ import yaml # type: ignore
 import os
 
 InputFermiData = namedtuple(
-    "InputFermiData", "spin_pol nelect bandgap temperature defect_species",
+    "InputFermiData",
+    "spin_pol nelect bandgap temperature defect_species",
 )
 
 
@@ -24,7 +25,7 @@ class InputSet:
     n_trial_steps: int = 1500
 
     @classmethod
-    def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = ""):
+    def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = "", fixed_conc_units: str = "cm^-3"):
         """
         Generate an InputSet object from a given yaml file
 
@@ -110,8 +111,18 @@ class InputSet:
             input_dict["n_trial_steps"] = 1500
 
         defect_species = [
-            DefectSpecies.from_dict(d, volume) for d in input_dict["defect_species"]
+            DefectSpecies.from_dict(d) for d in input_dict["defect_species"]
         ]
+
+        if fixed_conc_units == "cm^-3":
+            for ds in defect_species:
+                if ds.fixed_concentration is not None:
+                    ds.fix_concentration(ds.fixed_concentration / 1e24 * volume)
+                for charge_state in ds.charge_states:
+                        if ds.charge_states[charge_state].fixed_concentration is not None:
+                            ds.charge_states[charge_state].fix_concentration(
+                                (ds.charge_states[charge_state].fixed_concentration / 1e24 * volume)
+                            )
 
         return cls(
             dos=dos,
@@ -284,7 +295,11 @@ def read_input_fermi(
     return InputFermiData(spin_pol, nelect, bandgap, temperature, defect_species)
 
 
-def read_dos_data(bandgap: float, nelect: int, filename: str = "totdos.dat",) -> DOS:
+def read_dos_data(
+    bandgap: float,
+    nelect: int,
+    filename: str = "totdos.dat",
+) -> DOS:
     """read density of states data from an `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
     formatted ``totdos.dat`` file.
 

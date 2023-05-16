@@ -14,7 +14,7 @@ class CustomWarningManager:
 
     def custom_warning(self, message, category, filename, lineno, file=None, line=None):
         if category == RuntimeWarning:
-            if "dos" in str(filename):
+            if "dos" in str(filename) and "overflow" in str(message):
                 if not self.dos_overflow_warning_issued:
                     print(
                         """DOSOverflowWarning: An overflow occurred during computation of
@@ -23,7 +23,7 @@ class CustomWarningManager:
                         though you should always check the final results are reasonable."""
                     )
                     self.dos_overflow_warning_issued = True
-            elif "defect" in str(filename):
+            elif "defect" in str(filename) and "overflow" in str(message):
                 if not self.defect_overflow_warning_issued:
                     print(
                         """DefectOverflowWarning: An overflow occurred during computation of
@@ -33,7 +33,7 @@ class CustomWarningManager:
                     )
                     self.defect_overflow_warning_issued = True
             else:
-                warnings.warn(message, category, filename, lineno, file, line)
+                print(f"RuntimeWarning: {message}")
 
 
 # Create a CustomWarningManager and set the custom_warning method as the warning handler
@@ -69,7 +69,6 @@ class DefectSystem(object):
         convergence_tolerance: float = 1e-18,
         n_trial_steps: int = 1500,
     ):
-
         self.defect_species = defect_species
         self.volume = volume
         self.dos = dos
@@ -144,6 +143,33 @@ class DefectSystem(object):
             temperature=input_set.temperature,
             convergence_tolerance=input_set.convergence_tolerance,
             n_trial_steps=input_set.n_trial_steps,
+        )
+
+    @classmethod
+    def from_dict(cls, dictionary: dict) -> "DefectSystem":
+        """generate ``DefectSystem`` from a dictionary
+
+        Args:
+            filename (str): path to yaml file containing the ``DefectSystem``
+              data
+            structure_file (str): path to file containing volume information.
+              Defaults to an empty string.
+            dos_file (str): path to file containing dos information. Defaults
+              to an empty string.
+
+        Returns:
+            DefectSystem: ``DefectSystem`` corresponding to provided yaml file
+        """
+        return cls(
+            dos=DOS.from_dict(dictionary["dos"]),
+            volume=dictionary["volume"],
+            temperature=dictionary["temperature"],
+            convergence_tolerance=dictionary["convergence_tolerance"],
+            n_trial_steps=dictionary["n_trial_steps"],
+            defect_species=[
+                DefectSpecies.from_dict(defect_species)
+                for defect_species in dictionary["defect_species"]
+            ],
         )
 
     def defect_species_by_name(self, name: str) -> DefectSpecies:
@@ -325,7 +351,7 @@ class DefectSystem(object):
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
-    def as_dict(
+    def concentration_dict(
         self,
         decomposed: bool = False,
         per_volume: bool = True,
@@ -380,10 +406,10 @@ class DefectSystem(object):
             return {**run_stats, **decomp_concs}
 
     def site_percentages(
-        self,
+        self, 
     ) -> Dict[str, float]:
         """Returns a dictionary of the DefectSpecies in the DefectSystem which
-        giving the percentage of the sites in the structure that will host that
+        giving the percentage of the sites in the structure that will host that 
         defect.
 
         Returns:
@@ -394,9 +420,28 @@ class DefectSystem(object):
         e_fermi = self.get_sc_fermi()[0]
 
         sum_concs = {
-            str(ds.name): float(
-                (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
-            )
-            for ds in self.defect_species
-        }
+                str(ds.name): float(
+                    (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
+                )
+                for ds in self.defect_species
+            }
         return sum_concs
+
+    def as_dict(self) -> dict:
+        """
+
+        Returns:
+            dict: _description_
+        """
+
+        defect_system_dict = dict(
+            volume=float(self.volume),
+            temperature=float(self.temperature),
+            n_trial_steps=int(self.n_trial_steps),
+            defect_species=[
+                defect_species.as_dict() for defect_species in self.defect_species
+            ],
+            convergence_tolerance=float(self.convergence_tolerance),
+            dos=self.dos.as_dict(),
+        )
+        return defect_system_dict
