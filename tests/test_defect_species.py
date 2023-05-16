@@ -307,6 +307,36 @@ class TestDefectSpecies(unittest.TestCase):
             100,
         )
 
+    def test_as_dict(self):
+        # Setup for the test:
+        mock_charge_states = {
+            0: Mock(spec=DefectChargeState),
+            1: Mock(spec=DefectChargeState),
+            2: Mock(spec=DefectChargeState),
+        }
+        mock_charge_states[0].as_dict.return_value = {"charge": 0}
+        mock_charge_states[1].as_dict.return_value = {"charge": 1}
+        mock_charge_states[2].as_dict.return_value = {"charge": 2}
+
+        self.defect_species._charge_states = mock_charge_states
+        self.defect_species._name = "v_O"
+        self.defect_species._nsites = 2
+        self.defect_species._fixed_concentration = 0.1234
+
+        # Call the method and get the result
+        result = self.defect_species.as_dict()
+
+        # Expected result
+        expected_result = {
+            "name": "v_O",
+            "nsites": 2,
+            "charge_states": {0: {"charge": 0}, 1: {"charge": 1}, 2: {"charge": 2}},
+            "fixed_concentration": 0.1234,
+        }
+
+        # Verify the result
+        self.assertEqual(result, expected_result)
+
     def test__from_string(self):
         string = "V_O 1 2\n2 2 2"
         string = string.splitlines()
