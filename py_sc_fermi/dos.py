@@ -95,7 +95,7 @@ class DOS:
 
     @classmethod
     def from_vasprun(
-        cls, path_to_vasprun: str, nelect: Optional[int], bandgap: Optional[float] = None
+        cls, path_to_vasprun: str, nelect: Optional[int] = None, bandgap: Optional[float] = None
     ) -> "DOS":
         """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
