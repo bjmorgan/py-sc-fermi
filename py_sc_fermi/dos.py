@@ -95,7 +95,7 @@ class DOS:
 
     @classmethod
     def from_vasprun(
-        cls, path_to_vasprun: str, nelect: int, bandgap: Optional[float] = None
+        cls, path_to_vasprun: str, nelect: Optional[int], bandgap: Optional[float] = None
     ) -> "DOS":
         """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
@@ -118,6 +118,9 @@ class DOS:
         else:
             dos = np.array(densities[Spin.up])
             spin_pol = False
+
+        if nelect == None:
+            nelect = int(vr.parameters["NELECT"])
 
         if bandgap is None:
             bandgap = float(vr.eigenvalue_band_properties[0])
