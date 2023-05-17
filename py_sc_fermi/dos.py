@@ -1,9 +1,9 @@
 import numpy as np
 from typing import Tuple, Optional
-from scipy.constants import physical_constants # type: ignore
+from scipy.constants import physical_constants  # type: ignore
 
-from pymatgen.io.vasp import Vasprun # type: ignore
-from pymatgen.electronic_structure.core import Spin # type: ignore
+from pymatgen.io.vasp import Vasprun  # type: ignore
+from pymatgen.electronic_structure.core import Spin  # type: ignore
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -95,7 +95,10 @@ class DOS:
 
     @classmethod
     def from_vasprun(
-        cls, path_to_vasprun: str, nelect: Optional[int] = None, bandgap: Optional[float] = None
+        cls,
+        path_to_vasprun: str,
+        nelect: Optional[int] = None,
+        bandgap: Optional[float] = None,
     ) -> "DOS":
         """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
@@ -119,11 +122,11 @@ class DOS:
             dos = np.array(densities[Spin.up])
             spin_pol = False
 
-        if nelect == None:
+        if nelect is None:
             nelect = int(vr.parameters["NELECT"])
-
         if bandgap is None:
             bandgap = float(vr.eigenvalue_band_properties[0])
+
         return cls(
             dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol
         )
