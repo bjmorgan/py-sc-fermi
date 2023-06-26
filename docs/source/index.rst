@@ -34,6 +34,8 @@ Papers that use :py:mod:`py-sc-fermi`
 - Haouari et al., Impact of Solution Chemistry on Growth and Structural Features of Mo-Substituted Spinel Iron Oxides, 2021, `10.1021/acs.inorgchem.1c00278 <https://pubs.acs.org/doi/abs/10.1021/acs.inorgchem.1c00278>`_
 - Squires et al., Low Electronic Conductivity of Li\ :sub:`7`\ La\ :sub:`3`\ Zr\ :sub:`2`\ O\ :sub:`12`\  Solid Electrolytes from First Principles, 2022, `10.1103/PhysRevMaterials.6.085401 <https://journals.aps.org/prmaterials/abstract/10.1103/PhysRevMaterials.6.085401>`_
 - Jackson, Parret and Willis et al., Computational Prediction and Experimental Realization of Earth-Abundant Transparent Conducting Oxide Ga-Doped ZnSb\ :sub:`2`\ O\ :sub:`6`\ , 2022, `10.1021/acsenergylett.2c01961 <https://doi.org/10.1021/acsenergylett.2c01961>`_
+- Cen et al., Cation disorder dominates the defect chemistry of high-voltage LiMn\ :sub:`1.5`\ Ni \ :sub:`0.5`\ O \ :sub:`4`\ (LMNO) spinel cathodes, 2023, `10.1039/D3TA00532A <https://doi.org/10.1039/D3TA00532A>`_
+- Nicolson et al., Cu\ :sub:`2`\SiSe\ :sub:`2`\ as a promising solar absorber: harnessing cation dissimilarity to avoid killer antisites `10.1039/D3TA02429F <https://doi.org/10.1039/D3TA02429F>`_
 
 
 Searching
