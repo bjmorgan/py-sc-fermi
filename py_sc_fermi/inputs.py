@@ -4,7 +4,7 @@ import numpy as np
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
-from pymatgen.core import Structure
+from pymatgen.core import Structure # type: ignore
 from typing import Optional, List
 import yaml
 import os
