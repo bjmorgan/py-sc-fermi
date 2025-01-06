@@ -223,7 +223,7 @@ class DOS:
         Returns:
             int: index of cbm
         """
-        return np.where(self._edos > self.bandgap)[0][0]
+        return np.where(self._edos >= self.bandgap)[0][0]
 
     def carrier_concentrations(
         self, e_fermi: float, temperature: float
