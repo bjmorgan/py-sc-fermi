@@ -372,7 +372,7 @@ class DefectSpecies(object):
         for q, cs in fixed_concs.items():
             cs_concentrations[q] = cs.get_concentration(e_fermi, temperature)
 
-        if self.fixed_concentration is not None:
+        if self.fixed_concentration is not None and self.variable_conc_charge_states():
             fixed_conc_chg_states = sum(
                 [
                     c

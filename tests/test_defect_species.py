@@ -27,6 +27,28 @@ class TestDefectSpeciesInit(unittest.TestCase):
         self.assertEqual(defect_species._charge_states[0], mock_charge_states[0])
         self.assertEqual(defect_species._charge_states[1], mock_charge_states[1])
         self.assertEqual(defect_species._fixed_concentration, None)
+        
+    def test_defect_species_is_initialised_with_fixed_concentration(self):
+        name = "foo"
+        nsites = 2
+        fixed_concentration = 0.1234
+        mock_charge_states = {
+            0: Mock(spec=DefectChargeState),
+            1: Mock(spec=DefectChargeState),
+        }
+        mock_charge_states[0].charge = 0
+        mock_charge_states[1].charge = 1
+        defect_species = DefectSpecies(
+            name=name,
+            nsites=nsites,
+            charge_states=mock_charge_states,
+            fixed_concentration=fixed_concentration
+        )
+        self.assertEqual(defect_species._name, name)
+        self.assertEqual(defect_species._nsites, nsites)
+        self.assertEqual(defect_species._charge_states[0], mock_charge_states[0])
+        self.assertEqual(defect_species._charge_states[1], mock_charge_states[1])
+        self.assertEqual(defect_species._fixed_concentration, fixed_concentration)
 
 
 class TestDefectSpecies(unittest.TestCase):
@@ -176,23 +198,32 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
     def test_fixed_concentration_charge_states(self):
-        self.defect_species.charge_states[0].fixed_concentration = Mock(
-            return_value=0.1234
-        )
+        self.defect_species.charge_states[0].fixed_concentration = 0.1234
         self.defect_species.charge_states[1].fixed_concentration = None
         self.defect_species.charge_states[2].fixed_concentration = None
         self.assertEqual(
             self.defect_species.fixed_conc_charge_states(),
             {0: self.defect_species.charge_states[0]},
         )
+        
+    def test_charge_states_and_defect_species_have_fixed_concentration(self):
+        self.defect_species.fix_concentration(concentration=0.1234*3)
+        for cs in self.defect_species.charge_states.values():
+            cs.fixed_concentration = 0.1234
+            cs.get_concentration = Mock(return_value=0.1234)
+        self.assertEqual(
+            self.defect_species.fixed_conc_charge_states(),
+            {
+                0: self.defect_species.charge_states[0],
+                1: self.defect_species.charge_states[1],
+                2: self.defect_species.charge_states[2]
+            },
+        )
+        print(self.defect_species.charge_state_concentrations(e_fermi=1.5, temperature=298.0))
 
     def test_variable_concentration_charge_states(self):
-        self.defect_species.charge_states[0].fixed_concentration = Mock(
-            return_value=0.1234
-        )
-        self.defect_species.charge_states[1].fixed_concentration = Mock(
-            return_value=0.1234
-        )
+        self.defect_species.charge_states[0].fixed_concentration = 0.1234
+        self.defect_species.charge_states[1].fixed_concentration = 0.1234
         self.defect_species.charge_states[2].fixed_concentration = None
         self.assertEqual(
             self.defect_species.variable_conc_charge_states(),
