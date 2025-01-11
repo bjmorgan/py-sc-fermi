@@ -3,7 +3,7 @@ from typing import Tuple, Optional
 from scipy.constants import physical_constants  # type: ignore
 from scipy.integrate import trapezoid # type: ignore
 
-from pymatgen.io.vasp import Vasprun 
+from pymatgen.io.vasp import Vasprun # type: ignore
 from pymatgen.electronic_structure.core import Spin  # type: ignore
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
