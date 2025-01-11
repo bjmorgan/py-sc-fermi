@@ -1,8 +1,9 @@
 import numpy as np
 from typing import Tuple, Optional
 from scipy.constants import physical_constants  # type: ignore
+from scipy.integrate import trapezoid # type: ignore
 
-from pymatgen.io.vasp import Vasprun  # type: ignore
+from pymatgen.io.vasp import Vasprun # type: ignore
 from pymatgen.electronic_structure.core import Spin  # type: ignore
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
@@ -111,9 +112,21 @@ class DOS:
               the vasprun
             bandgap (Optional[float], optional): bandgap. Defaults to None.
         """
-        vr = Vasprun(path_to_vasprun, parse_potcar_file=False)
+        vr = Vasprun(
+            path_to_vasprun,
+            parse_potcar_file=False,
+            separate_spins=False # This is the default, but it does not hurt to be explicit.
+        )
+        band_properties = vr.eigenvalue_band_properties
+        if not (isinstance(band_properties, tuple) and len(band_properties) == 4 
+            and all(isinstance(band_properties[i], float) for i in (0,1,2))
+            and isinstance(band_properties[3], bool)):
+            raise TypeError(
+                "eigenvalue_band_properties from pymatgen has unexpected format. "
+                "Expected tuple[float, float, float, bool]"
+            )
         densities = vr.complete_dos.densities
-        vbm = vr.eigenvalue_band_properties[2]
+        vbm = band_properties[2]
         edos = vr.complete_dos.energies - vbm
         if len(densities) == 2:
             dos = np.array([densities[Spin.up], densities[Spin.down]])
@@ -125,7 +138,7 @@ class DOS:
         if nelect is None:
             nelect = int(vr.parameters["NELECT"])
         if bandgap is None:
-            bandgap = float(vr.eigenvalue_band_properties[0])
+            bandgap = band_properties[0]
 
         return cls(
             dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol
@@ -183,7 +196,7 @@ class DOS:
             np.ndarray: integrated density-of-states up to the valence band maximum
         """
         vbm_index = np.where(self._edos <= 0)[0][-1]
-        sum1 = np.trapz(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
+        sum1 = trapezoid(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
         return sum1
 
     def normalise_dos(self) -> None:
@@ -239,10 +252,10 @@ class DOS:
         Returns:
             Tuple[float, float]: concentration of holes, concentration of electrons
         """
-        p0 = np.trapz(
+        p0 = trapezoid(
             self._p_func(e_fermi, temperature), self._edos[: self._p0_index() + 1]
         )
-        n0 = np.trapz(
+        n0 = trapezoid(
             self._n_func(e_fermi, temperature), self._edos[self._n0_index() :]
         )
         return p0, n0
