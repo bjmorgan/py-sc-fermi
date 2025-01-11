@@ -195,7 +195,7 @@ class DOS:
             np.ndarray: integrated density-of-states up to the valence band maximum
         """
         vbm_index = np.where(self._edos <= 0)[0][-1]
-        sum1 = np.trapz(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
+        sum1 = np.trapezoid(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
         return sum1
 
     def normalise_dos(self) -> None:
@@ -251,10 +251,10 @@ class DOS:
         Returns:
             Tuple[float, float]: concentration of holes, concentration of electrons
         """
-        p0 = np.trapz(
+        p0 = np.trapezoid(
             self._p_func(e_fermi, temperature), self._edos[: self._p0_index() + 1]
         )
-        n0 = np.trapz(
+        n0 = np.trapezoid(
             self._n_func(e_fermi, temperature), self._edos[self._n0_index() :]
         )
         return p0, n0
