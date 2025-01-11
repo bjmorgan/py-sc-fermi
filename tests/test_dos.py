@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock, mock_open
 import numpy as np
 import os
 from py_sc_fermi.dos import DOS
@@ -100,6 +100,43 @@ class TestDos(unittest.TestCase):
         dos = self.dos.from_vasprun(test_vasprun_filename, nelect=320)
         self.assertEqual(dos.nelect, 320)
         self.assertEqual(dos.bandgap, 8.7342)
+        
+    def test_from_vasprun_type_error(self):
+        mock_vr = Mock()
+        mock_vr.eigenvalue_band_properties = (1.0, 2.0, 3.0, 4.0)  # last value should be bool
+        with patch(
+            'py_sc_fermi.dos.Vasprun', autospec=True
+        ) as mock_Vasprun:
+            mock_Vasprun.return_value = mock_vr
+            with self.assertRaises(TypeError) as context:
+                DOS.from_vasprun("dummy_path.xml")
+        self.assertIn("Expected tuple[float, float, float, bool]", str(context.exception))
+        mock_Vasprun.assert_called_once_with(
+            "dummy_path.xml",
+            parse_potcar_file=False,
+            separate_spins=False
+        )
+        
+    def test_from_vasprun_type_error_spin_separated(self):
+        mock_vr = Mock()
+        mock_vr.eigenvalue_band_properties = (
+            (1.0, 1.0),
+            (2.0, 2.0),
+            (3.0, 3.0),
+            (True, True)
+        )
+        with patch(
+            'py_sc_fermi.dos.Vasprun', autospec=True
+        ) as mock_Vasprun:
+            mock_Vasprun.return_value = mock_vr
+            with self.assertRaises(TypeError) as context:
+                DOS.from_vasprun("dummy_path.xml")
+        self.assertIn("Expected tuple[float, float, float, bool]", str(context.exception))
+        mock_Vasprun.assert_called_once_with(
+            "dummy_path.xml",
+            parse_potcar_file=False,
+            separate_spins=False
+        )
 
     def test_from_dict(self):
         dos = self.dos.from_dict(
