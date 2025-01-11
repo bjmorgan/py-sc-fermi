@@ -1,8 +1,9 @@
 import numpy as np
 from typing import Tuple, Optional
 from scipy.constants import physical_constants  # type: ignore
+from scipy.integrate import trapezoid # type: ignore
 
-from pymatgen.io.vasp import Vasprun  # type: ignore
+from pymatgen.io.vasp import Vasprun 
 from pymatgen.electronic_structure.core import Spin  # type: ignore
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
@@ -195,7 +196,7 @@ class DOS:
             np.ndarray: integrated density-of-states up to the valence band maximum
         """
         vbm_index = np.where(self._edos <= 0)[0][-1]
-        sum1 = np.trapezoid(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
+        sum1 = trapezoid(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
         return sum1
 
     def normalise_dos(self) -> None:
@@ -251,10 +252,10 @@ class DOS:
         Returns:
             Tuple[float, float]: concentration of holes, concentration of electrons
         """
-        p0 = np.trapezoid(
+        p0 = trapezoid(
             self._p_func(e_fermi, temperature), self._edos[: self._p0_index() + 1]
         )
-        n0 = np.trapezoid(
+        n0 = trapezoid(
             self._n_func(e_fermi, temperature), self._edos[self._n0_index() :]
         )
         return p0, n0
