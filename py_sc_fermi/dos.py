@@ -111,9 +111,21 @@ class DOS:
               the vasprun
             bandgap (Optional[float], optional): bandgap. Defaults to None.
         """
-        vr = Vasprun(path_to_vasprun, parse_potcar_file=False)
+        vr = Vasprun(
+            path_to_vasprun,
+            parse_potcar_file=False,
+            separate_spins=False # This is the default, but it does not hurt to be explicit.
+        )
+        band_properties = vr.eigenvalue_band_properties
+        if not (isinstance(band_properties, tuple) and len(band_properties) == 4 
+            and all(isinstance(band_properties[i], float) for i in (0,1,2))
+            and isinstance(band_properties[3], bool)):
+            raise TypeError(
+                "eigenvalue_band_properties from pymatgen has unexpected format. "
+                "Expected tuple[float, float, float, bool]"
+            )
         densities = vr.complete_dos.densities
-        vbm = vr.eigenvalue_band_properties[2]
+        vbm = band_properties[2]
         edos = vr.complete_dos.energies - vbm
         if len(densities) == 2:
             dos = np.array([densities[Spin.up], densities[Spin.down]])
@@ -125,7 +137,7 @@ class DOS:
         if nelect is None:
             nelect = int(vr.parameters["NELECT"])
         if bandgap is None:
-            bandgap = float(vr.eigenvalue_band_properties[0])
+            bandgap = band_properties[0]
 
         return cls(
             dos=dos, edos=edos, nelect=nelect, bandgap=bandgap, spin_polarised=spin_pol
