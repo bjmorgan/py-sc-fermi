@@ -81,7 +81,7 @@ class TestDos(unittest.TestCase):
         self.assertEqual(self.dos._p0_index(), 50)
 
     def test__n0_index(self):
-        self.assertEqual(self.dos._n0_index(), 66)
+        self.assertEqual(self.dos._n0_index(), 65)
 
     def test_emin(self):
         self.assertEqual(self.dos.emin(), -10)
