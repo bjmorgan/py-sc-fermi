@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py-sc-fermi"
+dynamic = ["version", "dependencies"]
+description = "Self-consistent Fermi Analysis"
+authors = [
+    {name = "Benjamin J. Morgan", email = "b.j.morgan@bath.ac.uk"},
+    {name = "Alex G. Squires"},
+]
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+[project.urls]
+Homepage = "https://github.com/bjmorgan/py-sc-fermi"
+Download = "https://github.com/bjmorgan/py-sc-fermi/archive/v{version}.tar.gz"
+
+[project.scripts]
+sc_fermi_solve = "py_sc_fermi.cli.sc_fermi_solve:main"
+
+[tool.setuptools]
+packages = ["py_sc_fermi"]
+
+[tool.setuptools.dynamic]
+version = {attr = "py_sc_fermi.__version__"}
+dependencies = {file = ["requirements.txt"]}
