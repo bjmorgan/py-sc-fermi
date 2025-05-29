@@ -153,6 +153,57 @@ class DefectSystem(object):
         )
     
 
+    def _apply_element_constraints(
+        self,
+        concs: Dict[DefectChargeState, float]
+    ) -> None:
+        """
+        Rescale per-state concentrations so that each element-pool’s
+        total defect content matches a fixed target.
+
+        Args:
+            concs: mapping from every DefectChargeState → concentration per cell.
+                   This dict is modified in place.
+
+        For each element in self.element_pools, which is defined as:
+            element_pools = {
+                "Mg": (fixed_total_Mg, [(Mg_on_Li, stoich1),
+                                        (Mg_on_Ni, stoich2),
+                                        (Mg_i,     stoich3)]),
+                …
+            }
+
+        1) Build per-species totals:
+               species_total[sp] = sum(concs[cs] for cs in sp.charge_states)
+        2) Compute the current elemental content:
+               current = sum(species_total[sp] * stoich for sp,stoich in pool_list)
+        3) Compute scale = fixed_total / current.
+        4) Multiply **every** cs in each species by that scale.
+        """
+        for elem, (fixed_total, pool_list) in self.element_pools.items():
+            # 1) per-species totals
+            species_total: Dict[DefectSpecies, float] = {}
+            for sp, stoich in pool_list:
+                total_sp = 0.0
+                for cs in sp.charge_states:
+                    total_sp += concs.get(cs, 0.0)
+                species_total[sp] = total_sp
+
+            # 2) current elemental amount
+            current = sum(species_total[sp] * stoich for sp, stoich in pool_list)
+            if current <= 0:
+                # nothing to rescale (or inconsistent input)
+                continue
+
+            # 3) scale factor
+            scale = fixed_total / current
+
+            # 4) apply to every state of each species
+            for sp, _ in pool_list:
+                for cs in sp.charge_states:
+                    if cs in concs:
+                        concs[cs] *= scale
+
     def _global_defect_concs(self, e_fermi: float):
         """
         Returns a dict mapping each DefectChargeState → concentration per cell,
