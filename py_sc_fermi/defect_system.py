@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
@@ -58,6 +58,10 @@ class DefectSystem(object):
           self-consistent Fermi energy solver. Defaults to ``1e-18``.
         n_trial_steps (int): the maximum number of steps to take in the
           self-consistent Fermi energy solver. Defaults to 1500.
+        site_pools (Optional[Dict[str, Tuple[float, List[DefectSpecies]]]], optional):
+                Mapping of pool name → (total sites in that pool, list of
+                DefectSpecies sharing those sites). If None, no site competition
+                is applied and each species is treated independently.
     """
 
     def __init__(
@@ -68,6 +72,7 @@ class DefectSystem(object):
         temperature: float,
         convergence_tolerance: float = 1e-18,
         n_trial_steps: int = 1500,
+        site_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None
     ):
         self.defect_species = defect_species
         self.volume = volume
@@ -75,6 +80,8 @@ class DefectSystem(object):
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
         self.n_trial_steps = n_trial_steps
+
+        self.site_pools = site_pools or {}
 
     def __repr__(self):
         to_return = [
@@ -144,6 +151,82 @@ class DefectSystem(object):
             convergence_tolerance=input_set.convergence_tolerance,
             n_trial_steps=input_set.n_trial_steps,
         )
+    
+
+    def _global_defect_concs(self, e_fermi: float):
+        """
+        Returns a dict mapping each DefectChargeState → concentration per cell,
+        applying site-competition for any pools defined in self.site_pools.
+        Pool entries may be either DefectSpecies instances or their name strings.
+        """
+        all_concs= {}
+
+        # 1) Handle each pool
+        for pool_name, (N_pool, species_list) in self.site_pools.items():
+            # normalize list to DefectSpecies objects
+            sp_objs = []
+            for sp in species_list:
+                if isinstance(sp, str):
+                    sp_objs.append(self.defect_species_by_name(sp))
+                else:
+                    sp_objs.append(sp)
+
+            # a) fixed occupancy per species
+            fixed_per_sp = {
+                sp: sum(
+                    conc
+                    for cs, conc in sp.charge_state_concentrations(
+                        e_fermi, self.temperature
+                    )
+                    if cs.fixed_concentration is not None
+                )
+                for sp in sp_objs
+            }
+            total_fixed = sum(fixed_per_sp.values())
+            free_sites = N_pool - total_fixed
+            if free_sites < 0:
+                raise ValueError(
+                    f"Pool '{pool_name}' has {N_pool} sites but fixed states "
+                    f"occupy {total_fixed}"
+                )
+
+            # b) Boltzmann weight per species (sum over its variable states)
+            species_weights = {}
+            for sp in sp_objs:
+                wsum = 0.0
+                for nsites, cs, w in sp.site_weights(e_fermi, self.temperature):
+                    wsum += nsites * w
+                species_weights[sp] = wsum
+
+            # c) partition function
+            Z = 1.0 + sum(species_weights.values())
+
+            # d) assign each species its share
+            for sp in sp_objs:
+                share = free_sites * species_weights[sp] / Z
+                # add back fixed part
+                all_concs.update({
+                    cs: conc
+                    for cs, conc in sp.charge_state_concentrations(
+                        e_fermi, self.temperature
+                    )
+                    if cs.fixed_concentration is not None
+                })
+                # now assign the variable states proportionally:
+                for nsites, cs, w in sp.site_weights(e_fermi, self.temperature):
+                    all_concs[cs] = share * w * nsites / species_weights[sp] if species_weights[sp] > 0 else 0.0
+
+        # 2) Species not in any pool: old dilute‐limit
+        pooled = {
+            self.defect_species_by_name(sp) if isinstance(sp, str) else sp
+            for _, (_, sps) in self.site_pools.items() for sp in sps
+        }
+        for sp in self.defect_species:
+            if sp not in pooled:
+                for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
+                    all_concs[cs] = conc
+
+        return all_concs
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectSystem":
@@ -249,23 +332,13 @@ class DefectSystem(object):
         residual = abs(q_tot)
         return e_fermi, residual
 
-    def total_defect_charge_contributions(self, e_fermi: float) -> Tuple[float, float]:
-        """
-        Calculate the charge contributions from each ``DefectSpecies`` in all charge
-        states to the total charge density
-
-        Args:
-            e_fermi (float): Fermi energy
-
-        Returns:
-            Tuple[float, float]: charge contributions of positive (lhs) and
-            negative (rhs) charge states of all defects
-        """
+    def total_defect_charge_contributions(self, e_fermi: float) -> Tuple[float,float]:
         lhs = rhs = 0.0
-        for sp in self.defect_species:
-            l, r = sp.defect_charge_contributions(e_fermi, self.temperature)
-            lhs += l
-            rhs += r
+        for cs, conc in self._global_defect_concs(e_fermi).items():
+            if cs.charge > 0:
+                lhs += conc * cs.charge
+            elif cs.charge < 0:
+                rhs += conc * abs(cs.charge)
         return lhs, rhs
     
     def q_tot(self, e_fermi: float) -> float:

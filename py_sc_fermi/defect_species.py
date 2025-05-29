@@ -1,7 +1,10 @@
 import numpy as np
+from scipy.constants import physical_constants  # type: ignore
 from typing import List, Dict, Tuple, Optional
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
+
+kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 class DefectSpecies(object):
     """Class for individual defect species.
@@ -86,6 +89,23 @@ class DefectSpecies(object):
             List[int]: list of charge states of this ``DefectSpecies``
         """
         return [cs.charge for cs in self._charge_states]
+    
+    def site_weights(
+        self, e_fermi: float, temperature: float
+    ) -> List[Tuple[float, DefectChargeState, float]]:
+        """
+        For *variable* charge‐states only, return
+            (nsites, DefectChargeState, weight)
+        where
+            weight = g * exp( - E_f(e_fermi) / (k_B * T) )
+        """
+        weights: List[Tuple[float, DefectChargeState, float]] = []
+        for cs in self.variable_conc_charge_states():
+            Ef = cs.get_formation_energy(e_fermi)
+            w  = cs.degeneracy * np.exp(-Ef / (kboltz * temperature))
+            weights.append((self.nsites, cs, w))
+        return weights
+
 
     @property
     def fixed_concentration(self) -> Optional[float]:
