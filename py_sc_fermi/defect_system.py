@@ -249,48 +249,6 @@ class DefectSystem(object):
         residual = abs(q_tot)
         return e_fermi, residual
 
-    def report(self) -> None:
-        """print a report in the style of `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
-        which summarises key properties of the defect system."""
-        print(self._get_report_string())
-
-    def _get_report_string(self) -> str:
-        """generate string to facilitate self.report()"""
-        string = ""
-        e_fermi = self.get_sc_fermi()[0]
-        string += f"Temperature :      {self.temperature}  (K)\n"
-        string += f"SC Fermi level :      {e_fermi}  (eV)\n"
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-        string += "Concentrations:\n"
-        string += f"n (electrons)  : {n0 * 1e24 / self.volume} cm^-3\n"
-        string += f"p (holes)      : {p0 * 1e24 / self.volume} cm^-3\n"
-        for ds in self.defect_species:
-            concall = ds.get_concentration(e_fermi, self.temperature)
-            if ds.fixed_concentration == None:
-                string += f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3, (percentage of defective sites: {(concall / ds.nsites) * 100:.3} %)\n"
-            else:
-                string += (
-                    f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3 [fixed]\n"
-                )
-        string += "\nBreakdown of concentrations for each defect charge state:\n"
-        for ds in self.defect_species:
-            concall = ds.get_concentration(e_fermi, self.temperature)
-            string += "---------------------------------------------------------\n"
-            if concall == 0.0:
-                string += f"{ds.name:11}: Zero total - cannot give breakdown\n"
-                continue
-            string += f"{ds.name:11}: Charge Concentration(cm^-3) Total\n"
-            for q, conc in ds.charge_state_concentrations(
-                e_fermi, self.temperature
-            ).items():
-                if ds.charge_states[q].fixed_concentration:
-                    fix_str = " [fixed]"
-                else:
-                    fix_str = ""
-
-                string += f"           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}\n"
-        return string
-
     def total_defect_charge_contributions(self, e_fermi: float) -> Tuple[float, float]:
         """
         Calculate the charge contributions from each ``DefectSpecies`` in all charge
@@ -303,16 +261,13 @@ class DefectSystem(object):
             Tuple[float, float]: charge contributions of positive (lhs) and
             negative (rhs) charge states of all defects
         """
-        contrib = np.array(
-            [
-                ds.defect_charge_contributions(e_fermi, self.temperature)
-                for ds in self.defect_species
-            ]
-        )
-        lhs = np.sum(contrib[:, 0])
-        rhs = np.sum(contrib[:, 1])
+        lhs = rhs = 0.0
+        for sp in self.defect_species:
+            l, r = sp.defect_charge_contributions(e_fermi, self.temperature)
+            lhs += l
+            rhs += r
         return lhs, rhs
-
+    
     def q_tot(self, e_fermi: float) -> float:
         """for a given Fermi energy, calculate the net charge density of the
         ``DefectSystem`` as the difference between charge contributions from all
