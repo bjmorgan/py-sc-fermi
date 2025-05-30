@@ -157,119 +157,103 @@ class DefectSystem(object):
             n_trial_steps=input_set.n_trial_steps,
         )
     
-
     def _apply_element_constraints(
         self,
-        concs: Dict[DefectChargeState, float]
+        concs: Dict[DefectChargeState, float],
+        e_fermi: float
     ) -> None:
         """
-        Rescale **all** of the pooled defect‐state concentrations so that
-        the *total number of dopant atoms* matches the target fixed_total.
+        Rescale or seed every DefectChargeState in each element‐pool so that
+        the *sum* of their concentrations (per cell) matches fixed_total.
 
-        Your `element_pools` should be of the form:
-
-            element_pools = {
-                "Mg": (
-                    N_Mg_per_cell,
-                    [("Mg_Li", 1),       # each Mg_Li contributes 1 Mg atom
-                     ("Mg_Ni", 1),       # each Mg_Ni contributes 1 Mg atom
-                     ("Mg_i", 1)],       # each Mg_i contributes 1 Mg atom
-                ),
-                # ...
-            }
-
-        After calling this, you'll have:
-
-          sum_over_states( conc[cs] * stoich_for_cs ) == fixed_total
+        If the current dilute‐limit sum is zero, we *seed* them from their
+        Boltzmann (site) weights at the given Fermi level, then scale up.
         """
-        from collections import defaultdict
-
         for elem, (fixed_total, pool_list) in self.element_pools.items():
-            # 1) normalize each entry to (DefectSpecies, stoich)
+
+            # 1) normalize pool_list → List[(DefectSpecies, stoich)]
             norm: List[Tuple[DefectSpecies, float]] = []
             for sp_id, stoich in pool_list:
-                if isinstance(sp_id, str):
-                    sp_obj = self.defect_species_by_name(sp_id)
-                else:
-                    sp_obj = sp_id
-                norm.append((sp_obj, float(stoich)))
+                sp = (
+                    self.defect_species_by_name(sp_id)
+                    if isinstance(sp_id, str)
+                    else sp_id
+                )
+                norm.append((sp, float(stoich)))
 
-            # 2) compute the *current* total dopant‐atoms in these states
+            # 2) current total dopant‐atoms in those states
             current = 0.0
-            for sp_obj, stoich in norm:
-                # sum up all the charge‐state concentrations for this species
-                #   (per cell) and multiply by the stoichiometry
-                s = 0.0
-                for cs in sp_obj.charge_states:
-                    s += concs.get(cs, 0.0)
-                current += s * stoich
+            for sp, stoich in norm:
+                tot_sp = sum(concs.get(cs, 0.0) for cs in sp.charge_states)
+                current += tot_sp * stoich
 
-            # nothing to do if there’s zero population or invalid
-            if current <= 0.0:
+            # 3a) if any already present, just scale them
+            if current > 0:
+                scale = fixed_total / current
+                for sp, _ in norm:
+                    for cs in sp.charge_states:
+                        if cs in concs:
+                            concs[cs] *= scale
                 continue
 
-            # 3) how much we need to scale by
-            scale = fixed_total / current
+            # 3b) otherwise seed from Boltzmann/site‐weights at e_fermi
+            weights: List[Tuple[DefectChargeState, float]] = []
+            for sp, stoich in norm:
+                # sp.site_weights returns (pool_name, cs, weight)
+                for _, cs, w in sp.site_weights(e_fermi, self.temperature):
+                    weights.append((cs, w * stoich))
 
-            # 4) now apply that uniform factor to every *state* in the pool
-            for sp_obj, _ in norm:
-                for cs in sp_obj.charge_states:
-                    if cs in concs:
-                        concs[cs] *= scale
+            total_w = sum(w for _, w in weights)
+            if total_w <= 0:
+                continue
+
+            scale = fixed_total / total_w
+            for cs, w in weights:
+                concs[cs] = w * scale
 
 
     def _global_defect_concs(self, e_fermi: float) -> Dict[DefectChargeState, float]:
         """
         Build per-cell concentrations for every DefectChargeState,
-        enforcing element-pools first (doping) and then a simple site-pool
-        competition by uniform scaling of the variable contributions at the end.
+        **first** seeding+rescaling dopant states via element-pools at the
+        current e_fermi, then applying the site-competition denominator.
         """
-        # 1) dilute-limit + per-state fixed
+        # 1) start from dilute limit + any per‐state fixed_concentration
         all_concs: Dict[DefectChargeState, float] = {}
         for sp in self.defect_species:
-            for cs, conc_cell in sp.charge_state_concentrations(e_fermi, self.temperature):
-                all_concs[cs] = conc_cell
+            for cs, c_cell in sp.charge_state_concentrations(e_fermi, self.temperature):
+                all_concs[cs] = c_cell
 
-        # 2) pin element-pools (Mg, etc.)
-        self._apply_element_constraints(all_concs)
+        # 2) enforce element-pools *with* the current e_fermi
+        self._apply_element_constraints(all_concs, e_fermi)
 
-        # 3) final, simple site-competition:
-        #    carve out any fixed_concentration, then scale the rest down to fill N_pool.
+        # 3) site‐competition (Boltzmann‐denominator approach)
         for pool_name, (N_pool, species_list) in self.site_pools.items():
-            # normalize to DefectSpecies
+            # resolve species_list → DefectSpecies objects
             sp_objs = [
                 self.defect_species_by_name(x) if isinstance(x, str) else x
                 for x in species_list
             ]
 
-            # compute fixed vs variable
-            fixed_sum = 0.0
-            var_sum   = 0.0
+            # collect only the variable (non-fixed) states and their weights
+            weights: List[Tuple[DefectChargeState, float]] = []
             for sp in sp_objs:
-                for cs in sp.charge_states:
-                    c = all_concs.get(cs, 0.0)
-                    if cs.fixed_concentration is not None:
-                        fixed_sum += c
-                    else:
-                        var_sum += c
+                for _, cs, w in sp.site_weights(e_fermi, self.temperature):
+                    if cs.fixed_concentration is None:
+                        weights.append((cs, w))
 
-            free_sites = N_pool - fixed_sum
-            if free_sites < 0:
-                raise ValueError(
-                    f"Pool '{pool_name}' overfilled by {-free_sites:.3g} sites"
-                )
+            if not weights:
+                continue
 
-            # scale factor for all variable states in this pool
-            if var_sum > 0:
-                scale = free_sites / var_sum
-                for sp in sp_objs:
-                    for cs in sp.charge_states:
-                        if cs.fixed_concentration is None:
-                            all_concs[cs] = all_concs.get(cs, 0.0) * scale
-            # else: nothing to do if no variable states
+            Z = 1.0 + sum(w for _, w in weights)  # partition function
+
+            # reassign each variable state → N_pool * (w / Z)
+            for cs, w in weights:
+                all_concs[cs] = N_pool * (w / Z)
+
+            # any cs.fixed_concentration remain untouched
 
         return all_concs
-
 
 
     @classmethod
