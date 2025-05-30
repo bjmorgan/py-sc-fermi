@@ -1,6 +1,7 @@
 from typing import Dict, List, Tuple, Any, Optional
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.inputs import InputSet
 import numpy as np
 import warnings
@@ -72,7 +73,8 @@ class DefectSystem(object):
         temperature: float,
         convergence_tolerance: float = 1e-18,
         n_trial_steps: int = 1500,
-        site_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None
+        site_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None,
+        element_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None,
     ):
         self.defect_species = defect_species
         self.volume = volume
@@ -80,7 +82,7 @@ class DefectSystem(object):
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
         self.n_trial_steps = n_trial_steps
-
+        self.element_pools = element_pools or {}
         self.site_pools = site_pools or {}
 
     def __repr__(self):
@@ -159,47 +161,37 @@ class DefectSystem(object):
     ) -> None:
         """
         Rescale per-state concentrations so that each element-pool’s
-        total defect content matches a fixed target.
-
-        Args:
-            concs: mapping from every DefectChargeState → concentration per cell.
-                   This dict is modified in place.
-
-        For each element in self.element_pools, which is defined as:
-            element_pools = {
-                "Mg": (fixed_total_Mg, [(Mg_on_Li, stoich1),
-                                        (Mg_on_Ni, stoich2),
-                                        (Mg_i,     stoich3)]),
-                …
-            }
-
-        1) Build per-species totals:
-               species_total[sp] = sum(concs[cs] for cs in sp.charge_states)
-        2) Compute the current elemental content:
-               current = sum(species_total[sp] * stoich for sp,stoich in pool_list)
-        3) Compute scale = fixed_total / current.
-        4) Multiply **every** cs in each species by that scale.
+        total defect content matches a fixed target.  Pool entries may
+        be either DefectSpecies or their .name strings.
         """
         for elem, (fixed_total, pool_list) in self.element_pools.items():
-            # 1) per-species totals
-            species_total: Dict[DefectSpecies, float] = {}
+            # 1) Normalize species entries to actual DefectSpecies objects
+            norm_list: List[Tuple[DefectSpecies, float]] = []
             for sp, stoich in pool_list:
-                total_sp = 0.0
+                if isinstance(sp, str):
+                    sp_obj = self.defect_species_by_name(sp)
+                else:
+                    sp_obj = sp
+                norm_list.append((sp_obj, stoich))
+
+            # 2) Build per-species totals
+            species_total: Dict[DefectSpecies, float] = {}
+            for sp, stoich in norm_list:
+                tot = 0.0
                 for cs in sp.charge_states:
-                    total_sp += concs.get(cs, 0.0)
-                species_total[sp] = total_sp
+                    tot += concs.get(cs, 0.0)
+                species_total[sp] = tot
 
-            # 2) current elemental amount
-            current = sum(species_total[sp] * stoich for sp, stoich in pool_list)
+            # 3) Compute current elemental content
+            current = sum(species_total[sp] * stoich for sp, stoich in norm_list)
             if current <= 0:
-                # nothing to rescale (or inconsistent input)
-                continue
+                continue  # nothing to rescale or invalid
 
-            # 3) scale factor
+            # 4) Scale factor
             scale = fixed_total / current
 
-            # 4) apply to every state of each species
-            for sp, _ in pool_list:
+            # 5) Apply to every state of each species
+            for sp, _ in norm_list:
                 for cs in sp.charge_states:
                     if cs in concs:
                         concs[cs] *= scale
@@ -277,6 +269,7 @@ class DefectSystem(object):
                 for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
                     all_concs[cs] = conc
 
+        self._apply_element_constraints(all_concs)
         return all_concs
 
     @classmethod
@@ -435,54 +428,63 @@ class DefectSystem(object):
         decomposed: bool = False,
         per_volume: bool = True,
     ) -> Dict[str, Any]:
-        """Returns a dictionary of the properties of the ``DefectSystem`` object
-        after solving for the self-consistent Fermi energy.
+        """
+        Solve for the self-consistent Fermi energy and return carrier + defect
+        concentrations.
+
+        This method now pulls its defect concentrations from `_global_defect_concs`,
+        so both site-competition and element-pools are applied before anything is
+        summed or returned.
 
         Args:
-            decomposed (bool, optional): if True, return a dictionary in which the
-              concentration of each ``DefectChargeState`` is given explicitly,
-              rather than as a sum over all ``DefectChargeState`` objects in the
-              each ``DefectSpecies``. Defaults to False.
-            per_volume (bool, optional): if True, return concentrations in units
-              of cm^-3, else returns concentration per unit cell. Defaults to True.
+            decomposed (bool): If False, returns one total per DefectSpecies.
+                               If True, returns a dict of charge → conc for each species.
+            per_volume (bool): If True, scales concentrations to cm⁻³ (1e24/volume).
+                               If False, returns raw per-cell counts.
 
         Returns:
-            Dict[str, Any]: dictionary specifying the Fermi Energy,
-            hole concentration (``"p0"``), electron concentration
-            (``"n0"``), temperature, and the defect concentrations.
+            Dict[str, Any]: A dict containing
+                - "Fermi Energy": float (eV)
+                - "p0": hole conc (cm⁻³ or per-cell)
+                - "n0": electron conc (cm⁻³ or per-cell)
+                - one entry per species, either float or dict[int,float].
         """
-        if per_volume == True:
-            scale = 1e24 / self.volume
-        else:
-            scale = 1
-
+        # 1) find the self-consistent Fermi level
         e_fermi = self.get_sc_fermi()[0]
+        # 2) get carrier concentrations
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-        run_stats = {
+        # 3) get all defect concentrations per cell (with pools applied)
+        all_concs = self._global_defect_concs(e_fermi)
+
+        # 4) decide scale for per-volume vs per-cell
+        scale = 1e24 / self.volume if per_volume else 1.0
+
+        # 5) assemble the output
+        result: Dict[str, Any] = {
             "Fermi Energy": float(e_fermi),
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
-        if decomposed == False:
-            sum_concs = {
-                str(ds.name): float(
-                    ds.get_concentration(e_fermi, self.temperature) * scale
+
+        if not decomposed:
+            # sum each species’ total concentration
+            for sp in self.defect_species:
+                total_sp = sum(
+                    conc
+                    for cs, conc in all_concs.items()
+                    if cs in sp.charge_states
                 )
-                for ds in self.defect_species
-            }
-            return {**run_stats, **sum_concs}
+                result[sp.name] = float(total_sp * scale)
         else:
-            decomp_concs = {
-                str(ds.name): {
-                    int(q): float(
-                        ds.charge_state_concentrations(e_fermi, self.temperature)[q]
-                        * scale
-                    )
-                    for q in ds.charge_states
-                }
-                for ds in self.defect_species
-            }
-            return {**run_stats, **decomp_concs}
+            # break down by charge-state
+            for sp in self.defect_species:
+                breakdown: Dict[int, float] = {}
+                for cs, conc in all_concs.items():
+                    if cs in sp.charge_states:
+                        breakdown[cs.charge] = float(conc * scale)
+                result[sp.name] = breakdown
+
+        return result
 
     def site_percentages(
         self, 
