@@ -163,15 +163,12 @@ class DefectSystem(object):
         e_fermi: float
     ) -> None:
         """
-        Rescale or seed every DefectChargeState in each element‐pool so that
-        the *sum* of their concentrations (per cell) matches fixed_total.
-
-        If the current dilute‐limit sum is zero, we *seed* them from their
-        Boltzmann (site) weights at the given Fermi level, then scale up.
+        Seed or rescale *only* the pooled dopant states so that their
+        per‐cell sum is fixed_total.  If they have zero dilute‐limit
+        concentration, seed them from their site_weights at e_fermi.
         """
         for elem, (fixed_total, pool_list) in self.element_pools.items():
-
-            # 1) normalize pool_list → List[(DefectSpecies, stoich)]
+            # normalize pool_list → [(DefectSpecies, stoich), …]
             norm: List[Tuple[DefectSpecies, float]] = []
             for sp_id, stoich in pool_list:
                 sp = (
@@ -181,32 +178,28 @@ class DefectSystem(object):
                 )
                 norm.append((sp, float(stoich)))
 
-            # 2) current total dopant‐atoms in those states
+            # 1) current total dopant‐atoms
             current = 0.0
             for sp, stoich in norm:
-                tot_sp = sum(concs.get(cs, 0.0) for cs in sp.charge_states)
-                current += tot_sp * stoich
+                s = sum(concs.get(cs, 0.0) for cs in sp.charge_states)
+                current += s * stoich
 
-            # 3a) if any already present, just scale them
-            if current > 0:
+            # 2a) if any already there, just scale them
+            if current > 0.0:
                 scale = fixed_total / current
                 for sp, _ in norm:
                     for cs in sp.charge_states:
-                        if cs in concs:
-                            concs[cs] *= scale
+                        concs[cs] = concs.get(cs, 0.0) * scale
                 continue
 
-            # 3b) otherwise seed from Boltzmann/site‐weights at e_fermi
+            # 2b) otherwise seed via Boltzmann/site-weights
             weights: List[Tuple[DefectChargeState, float]] = []
             for sp, stoich in norm:
-                # sp.site_weights returns (pool_name, cs, weight)
                 for _, cs, w in sp.site_weights(e_fermi, self.temperature):
                     weights.append((cs, w * stoich))
-
             total_w = sum(w for _, w in weights)
-            if total_w <= 0:
+            if total_w <= 0.0:
                 continue
-
             scale = fixed_total / total_w
             for cs, w in weights:
                 concs[cs] = w * scale
@@ -214,46 +207,69 @@ class DefectSystem(object):
 
     def _global_defect_concs(self, e_fermi: float) -> Dict[DefectChargeState, float]:
         """
-        Build per-cell concentrations for every DefectChargeState,
-        **first** seeding+rescaling dopant states via element-pools at the
-        current e_fermi, then applying the site-competition denominator.
+        1) dilute‐limit + any fixed‐state concs
+        2) seed/scale your dopant states (element_pools) at this e_fermi
+        3) site‐competition *only* over the native (non‐dopant) states
         """
-        # 1) start from dilute limit + any per‐state fixed_concentration
+        # 1) dilute limit
         all_concs: Dict[DefectChargeState, float] = {}
         for sp in self.defect_species:
             for cs, c_cell in sp.charge_state_concentrations(e_fermi, self.temperature):
                 all_concs[cs] = c_cell
 
-        # 2) enforce element-pools *with* the current e_fermi
+        # 2) seed + scale dopants
         self._apply_element_constraints(all_concs, e_fermi)
 
-        # 3) site‐competition (Boltzmann‐denominator approach)
+        # record which cs belong to your dopant pool
+        dopant_cs = set()
+        for _, (_, pool_list) in self.element_pools.items():
+            for sp_id, _ in pool_list:
+                sp = (
+                    self.defect_species_by_name(sp_id)
+                    if isinstance(sp_id, str)
+                    else sp_id
+                )
+                dopant_cs.update(sp.charge_states)
+
+        # 3) site‐competition over native states only
         for pool_name, (N_pool, species_list) in self.site_pools.items():
-            # resolve species_list → DefectSpecies objects
+            # get species objects
             sp_objs = [
                 self.defect_species_by_name(x) if isinstance(x, str) else x
                 for x in species_list
             ]
 
-            # collect only the variable (non-fixed) states and their weights
+            # a) fixed sum = any truly fixed_conc + all dopant_cs
+            fixed_sum = 0.0
+            for sp in sp_objs:
+                for cs in sp.charge_states:
+                    if cs.fixed_concentration is not None or cs in dopant_cs:
+                        fixed_sum += all_concs.get(cs, 0.0)
+
+            free_sites = N_pool - fixed_sum
+            if free_sites <= 0.0:
+                continue  # nothing left to distribute
+
+            # b) collect only the native, variable states
             weights: List[Tuple[DefectChargeState, float]] = []
             for sp in sp_objs:
                 for _, cs, w in sp.site_weights(e_fermi, self.temperature):
-                    if cs.fixed_concentration is None:
+                    if cs.fixed_concentration is None and cs not in dopant_cs:
                         weights.append((cs, w))
 
             if not weights:
                 continue
 
-            Z = 1.0 + sum(w for _, w in weights)  # partition function
+            # c) partition function
+            Z = 1.0 + sum(w for _, w in weights)
 
-            # reassign each variable state → N_pool * (w / Z)
+            # d) redistribute free sites
             for cs, w in weights:
-                all_concs[cs] = N_pool * (w / Z)
-
-            # any cs.fixed_concentration remain untouched
+                all_concs[cs] = free_sites * (w / Z)
+            # (dopant_cs + fixed states remain untouched)
 
         return all_concs
+
 
 
     @classmethod
