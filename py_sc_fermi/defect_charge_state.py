@@ -72,67 +72,6 @@ class DefectChargeState:
         return self._fixed_concentration
 
     @classmethod
-    def from_string(
-        cls, string: str, volume: Optional[float] = None, frozen: bool = False
-    ) -> "DefectChargeState":
-        """
-        Create a ``DefectChargeState`` from a given string. This method was
-        envisaged for use as a way to read in defect charge states from an input
-        file for `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_.
-
-        If a user does wish to specify a defect charge state using this
-        functionality, the string should be in the form:
-
-        `charge  formation_energy  degeneracy`
-
-        i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
-        of 2 would be specified as:
-
-        ``"2 0.1 2"``
-
-        if the charge state has a fixed concentration, the string should be in
-        the form:
-
-        `charge  concentration`
-
-        i.e. a defect with charge 2, concentration of 1e21 per cm-3
-        would be specified as:
-
-        ``"2 1e21"``
-
-        Args:
-            string (str): string representation of the ``DefectChargeState``
-            volume (Optional[float], optional): volume of the unit cell, only
-                if ``frozen == True``. Defaults to ``None``.
-            frozen (bool, optional): if ``True`` the concentration of this
-                ``DefectChargeState`` cannot change when solving for a self
-                consistent Fermi energy. Defaults to ``False``.
-
-        Raises:
-            ValueError: if defect concentration is fixed, but ``volume == None``
-
-        Returns:
-            ``DefectChargeState``: relevant ``DefectChargeState`` object
-        """
-        stripped_string = string.split()
-        if frozen is False:
-            return cls(
-                charge=int(stripped_string[0]),
-                energy=float(stripped_string[1]),
-                degeneracy=int(stripped_string[2]),
-            )
-        else:
-            if volume is None:
-                raise ValueError(
-                    "You must specify a real, positive cell volume if passing a frozen concentration!"
-                )
-            else:
-                return cls(
-                    charge=int(stripped_string[1]),
-                    fixed_concentration=float(stripped_string[2]) / 1e24 * volume,
-                )
-
-    @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectChargeState":
         """generate a dictionary from a ``DefectChargeState`` object
 
