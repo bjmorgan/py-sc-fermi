@@ -263,7 +263,7 @@ class DOS:
         )
         return p0, n0
 
-    def _p_func(self, e_fermi: float, temperature: float) -> float:
+    def _p_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for holes."""
         return self.dos[: self._p0_index() + 1] / (
             1.0
@@ -272,7 +272,7 @@ class DOS:
             )
         )
 
-    def _n_func(self, e_fermi: float, temperature: float) -> float:
+    def _n_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for electrons."""
         return self.dos[self._n0_index() :] / (
             1.0
