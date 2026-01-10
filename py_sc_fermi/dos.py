@@ -6,6 +6,8 @@ from scipy.integrate import trapezoid # type: ignore
 from pymatgen.io.vasp import Vasprun # type: ignore
 from pymatgen.electronic_structure.core import Spin  # type: ignore
 
+from py_sc_fermi.warnings import DOSOverflowWarning, catches_numpy_overflow
+
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
@@ -238,6 +240,7 @@ class DOS:
         """
         return np.where(self._edos >= self.bandgap)[0][0]
 
+    @catches_numpy_overflow(DOSOverflowWarning)
     def carrier_concentrations(
         self, e_fermi: float, temperature: float
     ) -> Tuple[float, float]:

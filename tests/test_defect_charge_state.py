@@ -183,6 +183,7 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
 
 
 class TestDefectChargeStateStringOperations(unittest.TestCase):
+    
     def setUp(self):
         charge = 1
         energy = 0.1234
@@ -216,6 +217,19 @@ class TestDefectChargeStateStringOperations(unittest.TestCase):
         self.assertEqual(
             str(self.defect_charge_state), "q=+1, e=0.1234, deg=2",
         )
+        
+class TestDefectChargeStateWarnings(unittest.TestCase):
+    def setUp(self):
+        self.defect_charge_state = DefectChargeState(
+            charge=1, energy=0.5, degeneracy=1
+        )
+    
+    def test_get_concentration_emits_overflow_warning(self):
+        """Overflow in get_concentration should emit DefectOverflowWarning."""
+        from py_sc_fermi.warnings import DefectOverflowWarning
+    
+        with self.assertWarns(DefectOverflowWarning):
+            self.defect_charge_state.get_concentration(e_fermi=-1000, temperature=300)
 
 
 if __name__ == "__main__":
