@@ -6,40 +6,7 @@ import numpy as np
 from scipy.optimize import brentq
 import warnings
 
-
-
-class CustomWarningManager:
-    def __init__(self):
-        self.dos_overflow_warning_issued = False
-        self.defect_overflow_warning_issued = False
-
-    def custom_warning(self, message, category, filename, lineno, file=None, line=None):
-        if category == RuntimeWarning:
-            if "dos" in str(filename) and "overflow" in str(message):
-                if not self.dos_overflow_warning_issued:
-                    print(
-                        """DOSOverflowWarning: An overflow occurred during computation of
-                        electron and hole concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable."""
-                    )
-                    self.dos_overflow_warning_issued = True
-            elif "defect" in str(filename) and "overflow" in str(message):
-                if not self.defect_overflow_warning_issued:
-                    print(
-                        """DefectOverflowWarning: An overflow occurred during computation of
-                        defect concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable."""
-                    )
-                    self.defect_overflow_warning_issued = True
-            else:
-                print(f"RuntimeWarning: {message}")
-
-
-# Create a CustomWarningManager and set the custom_warning method as the warning handler
-warning_manager = CustomWarningManager()
-warnings.showwarning = warning_manager.custom_warning
+from py_sc_fermi.warnings import PySCFermiWarning
 
 
 class DefectSystem(object):

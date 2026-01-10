@@ -7,7 +7,7 @@ import os
 import textwrap
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
-from py_sc_fermi.defect_system import DefectSystem, CustomWarningManager
+from py_sc_fermi.defect_system import DefectSystem
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
@@ -29,36 +29,6 @@ test_vasprun_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml"
 )
 
-
-class TestCustomWarningManager(unittest.TestCase):
-    def setUp(self):
-        self.warning_manager = CustomWarningManager()
-
-    @patch('sys.stdout', new_callable=StringIO)
-    def test_dos_overflow_warning(self, mock_stdout):
-        self.warning_manager.custom_warning('overflow', RuntimeWarning, 'dos_file.py', 42)
-        expected_warning = textwrap.dedent(
-                        """DOSOverflowWarning: An overflow occurred during computation of
-                        electron and hole concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable.""")
-        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning.strip())
-
-    @patch('sys.stdout', new_callable=StringIO)
-    def test_defect_overflow_warning(self, mock_stdout):
-        self.warning_manager.custom_warning('overflow', RuntimeWarning, 'defect_file.py', 42)
-        expected_warning = textwrap.dedent(
-                        """DefectOverflowWarning: An overflow occurred during computation of
-                        defect concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable.""")
-        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning.strip())
-
-    @patch('sys.stdout', new_callable=StringIO)
-    def test_other_warning(self, mock_stdout):
-        self.warning_manager.custom_warning('other warning', RuntimeWarning, 'other_file.py', 42, None, None)
-        expected_warning = "RuntimeWarning: other warning"
-        self.assertEqual(mock_stdout.getvalue().strip(), expected_warning)
 
 
 class TestDefectSystemInit(unittest.TestCase):
@@ -307,6 +277,46 @@ class TestDefectSystem(unittest.TestCase):
             f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
         )
 
+class TestDefectSystemWarnings(unittest.TestCase):
+    """Test warning behaviour in DefectSystem."""
+    
+    def test_get_sc_fermi_deduplicates_overflow_warnings(self):
+        """Overflow warnings should only appear once per get_sc_fermi call."""
+        import warnings
+        from py_sc_fermi.warnings import PySCFermiWarning, DOSOverflowWarning, DefectOverflowWarning
+        from py_sc_fermi.defect_charge_state import DefectChargeState
+        from py_sc_fermi.defect_species import DefectSpecies
+        from py_sc_fermi.dos import DOS
+        
+        dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-10.0, 10.0, 101),
+            bandgap=3.0,
+            nelect=10,
+        )
+        charge_state = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        defect_species = DefectSpecies(
+            name="test_defect",
+            nsites=1,
+            charge_states={1: charge_state},
+        )
+        defect_system = DefectSystem(
+            dos=dos,
+            volume=100,
+            temperature=300,
+            defect_species=[defect_species],
+        )
+    
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.filterwarnings("always", category=PySCFermiWarning)
+            defect_system.get_sc_fermi()
+    
+        dos_warnings = [w for w in caught if issubclass(w.category, DOSOverflowWarning)]
+        defect_warnings = [w for w in caught if issubclass(w.category, DefectOverflowWarning)]
+    
+        self.assertLessEqual(len(dos_warnings), 1)
+        self.assertLessEqual(len(defect_warnings), 1)
+            
 
 if __name__ == "__main__":
     unittest.main()
