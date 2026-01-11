@@ -25,20 +25,20 @@ warnings.warn("test user warning", UserWarning)
 		self.assertIn("test user warning", result.stderr)
 
 	def test_deprecation_warning_not_silenced(self):
-			"""DeprecationWarning should not be suppressed after importing py_sc_fermi."""
-			script = """
+		"""DeprecationWarning should not be suppressed after importing py_sc_fermi."""
+		script = """
 import warnings
 warnings.filterwarnings("always", category=DeprecationWarning)
 from py_sc_fermi.defect_system import DefectSystem
 warnings.warn("test deprecation warning", DeprecationWarning)
 """
-			result = subprocess.run(
-				[sys.executable, "-c", script],
-				capture_output=True,
-				text=True,
-			)
-			self.assertIn("DeprecationWarning", result.stderr)
-			self.assertIn("test deprecation warning", result.stderr)
+		result = subprocess.run(
+			[sys.executable, "-c", script],
+			capture_output=True,
+			text=True,
+		)
+		self.assertIn("DeprecationWarning", result.stderr)
+		self.assertIn("test deprecation warning", result.stderr)
 	
 	def test_runtime_warning_not_intercepted(self):
 		"""RuntimeWarning should go through normal warning machinery."""
