@@ -184,27 +184,6 @@ class DefectSystem(object):
             DefectSpecies: ``DefectSpecies`` where ``DefectSpecies.name == name``
         """
         return [ds for ds in self.defect_species if ds.name == name][0]
-
-    def get_sc_fermi(self) -> Tuple[float, float]:
-        """Calculate the self-consistent Fermi energy.
-        
-        ... existing docstring preserved ...
-        """
-        emin = self.dos.emin()
-        emax = self.dos.emax()
-        
-        try:
-            e_fermi = brentq(
-                self.q_tot,
-                emin,
-                emax,
-                xtol=self.convergence_tolerance,
-            )
-        except ValueError:
-            raise RuntimeError(f"No solution found between {emin} and {emax}")
-        
-        residual = abs(self.q_tot(e_fermi))
-        return e_fermi, residual
     
     def get_sc_fermi(self) -> Tuple[float, float]:
         """Calculate the self-consistent Fermi energy.
