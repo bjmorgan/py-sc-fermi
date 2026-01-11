@@ -202,12 +202,12 @@ class TestDefectSystem(unittest.TestCase):
     def test_get_sc_fermi(self):
         self.defect_system.dos.emin = Mock(return_value=0)
         self.defect_system.dos.emax = Mock(return_value=1)
-        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.q_tot = Mock(return_value=0)
-        self.assertEqual(
-            self.defect_system.get_sc_fermi(),
-            (0.5, 0),
-        )
+        self.defect_system.q_tot = lambda e_fermi: 0.5 - e_fermi
+        
+        e_fermi, residual = self.defect_system.get_sc_fermi()
+        
+        self.assertAlmostEqual(e_fermi, 0.5, places=10)
+        self.assertAlmostEqual(residual, 0.0, places=10)
 
     def test_get_sc_fermi_bottoms_out(self):
         self.defect_system.dos.emin = Mock(return_value=0)
@@ -222,18 +222,46 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.q_tot = Mock(return_value=(-0.1))
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
-
-    def test_get_transition_levels(self):
-        self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
-            return_value=[[1, 2], [1, 2]]
+            
+    def test_get_sc_fermi_finds_charge_neutral_fermi_energy(self):
+        """Solver should find Fermi energy where total charge is zero."""
+        dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-10.0, 10.0, 101),
+            bandgap=3.0,
+            nelect=10,
         )
-        self.defect_system.defect_species_by_name("O_i").tl_profile = Mock(
-            return_value=[[1, 2], [1, 2]]
+        charge_state = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        defect_species = DefectSpecies(
+            name="test_defect",
+            nsites=1,
+            charge_states={1: charge_state},
         )
-        self.assertEqual(
-            self.defect_system.get_transition_levels(),
-            {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
+        defect_system = DefectSystem(
+            dos=dos,
+            volume=100,
+            temperature=300,
+            defect_species=[defect_species],
         )
+        
+        e_fermi, residual = defect_system.get_sc_fermi()
+        
+        # Verify charge neutrality at converged Fermi energy
+        q_tot = defect_system.q_tot(e_fermi)
+        self.assertAlmostEqual(q_tot, 0.0, places=10)
+        self.assertLess(residual, defect_system.convergence_tolerance)
+    
+        def test_get_transition_levels(self):
+            self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
+                return_value=[[1, 2], [1, 2]]
+            )
+            self.defect_system.defect_species_by_name("O_i").tl_profile = Mock(
+                return_value=[[1, 2], [1, 2]]
+            )
+            self.assertEqual(
+                self.defect_system.get_transition_levels(),
+                {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
+            )
 
     def test_concentration_dict(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])

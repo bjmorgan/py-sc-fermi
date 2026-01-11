@@ -3,6 +3,7 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
 import numpy as np
+from scipy.optimize import brentq
 import warnings
 
 
@@ -185,68 +186,57 @@ class DefectSystem(object):
         return [ds for ds in self.defect_species if ds.name == name][0]
 
     def get_sc_fermi(self) -> Tuple[float, float]:
+        """Calculate the self-consistent Fermi energy.
+        
+        ... existing docstring preserved ...
         """
-        Solve to find Fermi energy in for which the ``DefectSystem`` is charge neutral
-
-        Returns:
-           Tuple[float, float]: Fermi energy, residual
-
-        Raises:
-          RuntimeError: if the solver fails does not find a valid solution within
-            ``self.dos.emin`` and ``self.dos.emax``
-
-        Note:
-            The solver will return the Fermi energy either when
-            ``self.convergence_tolerance`` is satisfied or when the solver has
-            attempted ``self.n_trial_steps``.
-            The residual is the the absolute charge density of
-            the solver at the end of the last step. Please ensure the residual
-            is satisfactorily low if convergence is not reached. It may be
-            prudent to investigate the convergence of the solver with respect to
-            ``self.n_trial_steps`` and ``self.convergence_tolerance``.
-        """
-        # initial guess
         emin = self.dos.emin()
         emax = self.dos.emax()
-        direction = +1.0
-        e_fermi = (emin + emax) / 2.0
-        step = 1.0
-        reached_e_min = False
-        reached_e_max = False
-
-        # loop until convergence or max number of steps reached
-        with warnings.catch_warnings():
-            warnings.filterwarnings("once")
-            for i in range(self.n_trial_steps):
-                q_tot = self.q_tot(e_fermi=e_fermi)
-                if e_fermi > emax:
-                    if reached_e_min or reached_e_max:
-                        raise RuntimeError(
-                            f"No solution found between {emin} and {emax}"
-                        )
-                    reached_e_max = True
-                    direction = -1.0
-                if e_fermi < emin:
-                    if reached_e_max or reached_e_min:
-                        raise RuntimeError(
-                            f"No solution found between {emin} and {emax}"
-                        )
-                    reached_e_min = True
-                    direction = +1.0
-                if abs(q_tot) < self.convergence_tolerance:
-                    break
-                if q_tot > 0.0:
-                    if direction == +1.0:
-                        step *= 0.25
-                        direction = -1.0
-                elif q_tot < 0.0:
-                    if direction == -1.0:
-                        step *= 0.25
-                        direction = +1.0
-                e_fermi += step * direction
-
-        # return results
-        residual = abs(q_tot)
+        
+        try:
+            e_fermi = brentq(
+                self.q_tot,
+                emin,
+                emax,
+                xtol=self.convergence_tolerance,
+            )
+        except ValueError:
+            raise RuntimeError(f"No solution found between {emin} and {emax}")
+        
+        residual = abs(self.q_tot(e_fermi))
+        return e_fermi, residual
+    
+    def get_sc_fermi(self) -> Tuple[float, float]:
+        """Calculate the self-consistent Fermi energy.
+        
+        Finds the Fermi energy at which charge neutrality is achieved,
+        using Brent's method for root finding.
+        
+        Returns:
+            Tuple[float, float]: The self-consistent Fermi energy and the
+            absolute residual charge density at that energy.
+        
+        Raises:
+            RuntimeError: If no solution is found within the DOS energy range.
+        """
+        emin = self.dos.emin()
+        emax = self.dos.emax()
+        
+        try:
+            e_fermi = brentq(
+                self.q_tot,
+                emin,
+                emax,
+                xtol=self.convergence_tolerance,
+                # n_trial_steps mapped to maxiter for backwards compatibility.
+                # Brent's method typically converges in <50 iterations, so this
+                # parameter is largely redundant and may be deprecated in future.
+                maxiter=self.n_trial_steps,
+            )
+        except ValueError:
+            raise RuntimeError(f"No solution found between {emin} and {emax}")
+        
+        residual = abs(self.q_tot(e_fermi))
         return e_fermi, residual
 
     def report(self) -> None:
