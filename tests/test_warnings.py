@@ -71,7 +71,6 @@ class TestWarnings(unittest.TestCase):
 		
 		assert result == np.inf
 		assert len(caught) == 0
-		
-		
+
 if __name__ == "__main__":
 	unittest.main()
