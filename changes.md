@@ -2,14 +2,13 @@
 
 ## V2.0.5
 
-- Fixed global warning suppression caused by importing py-sc-fermi (#50)
-- Added custom warning classes (`DOSOverflowWarning`, `DefectOverflowWarning`) 
-  that integrate properly with Python's warning system
-- Fixed type hints for `DOS._p_func` and `DOS._n_func`
+### Bug Fixes
+
+- Fixed bug where importing py-sc-fermi globally replaced `warnings.showwarning`, silencing all non-RuntimeWarning warnings including user warnings and deprecation warnings. The `CustomWarningManager` class has been removed and numpy overflow is now suppressed locally in functions where it is expected during Fermi energy solving.
 
 ## V2.0.0
 
-- Every object now has `as_dict/from_dict` methods to help save work as e.g. 
+- Every object now has `as_dict/from_dict` methods to help save work as, e.g., 
   json files.
   - This introduces a breaking change! The functionality previously accessible 
     via `DefectSystem.as_dict()` in versions < 2.0.0 is now accessible via

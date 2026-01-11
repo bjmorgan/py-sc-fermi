@@ -3,7 +3,7 @@ from scipy.constants import physical_constants  # type: ignore
 from typing import Optional
 import warnings
 
-from py_sc_fermi.warnings import DefectOverflowWarning, catches_numpy_overflow
+from py_sc_fermi.warnings import suppresses_numpy_overflow
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -209,7 +209,7 @@ class DefectChargeState:
                 "Cannot calculate formation energy as a function of `e_fermi` without a defined formation energy!"
             )
 
-    @catches_numpy_overflow(DefectOverflowWarning)
+    @suppresses_numpy_overflow
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this ``DefectChargeState`` at a
         specified Fermi energy and temperature, per site in the unit

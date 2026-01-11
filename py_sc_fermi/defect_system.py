@@ -3,10 +3,7 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
 import numpy as np
-from scipy.optimize import brentq
-import warnings
-
-from py_sc_fermi.warnings import PySCFermiWarning
+from scipy.optimize import brentq #type: ignore
 
 
 class DefectSystem(object):
@@ -167,7 +164,7 @@ class DefectSystem(object):
         """
         emin = self.dos.emin()
         emax = self.dos.emax()
-        
+
         try:
             e_fermi = brentq(
                 self.q_tot,
