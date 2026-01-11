@@ -1,9 +1,10 @@
 from typing import Dict, List, Tuple, Any
+import numpy as np
+from scipy.optimize import brentq #type: ignore
+
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
-import numpy as np
-from scipy.optimize import brentq #type: ignore
 
 
 class DefectSystem(object):
