@@ -3,6 +3,8 @@ import sys
 import unittest
 import warnings
 
+import numpy as np
+
 
 class TestWarningsNotSuppressed(unittest.TestCase):
 	"""Test that importing py_sc_fermi does not suppress unrelated warnings."""
@@ -52,65 +54,24 @@ warnings.warn("test runtime warning", RuntimeWarning)
 		)
 		self.assertIn("RuntimeWarning", result.stderr)
 		self.assertIn("test runtime warning", result.stderr)
-			
+
+class TestWarnings(unittest.TestCase):
 		
-class TestWarningClasses(unittest.TestCase):
-	"""Test custom warning class hierarchy."""
-
-	def test_warning_hierarchy(self):
-		"""Custom warnings should inherit from PySCFermiWarning."""
-		from py_sc_fermi.warnings import (
-			PySCFermiWarning,
-			DOSOverflowWarning,
-			DefectOverflowWarning,
-		)
+	def test_suppresses_numpy_overflow_decorator(self):
+		"""Decorator should suppress numpy overflow warnings."""
+		from py_sc_fermi.warnings import suppresses_numpy_overflow
 		
-		self.assertTrue(issubclass(PySCFermiWarning, UserWarning))
-		self.assertTrue(issubclass(DOSOverflowWarning, PySCFermiWarning))
-		self.assertTrue(issubclass(DefectOverflowWarning, PySCFermiWarning))
-
-
-class TestCatchesNumpyOverflowDecorator(unittest.TestCase):
-	"""Test the catches_numpy_overflow decorator."""
-
-	def test_emits_custom_warning_on_overflow(self):
-		"""Decorator should emit custom warning when numpy overflow occurs."""
-		import numpy as np
-		from py_sc_fermi.warnings import catches_numpy_overflow, DOSOverflowWarning
-
-		@catches_numpy_overflow(DOSOverflowWarning)
+		@suppresses_numpy_overflow
 		def cause_overflow():
 			return np.exp(1000)
-
-		with self.assertWarns(DOSOverflowWarning):
-			cause_overflow()
-
-	def test_returns_function_result(self):
-		"""Decorator should return the wrapped function's result."""
-		from py_sc_fermi.warnings import catches_numpy_overflow, DOSOverflowWarning
-
-		@catches_numpy_overflow(DOSOverflowWarning)
-		def add(a, b):
-			return a + b
-
-		self.assertEqual(add(2, 3), 5)
-
-	def test_no_warning_when_no_overflow(self):
-		"""Decorator should not emit warning when no overflow occurs."""
-		import numpy as np
-		from py_sc_fermi.warnings import catches_numpy_overflow, DOSOverflowWarning
-
-		@catches_numpy_overflow(DOSOverflowWarning)
-		def safe_exp():
-			return np.exp(1)
-
+		
 		with warnings.catch_warnings(record=True) as caught:
-			warnings.simplefilter("always")
-			result = safe_exp()
-
-		overflow_warnings = [w for w in caught if issubclass(w.category, DOSOverflowWarning)]
-		self.assertEqual(len(overflow_warnings), 0)
-		self.assertAlmostEqual(result, np.e)	
-
+			warnings.filterwarnings("always")
+			result = cause_overflow()
+		
+		assert result == np.inf
+		assert len(caught) == 0
+		
+		
 if __name__ == "__main__":
 	unittest.main()

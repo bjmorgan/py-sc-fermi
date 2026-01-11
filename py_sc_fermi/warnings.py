@@ -1,58 +1,22 @@
-"""Custom warnings and exceptions for py-sc-fermi."""
+"""Numpy overflow handling for py-sc-fermi."""
 
-import functools
-import warnings
+from functools import wraps
 
-
-class PySCFermiWarning(UserWarning):
-	"""Base class for all py-sc-fermi warnings."""
-	pass
+import numpy as np
 
 
-class DOSOverflowWarning(PySCFermiWarning):
-	"""Warning for overflow during DOS carrier concentration calculations.
-	
-	This typically occurs during iterative Fermi energy solving when
-	extreme values cause overflow in exponential calculations.
+def suppresses_numpy_overflow(func):
+	"""Decorator that suppresses numpy overflow during calculation.
+
+	Overflow commonly occurs during Fermi energy solving when evaluating
+	carrier and defect concentrations at extreme energies. This is expected
+	behaviour and the results (inf) are mathematically correct.
 	"""
-	pass
-
-
-class DefectOverflowWarning(PySCFermiWarning):
-	"""Warning for overflow during defect concentration calculations.
-	
-	This typically occurs during iterative Fermi energy solving when
-	extreme values cause overflow in exponential calculations.
-	"""
-	pass
-
-
-def catches_numpy_overflow(warning_class):
-	"""Decorator that converts numpy overflow RuntimeWarnings to a custom warning.
-	
-	Args:
-		warning_class: The warning class to emit when overflow is detected.
-		
-	Returns:
-		Decorator function.
-	"""
-	def decorator(func):
-		@functools.wraps(func)
-		def wrapper(*args, **kwargs):
-			with warnings.catch_warnings(record=True) as caught:
-				warnings.filterwarnings("always", message="overflow", category=RuntimeWarning)
-				result = func(*args, **kwargs)
-			
-			for w in caught:
-				if issubclass(w.category, RuntimeWarning) and "overflow" in str(w.message):
-					warnings.warn(
-						f"Overflow encountered in {func.__name__}. "
-						"This may occur during iterative Fermi energy solving "
-						"and can likely be ignored if final results are reasonable.",
-						warning_class,
-					)
-					break  # Only emit once per call
-			
-			return result
-		return wrapper
-	return decorator
+	@wraps(func)
+	def wrapper(*args, **kwargs):
+		old_settings = np.seterr(over='ignore')
+		try:
+			return func(*args, **kwargs)
+		finally:
+			np.seterr(**old_settings)
+	return wrapper

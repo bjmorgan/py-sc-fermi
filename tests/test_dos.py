@@ -179,13 +179,6 @@ class TestDos(unittest.TestCase):
         self.assertEqual(dictionary["bandgap"], 3)
         self.assertEqual(dictionary["edos"], [1,2,3,4,5])
         self.assertEqual(dictionary["dos"], [1,2,3,4,5])
-        
-    def test_carrier_concentrations_emits_overflow_warning(self):
-        """Overflow in carrier_concentrations should emit DOSOverflowWarning."""
-        from py_sc_fermi.warnings import DOSOverflowWarning
-        
-        with self.assertWarns(DOSOverflowWarning):
-            self.dos.carrier_concentrations(e_fermi=-1000, temperature=300)
 
 
 if __name__ == "__main__":

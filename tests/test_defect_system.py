@@ -248,47 +248,7 @@ class TestDefectSystem(unittest.TestCase):
             str(self.defect_system).strip(),
             f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
         )
-
-class TestDefectSystemWarnings(unittest.TestCase):
-    """Test warning behaviour in DefectSystem."""
-    
-    def test_get_sc_fermi_deduplicates_overflow_warnings(self):
-        """Overflow warnings should only appear once per get_sc_fermi call."""
-        import warnings
-        from py_sc_fermi.warnings import PySCFermiWarning, DOSOverflowWarning, DefectOverflowWarning
-        from py_sc_fermi.defect_charge_state import DefectChargeState
-        from py_sc_fermi.defect_species import DefectSpecies
-        from py_sc_fermi.dos import DOS
         
-        dos = DOS(
-            dos=np.ones(101),
-            edos=np.linspace(-10.0, 10.0, 101),
-            bandgap=3.0,
-            nelect=10,
-        )
-        charge_state = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        defect_species = DefectSpecies(
-            name="test_defect",
-            nsites=1,
-            charge_states={1: charge_state},
-        )
-        defect_system = DefectSystem(
-            dos=dos,
-            volume=100,
-            temperature=300,
-            defect_species=[defect_species],
-        )
-    
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.filterwarnings("always", category=PySCFermiWarning)
-            defect_system.get_sc_fermi()
-    
-        dos_warnings = [w for w in caught if issubclass(w.category, DOSOverflowWarning)]
-        defect_warnings = [w for w in caught if issubclass(w.category, DefectOverflowWarning)]
-    
-        self.assertLessEqual(len(dos_warnings), 1)
-        self.assertLessEqual(len(defect_warnings), 1)
-            
 
 if __name__ == "__main__":
     unittest.main()
