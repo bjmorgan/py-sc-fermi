@@ -3,42 +3,6 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
 import numpy as np
-import warnings
-
-
-
-class CustomWarningManager:
-    def __init__(self):
-        self.dos_overflow_warning_issued = False
-        self.defect_overflow_warning_issued = False
-
-    def custom_warning(self, message, category, filename, lineno, file=None, line=None):
-        if category == RuntimeWarning:
-            if "dos" in str(filename) and "overflow" in str(message):
-                if not self.dos_overflow_warning_issued:
-                    print(
-                        """DOSOverflowWarning: An overflow occurred during computation of
-                        electron and hole concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable."""
-                    )
-                    self.dos_overflow_warning_issued = True
-            elif "defect" in str(filename) and "overflow" in str(message):
-                if not self.defect_overflow_warning_issued:
-                    print(
-                        """DefectOverflowWarning: An overflow occurred during computation of
-                        defect concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable."""
-                    )
-                    self.defect_overflow_warning_issued = True
-            else:
-                print(f"RuntimeWarning: {message}")
-
-
-# Create a CustomWarningManager and set the custom_warning method as the warning handler
-warning_manager = CustomWarningManager()
-warnings.showwarning = warning_manager.custom_warning
 
 
 class DefectSystem(object):
@@ -215,35 +179,33 @@ class DefectSystem(object):
         reached_e_max = False
 
         # loop until convergence or max number of steps reached
-        with warnings.catch_warnings():
-            warnings.filterwarnings("once")
-            for i in range(self.n_trial_steps):
-                q_tot = self.q_tot(e_fermi=e_fermi)
-                if e_fermi > emax:
-                    if reached_e_min or reached_e_max:
-                        raise RuntimeError(
-                            f"No solution found between {emin} and {emax}"
-                        )
-                    reached_e_max = True
+        for i in range(self.n_trial_steps):
+            q_tot = self.q_tot(e_fermi=e_fermi)
+            if e_fermi > emax:
+                if reached_e_min or reached_e_max:
+                    raise RuntimeError(
+                        f"No solution found between {emin} and {emax}"
+                    )
+                reached_e_max = True
+                direction = -1.0
+            if e_fermi < emin:
+                if reached_e_max or reached_e_min:
+                    raise RuntimeError(
+                        f"No solution found between {emin} and {emax}"
+                    )
+                reached_e_min = True
+                direction = +1.0
+            if abs(q_tot) < self.convergence_tolerance:
+                break
+            if q_tot > 0.0:
+                if direction == +1.0:
+                    step *= 0.25
                     direction = -1.0
-                if e_fermi < emin:
-                    if reached_e_max or reached_e_min:
-                        raise RuntimeError(
-                            f"No solution found between {emin} and {emax}"
-                        )
-                    reached_e_min = True
+            elif q_tot < 0.0:
+                if direction == -1.0:
+                    step *= 0.25
                     direction = +1.0
-                if abs(q_tot) < self.convergence_tolerance:
-                    break
-                if q_tot > 0.0:
-                    if direction == +1.0:
-                        step *= 0.25
-                        direction = -1.0
-                elif q_tot < 0.0:
-                    if direction == -1.0:
-                        step *= 0.25
-                        direction = +1.0
-                e_fermi += step * direction
+            e_fermi += step * direction
 
         # return results
         residual = abs(q_tot)

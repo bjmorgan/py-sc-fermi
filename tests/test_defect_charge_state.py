@@ -183,6 +183,7 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
 
 
 class TestDefectChargeStateStringOperations(unittest.TestCase):
+    
     def setUp(self):
         charge = 1
         energy = 0.1234
