@@ -1,4 +1,5 @@
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
+import warnings
 import numpy as np
 from scipy.optimize import brentq #type: ignore
 
@@ -22,8 +23,9 @@ class DefectSystem(object):
           will be solved for.
         convergence_tolerance (float): the charge neutrality tolerance for the
           self-consistent Fermi energy solver. Defaults to ``1e-18``.
-        n_trial_steps (int): the maximum number of steps to take in the
-          self-consistent Fermi energy solver. Defaults to 1500.
+        n_trial_steps (int, optional): Deprecated. Previously set the maximum
+          number of solver iterations. The solver now uses Brent's method
+          which converges reliably without this parameter.
     """
 
     def __init__(
@@ -33,13 +35,21 @@ class DefectSystem(object):
         volume: float,
         temperature: float,
         convergence_tolerance: float = 1e-18,
-        n_trial_steps: int = 1500,
+        n_trial_steps: Optional[int] = None, # deprecated
     ):
         self.defect_species = defect_species
         self.volume = volume
         self.dos = dos
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
+        if n_trial_steps is not None:
+            warnings.warn(
+                "n_trial_steps is deprecated and will be removed in a future version. "
+                "The solver now uses Brent's method which converges reliably without "
+                "this parameter.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self.n_trial_steps = n_trial_steps
 
     def __repr__(self):
@@ -131,7 +141,7 @@ class DefectSystem(object):
             volume=dictionary["volume"],
             temperature=dictionary["temperature"],
             convergence_tolerance=dictionary["convergence_tolerance"],
-            n_trial_steps=dictionary["n_trial_steps"],
+            n_trial_steps=dictionary.get("n_trial_steps", None) ,
             defect_species=[
                 DefectSpecies.from_dict(defect_species)
                 for defect_species in dictionary["defect_species"]
@@ -165,22 +175,27 @@ class DefectSystem(object):
         """
         emin = self.dos.emin()
         emax = self.dos.emax()
-
+        
+        brentq_kwargs = {
+            "xtol": self.convergence_tolerance,
+        }
+        if self.n_trial_steps is not None:
+            brentq_kwargs["maxiter"] = self.n_trial_steps
+        
         try:
-            e_fermi = brentq(
+            e_fermi, result = brentq(
                 self.q_tot,
                 emin,
                 emax,
-                xtol=self.convergence_tolerance,
-                # n_trial_steps mapped to maxiter for backwards compatibility.
-                # Brent's method typically converges in <50 iterations, so this
-                # parameter is largely redundant and may be deprecated in future.
-                maxiter=self.n_trial_steps,
+                full_output=True,
+                **brentq_kwargs,
             )
+            print(f"Converged in {result.iterations} iterations")
         except ValueError:
             raise RuntimeError(f"No solution found between {emin} and {emax}")
         
         residual = abs(self.q_tot(e_fermi))
+        
         return e_fermi, residual
 
     def report(self) -> None:
@@ -371,11 +386,12 @@ class DefectSystem(object):
         defect_system_dict = dict(
             volume=float(self.volume),
             temperature=float(self.temperature),
-            n_trial_steps=int(self.n_trial_steps),
             defect_species=[
                 defect_species.as_dict() for defect_species in self.defect_species
             ],
             convergence_tolerance=float(self.convergence_tolerance),
             dos=self.dos.as_dict(),
         )
+        if self.n_trial_steps is not None:
+            defect_system_dict ["n_trial_steps"] = self.n_trial_steps
         return defect_system_dict

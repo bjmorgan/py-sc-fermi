@@ -43,13 +43,13 @@ class TestDefectSystemInit(unittest.TestCase):
             dos=dos,
             temperature=temperature,
             convergence_tolerance=1e-6,
-            n_trial_steps=100,
         )
         self.assertEqual(defect_system.volume, volume)
         self.assertEqual(defect_system.dos, dos)
         self.assertEqual(defect_system.temperature, temperature)
         self.assertEqual(defect_system.defect_species[0], mock_defect_species[0])
         self.assertEqual(defect_system.defect_species[1], mock_defect_species[1])
+        self.assertEqual(defect_system.n_trial_steps, None)
 
 
 class TestDefectSystem(unittest.TestCase):
@@ -101,7 +101,6 @@ class TestDefectSystem(unittest.TestCase):
         defect_dict = self.defect_system.as_dict()
         self.assertEqual(defect_dict["volume"], 100)
         self.assertEqual(defect_dict["temperature"], 298)
-        self.assertEqual(defect_dict["n_trial_steps"], 1500)
 
     def test_from_dict(self):
         dictionary = {
