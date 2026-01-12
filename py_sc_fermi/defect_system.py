@@ -183,19 +183,16 @@ class DefectSystem(object):
             brentq_kwargs["maxiter"] = self.n_trial_steps
         
         try:
-            e_fermi, result = brentq(
+            e_fermi = brentq(
                 self.q_tot,
                 emin,
                 emax,
-                full_output=True,
                 **brentq_kwargs,
             )
-            print(f"Converged in {result.iterations} iterations")
         except ValueError:
             raise RuntimeError(f"No solution found between {emin} and {emax}")
         
         residual = abs(self.q_tot(e_fermi))
-        
         return e_fermi, residual
 
     def report(self) -> None:
