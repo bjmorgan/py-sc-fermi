@@ -1,6 +1,9 @@
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from scipy.special import logsumexp # type: ignore
+from scipy.special import logsumexp # type: ignore
+from scipy.constants import physical_constants # type: ignore
+
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
@@ -362,8 +365,6 @@ class DefectSpecies(object):
             ``DefectChargeState`` with that charge, i.e.
             {``DefectChargeState.charge``: concentration}
         """
-        from scipy.special import logsumexp
-        from scipy.constants import physical_constants
         kboltz = physical_constants["Boltzmann constant in eV/K"][0]
     
         var_concs = self.variable_conc_charge_states()
