@@ -3,6 +3,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 from copy import deepcopy
 
+import numpy as np
 from numpy.testing import assert_equal
 
 from py_sc_fermi.defect_species import DefectSpecies
@@ -256,24 +257,20 @@ class TestDefectSpecies(unittest.TestCase):
         self.defect_species.charge_states[0].fixed_concentration = None
         self.defect_species.charge_states[1].fixed_concentration = None
         self.defect_species.charge_states[2].fixed_concentration = None
-        self.defect_species.charge_states[0].get_concentration = Mock(
-            return_value=0.1234 / 3
-        )
-        self.defect_species.charge_states[1].get_concentration = Mock(
-            return_value=0.1234 / 3
-        )
-        self.defect_species.charge_states[2].get_concentration = Mock(
-            return_value=0.1234 / 3
-        )
+        self.defect_species.charge_states[0].get_formation_energy = Mock(return_value=0.0)
+        self.defect_species.charge_states[1].get_formation_energy = Mock(return_value=0.0)
+        self.defect_species.charge_states[2].get_formation_energy = Mock(return_value=0.0)
+        self.defect_species.charge_states[0].degeneracy = 1
+        self.defect_species.charge_states[1].degeneracy = 1
+        self.defect_species.charge_states[2].degeneracy = 1
         self.defect_species._fixed_concentration = 0.1234
-        self.assertEqual(
-            self.defect_species.charge_state_concentrations(1.5, 298),
-            {
-                0: 0.04113333333333333,
-                1: 0.04113333333333333,
-                2: 0.04113333333333333,
-            },
-        )
+        
+        result = self.defect_species.charge_state_concentrations(1.5, 298)
+        
+        # With equal formation energies and degeneracies, should be equal distribution
+        expected = 0.1234 / 3
+        for conc in result.values():
+            self.assertAlmostEqual(conc, expected, places=10)
 
     def test_defect_charge_contributions(self):
         self.defect_species.charge_state_concentrations = Mock(return_value={1: 0.1234})
@@ -377,6 +374,62 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertEqual(
             DefectSpecies._from_list_of_strings(deepcopy(string)).nsites, 2
         )
+    
+    def test_charge_state_concentrations_all_fixed(self):
+        """When all charge states have fixed concentrations, return those values."""
+        cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
+        
+        defect = DefectSpecies(
+            name="test",
+            nsites=1,
+            charge_states={0: cs_0, 1: cs_1}
+        )
+        
+        result = defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+        
+        self.assertEqual(result[0], 0.5)
+        self.assertEqual(result[1], 0.3)
+        
+    def test_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
+        """Fixed concentration scaling should not produce NaN when variable concentrations underflow."""
+        cs_0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
+        cs_minus1 = DefectChargeState(charge=-1, energy=2.0, degeneracy=1)
+        
+        # Mock get_formation_energy to return very large values (simulating underflow)
+        cs_0.get_formation_energy = Mock(return_value=1000.0)
+        cs_minus1.get_formation_energy = Mock(return_value=1000.0)
+        
+        defect = DefectSpecies(
+            name="v_Na",
+            nsites=1,
+            charge_states={0: cs_0, -1: cs_minus1}
+        )
+        defect.fix_concentration(1e-5)
+        
+        result = defect.charge_state_concentrations(e_fermi=0.0, temperature=300)
+        
+        for q, conc in result.items():
+            self.assertFalse(np.isnan(conc), f"Concentration for charge {q} is NaN")
+        
+        # Total should equal fixed concentration
+        total = sum(result.values())
+        self.assertAlmostEqual(total, 1e-5, places=15)
+            
+    def test_charge_state_concentrations_raises_if_fixed_exceeds_total(self):
+        """Should raise ValueError if fixed charge state concentrations exceed species total."""
+        cs_0 = DefectChargeState(charge=0, energy=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, energy=0.6, degeneracy=1, fixed_concentration=0.5)
+        
+        defect = DefectSpecies(
+            name="test",
+            nsites=1,
+            charge_states={0: cs_0, 1: cs_1}
+        )
+        defect.fix_concentration(0.1)  # Less than fixed charge state concentration
+        
+        with self.assertRaises(ValueError):
+            defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
 
 
 if __name__ == "__main__":

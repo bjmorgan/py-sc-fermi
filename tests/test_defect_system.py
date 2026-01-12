@@ -1,10 +1,12 @@
 import unittest
 from unittest.mock import Mock, patch
 from io import StringIO
+import warnings
 
 import numpy as np
 import os
 import textwrap
+
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_system import DefectSystem
@@ -43,13 +45,13 @@ class TestDefectSystemInit(unittest.TestCase):
             dos=dos,
             temperature=temperature,
             convergence_tolerance=1e-6,
-            n_trial_steps=100,
         )
         self.assertEqual(defect_system.volume, volume)
         self.assertEqual(defect_system.dos, dos)
         self.assertEqual(defect_system.temperature, temperature)
         self.assertEqual(defect_system.defect_species[0], mock_defect_species[0])
         self.assertEqual(defect_system.defect_species[1], mock_defect_species[1])
+        self.assertEqual(defect_system.n_trial_steps, None)
 
 
 class TestDefectSystem(unittest.TestCase):
@@ -101,7 +103,6 @@ class TestDefectSystem(unittest.TestCase):
         defect_dict = self.defect_system.as_dict()
         self.assertEqual(defect_dict["volume"], 100)
         self.assertEqual(defect_dict["temperature"], 298)
-        self.assertEqual(defect_dict["n_trial_steps"], 1500)
 
     def test_from_dict(self):
         dictionary = {
@@ -172,27 +173,57 @@ class TestDefectSystem(unittest.TestCase):
     def test_get_sc_fermi(self):
         self.defect_system.dos.emin = Mock(return_value=0)
         self.defect_system.dos.emax = Mock(return_value=1)
-        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.q_tot = Mock(return_value=0)
-        self.assertEqual(
-            self.defect_system.get_sc_fermi(),
-            (0.5, 0),
-        )
+        self.defect_system.q_tot = lambda e_fermi: 0.5 - e_fermi
+        
+        e_fermi, residual = self.defect_system.get_sc_fermi()
+        
+        self.assertAlmostEqual(e_fermi, 0.5, places=10)
+        self.assertAlmostEqual(residual, 0.0, places=10)
 
-    def test_get_sc_fermi_bottoms_out(self):
+    def test_get_sc_fermi_raises_when_no_solution_positive(self):
+        """RuntimeError when q_tot is always positive (no root)."""
         self.defect_system.dos.emin = Mock(return_value=0)
         self.defect_system.dos.emax = Mock(return_value=1)
-        self.defect_system.q_tot = Mock(return_value=(0.1))
+        self.defect_system.q_tot = lambda e_fermi: 0.1
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
-
-    def test_get_sc_fermi_tops_out(self):
-        self.defect_system.dos.emin = Mock(return_value=1)
-        self.defect_system.dos.emax = Mock(return_value=0)
-        self.defect_system.q_tot = Mock(return_value=(-0.1))
+    
+    def test_get_sc_fermi_raises_when_no_solution_negative(self):
+        """RuntimeError when q_tot is always negative (no root)."""
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1)
+        self.defect_system.q_tot = lambda e_fermi: -0.1
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
-
+            
+    def test_get_sc_fermi_finds_charge_neutral_fermi_energy(self):
+        """Solver should find Fermi energy where total charge is zero."""
+        dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-10.0, 10.0, 101),
+            bandgap=3.0,
+            nelect=10,
+        )
+        charge_state = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        defect_species = DefectSpecies(
+            name="test_defect",
+            nsites=1,
+            charge_states={1: charge_state},
+        )
+        defect_system = DefectSystem(
+            dos=dos,
+            volume=100,
+            temperature=300,
+            defect_species=[defect_species],
+        )
+        
+        e_fermi, residual = defect_system.get_sc_fermi()
+        
+        # Verify charge neutrality at converged Fermi energy
+        q_tot = defect_system.q_tot(e_fermi)
+        self.assertAlmostEqual(q_tot, 0.0, places=10)
+        self.assertLess(residual,  1e-10)
+    
     def test_get_transition_levels(self):
         self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
             return_value=[[1, 2], [1, 2]]
@@ -248,6 +279,22 @@ class TestDefectSystem(unittest.TestCase):
             str(self.defect_system).strip(),
             f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
         )
+        
+    def test_n_trial_steps_deprecation_warning(self):
+        """Setting n_trial_steps should emit a DeprecationWarning."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            DefectSystem(
+                defect_species=[],
+                dos=Mock(spec=DOS),
+                volume=100,
+                temperature=300,
+                n_trial_steps=100,
+            )
+        
+        deprecation_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        self.assertEqual(len(deprecation_warnings), 1)
+        self.assertIn("n_trial_steps", str(deprecation_warnings[0].message))
         
 
 if __name__ == "__main__":

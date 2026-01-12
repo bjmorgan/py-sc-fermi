@@ -1,5 +1,9 @@
-import numpy as np
 from typing import List, Dict, Tuple, Optional
+
+import numpy as np
+from scipy.special import logsumexp # type: ignore
+from scipy.constants import physical_constants # type: ignore
+
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
@@ -348,50 +352,71 @@ class DefectSpecies(object):
     def charge_state_concentrations(
         self, e_fermi: float, temperature: float
     ) -> Dict[int, float]:
-        """at a given Fermi energy and temperature, calculate the concentrations
+        """Calculate the concentrations of the different charge states.
+    
+        At a given Fermi energy and temperature, calculate the concentrations
         of the different ``DefectChargeStates`` of this ``DefectSpecies``.
-
+    
+        If the species has a fixed total concentration, the variable charge
+        state concentrations are distributed according to their Boltzmann
+        weights using a numerically stable logsumexp calculation.
+    
         Args:
             e_fermi (float): Fermi energy
             temperature (float): temperature
-
+    
         Returns:
             Dict[int, float]: key-value pairs of charge of each
             ``DefectChargeState`` and the concentration of the
             ``DefectChargeState`` with that charge, i.e.
             {``DefectChargeState.charge``: concentration}
+    
+        Raises:
+            ValueError: If fixed charge state concentrations exceed the
+                total species concentration.
         """
-
+        kboltz = physical_constants["Boltzmann constant in eV/K"][0]
+    
         var_concs = self.variable_conc_charge_states()
         fixed_concs = self.fixed_conc_charge_states()
-
-        cs_concentrations = {
-            cs.charge: cs.get_concentration(e_fermi, temperature) * self.nsites
-            for cs in var_concs.values()
-        }
+    
+        cs_concentrations = {}
+    
+        # Fixed concentration charge states
         for q, cs in fixed_concs.items():
             cs_concentrations[q] = cs.get_concentration(e_fermi, temperature)
-
-        if self.fixed_concentration is not None and self.variable_conc_charge_states():
-            fixed_conc_chg_states = sum(
-                [
-                    c
-                    for q, c in cs_concentrations.items()
-                    if q in self.fixed_conc_charge_states()
-                ]
-            )
-            variable_conc_chg_states = sum(
-                [
-                    c
-                    for q, c in cs_concentrations.items()
-                    if q in self.variable_conc_charge_states()
-                ]
-            )
-            constrained_conc = self.fixed_concentration - fixed_conc_chg_states
-            scaling = constrained_conc / variable_conc_chg_states
-            for q in cs_concentrations:
-                if q in self.variable_conc_charge_states():
-                    cs_concentrations[q] *= scaling
+    
+        if self.fixed_concentration is not None and var_concs:
+            # Species has fixed total concentration
+            # Use logsumexp for numerically stable proportions
+            fixed_conc_total = sum(cs_concentrations.values())
+            constrained_conc = self.fixed_concentration - fixed_conc_total
+            if constrained_conc < 0:
+                raise ValueError(
+                    f"Fixed charge state concentrations ({fixed_conc_total}) exceed "
+                    f"total species concentration ({self.fixed_concentration})"
+                )
+    
+            # Calculate log Boltzmann weights
+            log_weights = {
+                q: np.log(cs.degeneracy) - cs.get_formation_energy(e_fermi) / (kboltz * temperature)
+                for q, cs in var_concs.items()
+            }
+    
+            # Stable proportions via logsumexp
+            log_weight_values = np.array(list(log_weights.values()))
+            log_total = logsumexp(log_weight_values)
+    
+            # Distribute constrained concentration according to proportions
+            for q, log_w in log_weights.items():
+                proportion = np.exp(log_w - log_total)
+                cs_concentrations[q] = proportion * constrained_conc
+    
+        else:
+            # No fixed species concentration - standard calculation
+            for cs in var_concs.values():
+                cs_concentrations[cs.charge] = cs.get_concentration(e_fermi, temperature) * self.nsites
+    
         return cs_concentrations
 
     def defect_charge_contributions(

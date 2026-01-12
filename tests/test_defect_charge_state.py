@@ -18,6 +18,12 @@ class TestDefectChargeStateInit(unittest.TestCase):
     def test_init_raises_error_on_none_energy_and_concentration(self):
         with self.assertRaises(ValueError):
             DefectChargeState(1, None, None)
+            
+    def test_init_raises_error_on_invalid_degeneracy(self):
+        with self.assertRaises(ValueError):
+            DefectChargeState(charge=1, energy=0.5, degeneracy=0)
+        with self.assertRaises(ValueError):
+            DefectChargeState(charge=1, energy=0.5, degeneracy=-1)
 
 
 class TestDefectChargeStateChargeProperty(unittest.TestCase):
