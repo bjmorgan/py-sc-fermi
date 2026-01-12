@@ -218,7 +218,7 @@ class TestDefectSystem(unittest.TestCase):
         # Verify charge neutrality at converged Fermi energy
         q_tot = defect_system.q_tot(e_fermi)
         self.assertAlmostEqual(q_tot, 0.0, places=10)
-        self.assertLess(residual, defect_system.convergence_tolerance)
+        self.assertLess(residual,  1e-10)
     
     def test_get_transition_levels(self):
         self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(

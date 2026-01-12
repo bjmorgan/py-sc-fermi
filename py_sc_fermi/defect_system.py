@@ -21,8 +21,8 @@ class DefectSystem(object):
         dos (DOS): the ``DOS`` object associated with the unit cell
         temperature (float): temperature at which self-consentient Fermi energy
           will be solved for.
-        convergence_tolerance (float): the charge neutrality tolerance for the
-          self-consistent Fermi energy solver. Defaults to ``1e-18``.
+        convergence_tolerance (float, optional): Tolerance for the Fermi energy
+          convergence in eV. If not specified, uses scipy's default (2e-12)
         n_trial_steps (int, optional): Deprecated. Previously set the maximum
           number of solver iterations. The solver now uses Brent's method
           which converges reliably without this parameter.
@@ -34,7 +34,7 @@ class DefectSystem(object):
         dos: DOS,
         volume: float,
         temperature: float,
-        convergence_tolerance: float = 1e-18,
+        convergence_tolerance: Optional[float] = None,
         n_trial_steps: Optional[int] = None, # deprecated
     ):
         self.defect_species = defect_species
@@ -177,21 +177,18 @@ class DefectSystem(object):
         emax = self.dos.emax()
         
         try:
+            kwargs = {}
+            if self.convergence_tolerance is not None:
+                kwargs['xtol'] = self.convergence_tolerance
             if self.n_trial_steps is not None:
-                e_fermi = brentq(
-                    self.q_tot,
-                    emin,
-                    emax,
-                    xtol=self.convergence_tolerance,
-                    maxiter=self.n_trial_steps,
-                )
-            else:
-                e_fermi = brentq(
-                    self.q_tot,
-                    emin,
-                    emax,
-                    xtol=self.convergence_tolerance,
-                )
+                kwargs['maxiter'] = self.n_trial_steps
+            
+            e_fermi = brentq(
+                self.q_tot,
+                emin,
+                emax,
+                **kwargs,
+            )  # type: ignore[call-overload]
         except ValueError:
             raise RuntimeError(f"No solution found between {emin} and {emax}")
         
@@ -389,9 +386,10 @@ class DefectSystem(object):
             defect_species=[
                 defect_species.as_dict() for defect_species in self.defect_species
             ],
-            convergence_tolerance=float(self.convergence_tolerance),
             dos=self.dos.as_dict(),
         )
+        if self.convergence_tolerance is not None:
+            defect_system_dict["convergence_tolerance"] = self.convergence_tolerance
         if self.n_trial_steps is not None:
             defect_system_dict["n_trial_steps"] = self.n_trial_steps
         return defect_system_dict
