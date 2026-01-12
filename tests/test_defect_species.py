@@ -376,13 +376,17 @@ class TestDefectSpecies(unittest.TestCase):
         )
         
     def test_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
-        """Fixed concentration scaling should not produce NaN when variable concentrations are zero."""
+        """Fixed concentration scaling should not produce NaN when variable concentrations underflow."""
+        from unittest.mock import Mock
+        from py_sc_fermi.defect_charge_state import DefectChargeState
+        import numpy as np
+        
         cs_0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
         cs_minus1 = DefectChargeState(charge=-1, energy=2.0, degeneracy=1)
         
-        # Mock get_concentration to return 0 (simulating underflow)
-        cs_0.get_concentration = Mock(return_value=0.0)
-        cs_minus1.get_concentration = Mock(return_value=0.0)
+        # Mock get_formation_energy to return very large values (simulating underflow)
+        cs_0.get_formation_energy = Mock(return_value=1000.0)
+        cs_minus1.get_formation_energy = Mock(return_value=1000.0)
         
         defect = DefectSpecies(
             name="v_Na",
@@ -395,6 +399,27 @@ class TestDefectSpecies(unittest.TestCase):
         
         for q, conc in result.items():
             self.assertFalse(np.isnan(conc), f"Concentration for charge {q} is NaN")
+        
+        # Total should equal fixed concentration
+        total = sum(result.values())
+        self.assertAlmostEqual(total, 1e-5, places=15)
+            
+    def test_charge_state_concentrations_raises_if_fixed_exceeds_total(self):
+        """Should raise ValueError if fixed charge state concentrations exceed species total."""
+        from py_sc_fermi.defect_charge_state import DefectChargeState
+        
+        cs_0 = DefectChargeState(charge=0, energy=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, energy=0.6, degeneracy=1, fixed_concentration=0.5)
+        
+        defect = DefectSpecies(
+            name="test",
+            nsites=1,
+            charge_states={0: cs_0, 1: cs_1}
+        )
+        defect.fix_concentration(0.1)  # Less than fixed charge state concentration
+        
+        with self.assertRaises(ValueError):
+            defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
 
 
 if __name__ == "__main__":

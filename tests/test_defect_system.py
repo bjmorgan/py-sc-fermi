@@ -178,17 +178,19 @@ class TestDefectSystem(unittest.TestCase):
         self.assertAlmostEqual(e_fermi, 0.5, places=10)
         self.assertAlmostEqual(residual, 0.0, places=10)
 
-    def test_get_sc_fermi_bottoms_out(self):
+    def test_get_sc_fermi_raises_when_no_solution_positive(self):
+        """RuntimeError when q_tot is always positive (no root)."""
         self.defect_system.dos.emin = Mock(return_value=0)
         self.defect_system.dos.emax = Mock(return_value=1)
-        self.defect_system.q_tot = Mock(return_value=(0.1))
+        self.defect_system.q_tot = lambda e_fermi: 0.1
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
-
-    def test_get_sc_fermi_tops_out(self):
-        self.defect_system.dos.emin = Mock(return_value=1)
-        self.defect_system.dos.emax = Mock(return_value=0)
-        self.defect_system.q_tot = Mock(return_value=(-0.1))
+    
+    def test_get_sc_fermi_raises_when_no_solution_negative(self):
+        """RuntimeError when q_tot is always negative (no root)."""
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1)
+        self.defect_system.q_tot = lambda e_fermi: -0.1
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
             
@@ -275,6 +277,24 @@ class TestDefectSystem(unittest.TestCase):
             str(self.defect_system).strip(),
             f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
         )
+        
+    def test_n_trial_steps_deprecation_warning(self):
+        """Setting n_trial_steps should emit a DeprecationWarning."""
+        import warnings
+        
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            DefectSystem(
+                defect_species=[],
+                dos=Mock(spec=DOS),
+                volume=100,
+                temperature=300,
+                n_trial_steps=100,
+            )
+        
+        deprecation_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+        self.assertEqual(len(deprecation_warnings), 1)
+        self.assertIn("n_trial_steps", str(deprecation_warnings[0].message))
         
 
 if __name__ == "__main__":

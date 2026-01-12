@@ -31,6 +31,8 @@ class DefectChargeState:
                 this defect! \n Note, if you specify both, the concentration
                 will treated as fixed"""
             )
+        if degeneracy < 1:
+            raise ValueError("degeneracy must be a positive integer")
         self._charge = charge
         self._degeneracy = degeneracy
         self._energy = energy

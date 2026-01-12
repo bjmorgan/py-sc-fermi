@@ -351,8 +351,14 @@ class DefectSpecies(object):
     def charge_state_concentrations(
         self, e_fermi: float, temperature: float
     ) -> Dict[int, float]:
-        """at a given Fermi energy and temperature, calculate the concentrations
+        """Calculate the concentrations of the different charge states.
+    
+        At a given Fermi energy and temperature, calculate the concentrations
         of the different ``DefectChargeStates`` of this ``DefectSpecies``.
+    
+        If the species has a fixed total concentration, the variable charge
+        state concentrations are distributed according to their Boltzmann
+        weights using a numerically stable logsumexp calculation.
     
         Args:
             e_fermi (float): Fermi energy
@@ -363,6 +369,10 @@ class DefectSpecies(object):
             ``DefectChargeState`` and the concentration of the
             ``DefectChargeState`` with that charge, i.e.
             {``DefectChargeState.charge``: concentration}
+    
+        Raises:
+            ValueError: If fixed charge state concentrations exceed the
+                total species concentration.
         """
         kboltz = physical_constants["Boltzmann constant in eV/K"][0]
     
@@ -380,6 +390,11 @@ class DefectSpecies(object):
             # Use logsumexp for numerically stable proportions
             fixed_conc_total = sum(cs_concentrations.values())
             constrained_conc = self.fixed_concentration - fixed_conc_total
+            if constrained_conc < 0:
+                raise ValueError(
+                    f"Fixed charge state concentrations ({fixed_conc_total}) exceed "
+                    f"total species concentration ({self.fixed_concentration})"
+                )
     
             # Calculate log Boltzmann weights
             log_weights = {
