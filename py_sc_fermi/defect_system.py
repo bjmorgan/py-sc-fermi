@@ -1,7 +1,7 @@
 from typing import Dict, List, Tuple, Any, Optional
 import warnings
 import numpy as np
-from scipy.optimize import brentq #type: ignore
+from scipy.optimize import brentq # type: ignore
 
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
