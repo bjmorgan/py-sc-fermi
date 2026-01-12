@@ -183,12 +183,21 @@ class DefectSystem(object):
             brentq_kwargs["maxiter"] = self.n_trial_steps
         
         try:
-            e_fermi = brentq(
-                self.q_tot,
-                emin,
-                emax,
-                **brentq_kwargs,
-            )
+            if self.n_trial_steps is not None:
+                e_fermi = brentq(
+                    self.q_tot,
+                    emin,
+                    emax,
+                    xtol=self.convergence_tolerance,
+                    maxiter=self.n_trial_steps,
+                )
+            else:
+                e_fermi = brentq(
+                    self.q_tot,
+                    emin,
+                    emax,
+                    xtol=self.convergence_tolerance,
+                )
         except ValueError:
             raise RuntimeError(f"No solution found between {emin} and {emax}")
         
