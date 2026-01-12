@@ -3,6 +3,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 from copy import deepcopy
 
+import numpy as np
 from numpy.testing import assert_equal
 
 from py_sc_fermi.defect_species import DefectSpecies
@@ -376,11 +377,6 @@ class TestDefectSpecies(unittest.TestCase):
         
     def test_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
         """Fixed concentration scaling should not produce NaN when variable concentrations are zero."""
-        from unittest.mock import Mock
-        from py_sc_fermi.defect_charge_state import DefectChargeState
-        from py_sc_fermi.defect_species import DefectSpecies
-        import numpy as np
-        
         cs_0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
         cs_minus1 = DefectChargeState(charge=-1, energy=2.0, degeneracy=1)
         

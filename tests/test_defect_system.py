@@ -220,17 +220,17 @@ class TestDefectSystem(unittest.TestCase):
         self.assertAlmostEqual(q_tot, 0.0, places=10)
         self.assertLess(residual, defect_system.convergence_tolerance)
     
-        def test_get_transition_levels(self):
-            self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
-                return_value=[[1, 2], [1, 2]]
-            )
-            self.defect_system.defect_species_by_name("O_i").tl_profile = Mock(
-                return_value=[[1, 2], [1, 2]]
-            )
-            self.assertEqual(
-                self.defect_system.get_transition_levels(),
-                {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
-            )
+    def test_get_transition_levels(self):
+        self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
+            return_value=[[1, 2], [1, 2]]
+        )
+        self.defect_system.defect_species_by_name("O_i").tl_profile = Mock(
+            return_value=[[1, 2], [1, 2]]
+        )
+        self.assertEqual(
+            self.defect_system.get_transition_levels(),
+            {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
+        )
 
     def test_concentration_dict(self):
         self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])

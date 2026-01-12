@@ -1,7 +1,6 @@
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from scipy.special import logsumexp # type: ignore
-from scipy.special import logsumexp # type: ignore
 from scipy.constants import physical_constants # type: ignore
 
 from py_sc_fermi.defect_charge_state import DefectChargeState

@@ -141,7 +141,7 @@ class DefectSystem(object):
             volume=dictionary["volume"],
             temperature=dictionary["temperature"],
             convergence_tolerance=dictionary["convergence_tolerance"],
-            n_trial_steps=dictionary.get("n_trial_steps", None) ,
+            n_trial_steps=dictionary.get("n_trial_steps", None),
             defect_species=[
                 DefectSpecies.from_dict(defect_species)
                 for defect_species in dictionary["defect_species"]
@@ -175,12 +175,6 @@ class DefectSystem(object):
         """
         emin = self.dos.emin()
         emax = self.dos.emax()
-        
-        brentq_kwargs = {
-            "xtol": self.convergence_tolerance,
-        }
-        if self.n_trial_steps is not None:
-            brentq_kwargs["maxiter"] = self.n_trial_steps
         
         try:
             if self.n_trial_steps is not None:
@@ -399,5 +393,5 @@ class DefectSystem(object):
             dos=self.dos.as_dict(),
         )
         if self.n_trial_steps is not None:
-            defect_system_dict ["n_trial_steps"] = self.n_trial_steps
+            defect_system_dict["n_trial_steps"] = self.n_trial_steps
         return defect_system_dict
