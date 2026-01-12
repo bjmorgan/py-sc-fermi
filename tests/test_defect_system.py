@@ -1,10 +1,12 @@
 import unittest
 from unittest.mock import Mock, patch
 from io import StringIO
+import warnings
 
 import numpy as np
 import os
 import textwrap
+
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_system import DefectSystem
@@ -280,8 +282,6 @@ class TestDefectSystem(unittest.TestCase):
         
     def test_n_trial_steps_deprecation_warning(self):
         """Setting n_trial_steps should emit a DeprecationWarning."""
-        import warnings
-        
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             DefectSystem(

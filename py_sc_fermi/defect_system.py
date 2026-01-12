@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple, Any, Optional
 import warnings
+
 import numpy as np
 from scipy.optimize import brentq # type: ignore
 
@@ -19,10 +20,10 @@ class DefectSystem(object):
           which are present in the ``DefectSystem``.
         volume (float): volume of the unit cell in Angstroms cubed
         dos (DOS): the ``DOS`` object associated with the unit cell
-        temperature (float): temperature at which self-consentient Fermi energy
+        temperature (float): temperature at which self-consistent Fermi energy
           will be solved for.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
-          convergence in eV. If not specified, uses scipy's default (2e-12)
+          convergence in eV. If not specified, uses scipy's default.
         n_trial_steps (int, optional): Deprecated. Previously set the maximum
           number of solver iterations. The solver now uses Brent's method
           which converges reliably without this parameter.
@@ -123,31 +124,26 @@ class DefectSystem(object):
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectSystem":
-        """generate ``DefectSystem`` from a dictionary
-
+        """Generate a DefectSystem from a dictionary.
+    
         Args:
-            filename (str): path to yaml file containing the ``DefectSystem``
-              data
-            structure_file (str): path to file containing volume information.
-              Defaults to an empty string.
-            dos_file (str): path to file containing dos information. Defaults
-              to an empty string.
-
+            dictionary (dict): Dictionary containing the DefectSystem data.
+    
         Returns:
-            DefectSystem: ``DefectSystem`` corresponding to provided yaml file
+            DefectSystem: DefectSystem corresponding to the provided dictionary.
         """
         return cls(
             dos=DOS.from_dict(dictionary["dos"]),
             volume=dictionary["volume"],
             temperature=dictionary["temperature"],
-            convergence_tolerance=dictionary["convergence_tolerance"],
-            n_trial_steps=dictionary.get("n_trial_steps", None),
+            convergence_tolerance=dictionary.get("convergence_tolerance"),
+            n_trial_steps=dictionary.get("n_trial_steps"),
             defect_species=[
                 DefectSpecies.from_dict(defect_species)
                 for defect_species in dictionary["defect_species"]
             ],
         )
-
+        
     def defect_species_by_name(self, name: str) -> DefectSpecies:
         """return a ``DefectSpecies`` contained within the ``DefectSystem``
         via its name.

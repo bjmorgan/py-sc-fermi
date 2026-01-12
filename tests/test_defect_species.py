@@ -374,13 +374,25 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertEqual(
             DefectSpecies._from_list_of_strings(deepcopy(string)).nsites, 2
         )
+    
+    def test_charge_state_concentrations_all_fixed(self):
+        """When all charge states have fixed concentrations, return those values."""
+        cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
+        
+        defect = DefectSpecies(
+            name="test",
+            nsites=1,
+            charge_states={0: cs_0, 1: cs_1}
+        )
+        
+        result = defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+        
+        self.assertEqual(result[0], 0.5)
+        self.assertEqual(result[1], 0.3)
         
     def test_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
         """Fixed concentration scaling should not produce NaN when variable concentrations underflow."""
-        from unittest.mock import Mock
-        from py_sc_fermi.defect_charge_state import DefectChargeState
-        import numpy as np
-        
         cs_0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
         cs_minus1 = DefectChargeState(charge=-1, energy=2.0, degeneracy=1)
         
@@ -406,8 +418,6 @@ class TestDefectSpecies(unittest.TestCase):
             
     def test_charge_state_concentrations_raises_if_fixed_exceeds_total(self):
         """Should raise ValueError if fixed charge state concentrations exceed species total."""
-        from py_sc_fermi.defect_charge_state import DefectChargeState
-        
         cs_0 = DefectChargeState(charge=0, energy=0.5, degeneracy=1)
         cs_1 = DefectChargeState(charge=1, energy=0.6, degeneracy=1, fixed_concentration=0.5)
         
