@@ -21,8 +21,8 @@ class InputSet:
     volume: float
     defect_species: List[DefectSpecies]
     temperature: float
-    convergence_tolerance: float = 1e-18
-    n_trial_steps: int = 1500
+    convergence_tolerance: Optional[float] = None
+    n_trial_steps: Optional[int] = None
 
     @classmethod
     def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = "", fixed_conc_units: str = "cm^-3"):
@@ -104,16 +104,9 @@ class InputSet:
         else:
             volume = input_dict["volume"]
 
-        # if the solver parameters are not in the .yaml file, set them
-        if "convergence_tolerance" not in list(input_dict.keys()):
-            input_dict["convergence_tolerance"] = 1e-18
-        if "n_trial_steps" not in list(input_dict.keys()):
-            input_dict["n_trial_steps"] = 1500
-
         defect_species = [
             DefectSpecies.from_dict(d) for d in input_dict["defect_species"]
-        ]
-
+            ]
         if fixed_conc_units == "cm^-3":
             for ds in defect_species:
                 if ds.fixed_concentration is not None:
@@ -123,14 +116,13 @@ class InputSet:
                             ds.charge_states[charge_state].fix_concentration(
                                 (ds.charge_states[charge_state].fixed_concentration / 1e24 * volume)
                             )
-
         return cls(
             dos=dos,
             volume=volume,
             defect_species=defect_species,
             temperature=input_dict["temperature"],
-            convergence_tolerance=input_dict["convergence_tolerance"],
-            n_trial_steps=input_dict["n_trial_steps"],
+            convergence_tolerance=input_dict.get("convergence_tolerance"),
+            n_trial_steps=input_dict.get("n_trial_steps"),
         )
 
     @classmethod
@@ -139,8 +131,8 @@ class InputSet:
         input_file: str,
         structure_file: str,
         dos_file: str,
-        n_trial_steps: int = 1000,
-        convergence_tolerance: float = 1e-18,
+        n_trial_steps: Optional[int] = None,
+        convergence_tolerance: Optional[float] = None,
         frozen: bool = False,
     ) -> "InputSet":
         """Generate an InputSet object from a
@@ -150,12 +142,12 @@ class InputSet:
             input_file (str): path to file to read
             structure_file (str): path to structure file to read
             dos_file (str): path to dos file to read
-            n_trial_steps (int, optional): number of trial steps for py-sc-fermi
-              solver. Defaults to 1000.
-            convergence_tolerance (float, optional): convergence tolerance for
-              py-sc-fermi solver. Defaults to 1e-18.
+            n_trial_steps (int, optional): Deprecated. Maximum solver iterations.
+                If not specified, uses scipy's default.
+            convergence_tolerance (float, optional): Tolerance for Fermi energy
+                convergence in eV. If not specified, uses scipy's default.
             frozen (bool, optional): True if any defects or defect charge states in
-              in the input file have fixed concentrations. Defaults to False.
+                in the input file have fixed concentrations. Defaults to False.
 
         Returns:
             InputSet: full set of inputs for ``py-sc-fermi.DefectSystem``.

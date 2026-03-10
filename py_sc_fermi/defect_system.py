@@ -1,44 +1,12 @@
 from typing import Dict, List, Tuple, Any, Optional
+import warnings
+
+import numpy as np
+from scipy.optimize import brentq # type: ignore
+
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.inputs import InputSet
-import numpy as np
-import warnings
-
-
-
-class CustomWarningManager:
-    def __init__(self):
-        self.dos_overflow_warning_issued = False
-        self.defect_overflow_warning_issued = False
-
-    def custom_warning(self, message, category, filename, lineno, file=None, line=None):
-        if category == RuntimeWarning:
-            if "dos" in str(filename) and "overflow" in str(message):
-                if not self.dos_overflow_warning_issued:
-                    print(
-                        """DOSOverflowWarning: An overflow occurred during computation of
-                        electron and hole concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable."""
-                    )
-                    self.dos_overflow_warning_issued = True
-            elif "defect" in str(filename) and "overflow" in str(message):
-                if not self.defect_overflow_warning_issued:
-                    print(
-                        """DefectOverflowWarning: An overflow occurred during computation of
-                        defect concentrations. This is likely a natural result of the use of
-                        a numerical solver for the Fermi energy search. This can likely be ignored
-                        though you should always check the final results are reasonable."""
-                    )
-                    self.defect_overflow_warning_issued = True
-            else:
-                print(f"RuntimeWarning: {message}")
-
-
-# Create a CustomWarningManager and set the custom_warning method as the warning handler
-warning_manager = CustomWarningManager()
-warnings.showwarning = warning_manager.custom_warning
 
 
 class DefectSystem(object):
@@ -52,12 +20,13 @@ class DefectSystem(object):
           which are present in the ``DefectSystem``.
         volume (float): volume of the unit cell in Angstroms cubed
         dos (DOS): the ``DOS`` object associated with the unit cell
-        temperature (float): temperature at which self-consentient Fermi energy
+        temperature (float): temperature at which self-consistent Fermi energy
           will be solved for.
-        convergence_tolerance (float): the charge neutrality tolerance for the
-          self-consistent Fermi energy solver. Defaults to ``1e-18``.
-        n_trial_steps (int): the maximum number of steps to take in the
-          self-consistent Fermi energy solver. Defaults to 1500.
+        convergence_tolerance (float, optional): Tolerance for the Fermi energy
+          convergence in eV. If not specified, uses scipy's default.
+        n_trial_steps (int, optional): Deprecated. Previously set the maximum
+          number of solver iterations. The solver now uses Brent's method
+          which converges reliably without this parameter.
         site_pools (Optional[Dict[str, Tuple[float, List[DefectSpecies]]]], optional):
                 Mapping of pool name → (total sites in that pool, list of
                 DefectSpecies sharing those sites). If None, no site competition
@@ -70,8 +39,8 @@ class DefectSystem(object):
         dos: DOS,
         volume: float,
         temperature: float,
-        convergence_tolerance: float = 1e-18,
-        n_trial_steps: int = 1500,
+        convergence_tolerance: Optional[float] = None,
+        n_trial_steps: Optional[int] = None, # deprecated
         site_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None
     ):
         self.defect_species = defect_species
@@ -79,6 +48,14 @@ class DefectSystem(object):
         self.dos = dos
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
+        if n_trial_steps is not None:
+            warnings.warn(
+                "n_trial_steps is deprecated and will be removed in a future version. "
+                "The solver now uses Brent's method which converges reliably without "
+                "this parameter.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self.n_trial_steps = n_trial_steps
 
         self.site_pools = site_pools or {}
@@ -281,31 +258,26 @@ class DefectSystem(object):
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectSystem":
-        """generate ``DefectSystem`` from a dictionary
-
+        """Generate a DefectSystem from a dictionary.
+    
         Args:
-            filename (str): path to yaml file containing the ``DefectSystem``
-              data
-            structure_file (str): path to file containing volume information.
-              Defaults to an empty string.
-            dos_file (str): path to file containing dos information. Defaults
-              to an empty string.
-
+            dictionary (dict): Dictionary containing the DefectSystem data.
+    
         Returns:
-            DefectSystem: ``DefectSystem`` corresponding to provided yaml file
+            DefectSystem: DefectSystem corresponding to the provided dictionary.
         """
         return cls(
             dos=DOS.from_dict(dictionary["dos"]),
             volume=dictionary["volume"],
             temperature=dictionary["temperature"],
-            convergence_tolerance=dictionary["convergence_tolerance"],
-            n_trial_steps=dictionary["n_trial_steps"],
+            convergence_tolerance=dictionary.get("convergence_tolerance"),
+            n_trial_steps=dictionary.get("n_trial_steps"),
             defect_species=[
                 DefectSpecies.from_dict(defect_species)
                 for defect_species in dictionary["defect_species"]
             ],
         )
-
+        
     def defect_species_by_name(self, name: str) -> DefectSpecies:
         """return a ``DefectSpecies`` contained within the ``DefectSystem``
         via its name.
@@ -317,70 +289,40 @@ class DefectSystem(object):
             DefectSpecies: ``DefectSpecies`` where ``DefectSpecies.name == name``
         """
         return [ds for ds in self.defect_species if ds.name == name][0]
-
+    
     def get_sc_fermi(self) -> Tuple[float, float]:
-        """
-        Solve to find Fermi energy in for which the ``DefectSystem`` is charge neutral
-
+        """Calculate the self-consistent Fermi energy.
+        
+        Finds the Fermi energy at which charge neutrality is achieved,
+        using Brent's method for root finding.
+        
         Returns:
-           Tuple[float, float]: Fermi energy, residual
-
+            Tuple[float, float]: The self-consistent Fermi energy and the
+            absolute residual charge density at that energy.
+        
         Raises:
-          RuntimeError: if the solver fails does not find a valid solution within
-            ``self.dos.emin`` and ``self.dos.emax``
-
-        Note:
-            The solver will return the Fermi energy either when
-            ``self.convergence_tolerance`` is satisfied or when the solver has
-            attempted ``self.n_trial_steps``.
-            The residual is the the absolute charge density of
-            the solver at the end of the last step. Please ensure the residual
-            is satisfactorily low if convergence is not reached. It may be
-            prudent to investigate the convergence of the solver with respect to
-            ``self.n_trial_steps`` and ``self.convergence_tolerance``.
+            RuntimeError: If no solution is found within the DOS energy range.
         """
-        # initial guess
         emin = self.dos.emin()
         emax = self.dos.emax()
-        direction = +1.0
-        e_fermi = (emin + emax) / 2.0
-        step = 1.0
-        reached_e_min = False
-        reached_e_max = False
-
-        # loop until convergence or max number of steps reached
-        with warnings.catch_warnings():
-            warnings.filterwarnings("once")
-            for i in range(self.n_trial_steps):
-                q_tot = self.q_tot(e_fermi=e_fermi)
-                if e_fermi > emax:
-                    if reached_e_min or reached_e_max:
-                        raise RuntimeError(
-                            f"No solution found between {emin} and {emax}"
-                        )
-                    reached_e_max = True
-                    direction = -1.0
-                if e_fermi < emin:
-                    if reached_e_max or reached_e_min:
-                        raise RuntimeError(
-                            f"No solution found between {emin} and {emax}"
-                        )
-                    reached_e_min = True
-                    direction = +1.0
-                if abs(q_tot) < self.convergence_tolerance:
-                    break
-                if q_tot > 0.0:
-                    if direction == +1.0:
-                        step *= 0.25
-                        direction = -1.0
-                elif q_tot < 0.0:
-                    if direction == -1.0:
-                        step *= 0.25
-                        direction = +1.0
-                e_fermi += step * direction
-
-        # return results
-        residual = abs(q_tot)
+        
+        try:
+            kwargs = {}
+            if self.convergence_tolerance is not None:
+                kwargs['xtol'] = self.convergence_tolerance
+            if self.n_trial_steps is not None:
+                kwargs['maxiter'] = self.n_trial_steps
+            
+            e_fermi = brentq(
+                self.q_tot,
+                emin,
+                emax,
+                **kwargs,
+            )  # type: ignore[call-overload]
+        except ValueError:
+            raise RuntimeError(f"No solution found between {emin} and {emax}")
+        
+        residual = abs(self.q_tot(e_fermi))
         return e_fermi, residual
 
     def total_defect_charge_contributions(self, e_fermi: float) -> Tuple[float,float]:
@@ -516,11 +458,13 @@ class DefectSystem(object):
         defect_system_dict = dict(
             volume=float(self.volume),
             temperature=float(self.temperature),
-            n_trial_steps=int(self.n_trial_steps),
             defect_species=[
                 defect_species.as_dict() for defect_species in self.defect_species
             ],
-            convergence_tolerance=float(self.convergence_tolerance),
             dos=self.dos.as_dict(),
         )
+        if self.convergence_tolerance is not None:
+            defect_system_dict["convergence_tolerance"] = self.convergence_tolerance
+        if self.n_trial_steps is not None:
+            defect_system_dict["n_trial_steps"] = self.n_trial_steps
         return defect_system_dict

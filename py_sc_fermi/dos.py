@@ -6,6 +6,8 @@ from scipy.integrate import trapezoid # type: ignore
 from pymatgen.io.vasp import Vasprun # type: ignore
 from pymatgen.electronic_structure.core import Spin  # type: ignore
 
+from py_sc_fermi.warnings import suppresses_numpy_overflow
+
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
@@ -238,6 +240,7 @@ class DOS:
         """
         return np.where(self._edos >= self.bandgap)[0][0]
 
+    @suppresses_numpy_overflow
     def carrier_concentrations(
         self, e_fermi: float, temperature: float
     ) -> Tuple[float, float]:
@@ -260,7 +263,7 @@ class DOS:
         )
         return p0, n0
 
-    def _p_func(self, e_fermi: float, temperature: float) -> float:
+    def _p_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for holes."""
         return self.dos[: self._p0_index() + 1] / (
             1.0
@@ -269,7 +272,7 @@ class DOS:
             )
         )
 
-    def _n_func(self, e_fermi: float, temperature: float) -> float:
+    def _n_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for electrons."""
         return self.dos[self._n0_index() :] / (
             1.0

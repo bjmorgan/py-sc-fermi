@@ -1,6 +1,9 @@
-import numpy as np
-from scipy.constants import physical_constants  # type: ignore
 from typing import List, Dict, Tuple, Optional
+
+import numpy as np
+from scipy.special import logsumexp # type: ignore
+from scipy.constants import physical_constants # type: ignore
+
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
@@ -366,29 +369,30 @@ class DefectSpecies(object):
         """
         results: List[Tuple[DefectChargeState, float]] = []
         for cs in self._charge_states:
-            c_site = cs.get_concentration(e_fermi, temperature)
             if cs.fixed_concentration is not None:
                 c_cell = cs.fixed_concentration
             else:
-                c_cell = c_site * self.nsites
+                c_cell = cs.get_concentration(e_fermi, temperature) * self.nsites
             results.append((cs, c_cell))
 
         if self.fixed_concentration is not None:
-            fixed_sum = sum(c for (cs, c) in results if cs.fixed_concentration is not None)
-            var_sum   = sum(c for (cs, c) in results if cs.fixed_concentration is None)
-            to_alloc  = self.fixed_concentration - fixed_sum
-
-            if var_sum > 0:
-                scale = to_alloc / var_sum
-                for idx, (cs, c) in enumerate(results):
-                    if cs.fixed_concentration is None:
-                        results[idx] = (cs, c * scale)
-            else:
-                if abs(to_alloc) > 0:
-                    raise ValueError(
-                        f"{self.name}: fixed_concentration {self.fixed_concentration} "
-                        f"cannot be satisfied (fixed states sum to {fixed_sum})."
-                    )
+            var_states = [(i, cs) for i, (cs, _) in enumerate(results) if cs.fixed_concentration is None]
+            fixed_conc_total = sum(c for (cs, c) in results if cs.fixed_concentration is not None)
+            constrained_conc = self.fixed_concentration - fixed_conc_total
+            if constrained_conc < 0:
+                raise ValueError(
+                    f"Fixed charge state concentrations ({fixed_conc_total}) exceed "
+                    f"total species concentration ({self.fixed_concentration})"
+                )
+            if var_states:
+                # Use logsumexp for numerically stable Boltzmann proportions
+                log_weights = np.array([
+                    np.log(cs.degeneracy) - cs.get_formation_energy(e_fermi) / (kboltz * temperature)
+                    for _, cs in var_states
+                ])
+                log_total = logsumexp(log_weights)
+                for (idx, cs), log_w in zip(var_states, log_weights):
+                    results[idx] = (cs, np.exp(log_w - log_total) * constrained_conc)
 
         return results
 
