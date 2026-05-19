@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Tuple, Optional
-from scipy.constants import physical_constants
-from scipy.integrate import trapezoid
+from scipy.constants import physical_constants  # type: ignore[import-untyped]
+from scipy.integrate import trapezoid  # type: ignore[import-untyped]
 
-from pymatgen.io.vasp import Vasprun
-from pymatgen.electronic_structure.core import Spin
+from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
+from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
