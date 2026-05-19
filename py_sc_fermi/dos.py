@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Tuple, Optional
-from scipy.constants import physical_constants  # type: ignore
-from scipy.integrate import trapezoid # type: ignore
+from scipy.constants import physical_constants
+from scipy.integrate import trapezoid
 
-from pymatgen.io.vasp import Vasprun # type: ignore
-from pymatgen.electronic_structure.core import Spin  # type: ignore
+from pymatgen.io.vasp import Vasprun
+from pymatgen.electronic_structure.core import Spin
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
@@ -195,11 +195,9 @@ class DOS:
     def sum_dos(self) -> np.ndarray:
         """
         Returns:
-            np.ndarray: integrated density-of-states up to the valence band maximum
+            np.ndarray: integrated density-of-states up to mid-gap
         """
-        vbm_index = np.where(self._edos <= 0)[0][-1]
-        sum1 = trapezoid(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
-        return sum1
+        return trapezoid(self._dos[: self._p0_integration_index()], self._edos[: self._p0_integration_index()])
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
@@ -230,7 +228,7 @@ class DOS:
         Returns:
             int: index of vbm
         """
-        return np.where(self._edos <= 0)[0][-1]
+        return np.argmin(np.abs(self._edos))
 
     def _n0_index(self) -> int:
         """find index of the conduction band minimum (cbm) in ``self.edos``
@@ -238,7 +236,19 @@ class DOS:
         Returns:
             int: index of cbm
         """
-        return np.where(self._edos >= self.bandgap)[0][0]
+        return np.argmin(np.abs(self._edos - self.bandgap))
+
+    def _mid_gap_index(self) -> int:
+        """find index of the mid-gap position in ``self.edos``"""
+        return round(self._p0_index() + (self._n0_index() - self._p0_index()) / 2)
+
+    def _p0_integration_index(self) -> int:
+        """find index of the starting point for integration of hole densities"""
+        return max(self._mid_gap_index(), self._p0_index() + 1)
+
+    def _n0_integration_index(self) -> int:
+        """find index of the starting point for integration of electron densities"""
+        return min(self._mid_gap_index(), self._n0_index() - 1) + 1
 
     @suppresses_numpy_overflow
     def carrier_concentrations(
@@ -255,26 +265,20 @@ class DOS:
         Returns:
             Tuple[float, float]: concentration of holes, concentration of electrons
         """
-        p0 = trapezoid(
-            self._p_func(e_fermi, temperature), self._edos[: self._p0_index() + 1]
-        )
-        n0 = trapezoid(
-            self._n_func(e_fermi, temperature), self._edos[self._n0_index() :]
-        )
+        p0 = trapezoid(self._p_func(e_fermi, temperature), self._edos[: self._p0_integration_index()])
+        n0 = trapezoid(self._n_func(e_fermi, temperature), self._edos[self._n0_integration_index() :])
         return p0, n0
 
     def _p_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for holes."""
-        return self.dos[: self._p0_index() + 1] / (
+        return self.dos[: self._p0_integration_index()] / (
             1.0
-            + np.exp(
-                (e_fermi - self.edos[: self._p0_index() + 1]) / (kboltz * temperature)
-            )
+            + np.exp((e_fermi - self.edos[: self._p0_integration_index()]) / (kboltz * temperature))
         )
 
     def _n_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for electrons."""
-        return self.dos[self._n0_index() :] / (
+        return self.dos[self._n0_integration_index() :] / (
             1.0
-            + np.exp((self.edos[self._n0_index() :] - e_fermi) / (kboltz * temperature))
+            + np.exp((self.edos[self._n0_integration_index() :] - e_fermi) / (kboltz * temperature))
         )

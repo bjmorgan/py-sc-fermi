@@ -31,9 +31,11 @@ class TestDOSInit(unittest.TestCase):
 
 class TestDos(unittest.TestCase):
     def setUp(self):
-        dos_data = np.ones(101)
-        edos = np.linspace(-10.0, 10.0, 101)
+        edos = np.linspace(-10.0, 10.0, 100)
         bandgap = 3.0
+        # Semiconducting DOS: density of 1 in the valence band (E <= 0) and
+        # conduction band (E >= bandgap), zero inside the gap:
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
         nelect = 10
         spin_polarised = False
         self.dos = DOS(
@@ -63,25 +65,24 @@ class TestDos(unittest.TestCase):
         self.assertFalse(self.dos.spin_polarised)
 
     def test_normalise_dos(self):
-        # The integral of rho(E) = 1, from -10.0 to 0, is equal to 10.0
-        # With nelect = 10.0, the normaliss_dos() method should leave
-        # all dos values = 1.0
-        dos_data = np.ones(101)
-        np.testing.assert_equal(self.dos.dos, dos_data)
+        expected = np.where(
+            (self.dos.edos <= 0) | (self.dos.edos >= self.dos.bandgap), 1.0, 0.0
+        )
+        np.testing.assert_allclose(self.dos.dos, expected)
 
     def test_sum_dos(self):
-        dos_data = np.ones(101)
-        dos = DOS(
-            dos=dos_data, edos=np.linspace(-10.0, 10.0, 101), bandgap=1, nelect=10
-        )
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 1.0
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
+        dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=10)
         dos.sum_dos()
-        np.testing.assert_equal(dos.dos, dos_data)
+        np.testing.assert_allclose(dos.dos, dos_data)
 
     def test__p0_index(self):
-        self.assertEqual(self.dos._p0_index(), 50)
+        self.assertEqual(self.dos._p0_index(), 49)
 
     def test__n0_index(self):
-        self.assertEqual(self.dos._n0_index(), 65)
+        self.assertEqual(self.dos._n0_index(), 64)
 
     def test_emin(self):
         self.assertEqual(self.dos.emin(), -10)
@@ -139,35 +140,39 @@ class TestDos(unittest.TestCase):
         )
 
     def test_from_dict(self):
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 3.0
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
         dos = self.dos.from_dict(
             {
-                "dos": np.ones(101),
-                "edos": np.linspace(-10.0, 10.0, 101),
-                "bandgap": 3.0,
+                "dos": dos_data,
+                "edos": edos,
+                "bandgap": bandgap,
                 "nelect": 10,
-                "spin_pol": False
+                "spin_pol": False,
             }
         )
         self.assertEqual(dos.nelect, 10)
-        self.assertEqual(dos.bandgap, 3.0)
-        np.testing.assert_equal(dos.dos, np.ones(101))
+        self.assertEqual(dos.bandgap, bandgap)
+        np.testing.assert_allclose(dos.dos, dos_data)
         self.assertEqual(dos.spin_polarised, False)
 
     def test_from_dict_with_spin_polarised(self):
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 3.0
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
         dos = self.dos.from_dict(
             {
-                "dos": np.array([np.ones(101), np.ones(101)]),
-                "edos": np.linspace(-10.0, 10.0, 101),
-                "bandgap": 3.0,
+                "dos": np.array([dos_data / 2, dos_data / 2]),
+                "edos": edos,
+                "bandgap": bandgap,
                 "nelect": 10,
-                "spin_pol": True
+                "spin_pol": True,
             }
         )
         self.assertEqual(dos.nelect, 10)
         self.assertEqual(dos.bandgap, 3.0)
-        np.testing.assert_equal(
-            dos.dos, np.sum([np.ones(101) / 2, np.ones(101) / 2], axis=0)
-        )
+        np.testing.assert_allclose(dos.dos, dos_data)
         self.assertEqual(dos.spin_polarised, True)
 
     def test_as_dict(self):
