@@ -228,7 +228,7 @@ class DOS:
         Returns:
             int: index of vbm
         """
-        return np.argmin(np.abs(self._edos))
+        return int(np.argmin(np.abs(self._edos)))
 
     def _n0_index(self) -> int:
         """find index of the conduction band minimum (cbm) in ``self.edos``
@@ -236,7 +236,7 @@ class DOS:
         Returns:
             int: index of cbm
         """
-        return np.argmin(np.abs(self._edos - self.bandgap))
+        return int(np.argmin(np.abs(self._edos - self.bandgap)))
 
     def _mid_gap_index(self) -> int:
         """find index of the mid-gap position in ``self.edos``"""
