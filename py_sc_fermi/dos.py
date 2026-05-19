@@ -240,7 +240,7 @@ class DOS:
 
     def _mid_gap_index(self) -> int:
         """find index of the mid-gap position in ``self.edos``"""
-        return round(self._p0_index() + (self._n0_index() - self._p0_index()) / 2)
+        return (self._p0_index() + self._n0_index()) // 2
 
     def _p0_integration_index(self) -> int:
         """find index of the starting point for integration of hole densities"""
