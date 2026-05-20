@@ -26,6 +26,11 @@ docs = [
     "nbsphinx",
     "recommonmark",
 ]
+dev = [
+    "mypy",
+    "types-PyYAML",
+    "pytest",
+]
 
 [project.urls]
 Homepage = "https://github.com/bjmorgan/py-sc-fermi"
