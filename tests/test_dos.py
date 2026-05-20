@@ -171,7 +171,7 @@ class TestDos(unittest.TestCase):
             }
         )
         self.assertEqual(dos.nelect, 10)
-        self.assertEqual(dos.bandgap, 3.0)
+        self.assertEqual(dos.bandgap, bandgap)
         np.testing.assert_allclose(dos.dos, dos_data)
         self.assertEqual(dos.spin_polarised, True)
 
