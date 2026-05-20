@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Tuple, Optional
-from scipy.constants import physical_constants  # type: ignore
-from scipy.integrate import trapezoid # type: ignore
+from scipy.constants import physical_constants  # type: ignore[import-untyped]
+from scipy.integrate import trapezoid  # type: ignore[import-untyped]
 
-from pymatgen.io.vasp import Vasprun # type: ignore
-from pymatgen.electronic_structure.core import Spin  # type: ignore
+from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
+from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
@@ -42,13 +42,33 @@ class DOS:
         else:
             self._dos = dos
 
-        self.normalise_dos()
-
-        if self.bandgap > self.emax():
+        if not (self._edos[0] <= 0 <= self._edos[-1]):
             raise ValueError(
-                """bandgap > max(self.edos). Please check your bandgap and
-                 energy range (self.edos)."""
+                f"DOS energy range must bracket zero (i.e. extend both above and below zero), "
+                f"as the valence band maximum is taken as E=0. "
+                f"Got [{self._edos[0]}, {self._edos[-1]}]."
             )
+        if self._bandgap > self.emax():
+            raise ValueError(
+                f"bandgap ({self._bandgap}) > max(edos) ({self.emax()}); "
+                f"check your bandgap and energy range."
+            )
+
+        # band-edge indices are determined as those closest to zero (for VBM) and bandgap (for CBM), rather
+        # than previous first-index-below-or-equal-to-zero and first-index-above-or-equal-to-bandgap, to
+        # avoid issues with accumulated noise in `edos` (e.g. ``edos`` of [-0.9999, 0.0001, 1.0001] should
+        # give VBM (``_p0_idx``) of 0.0001 not -0.9999:
+        self._p0_idx = int(np.argmin(np.abs(self._edos)))
+        self._n0_idx = int(np.argmin(np.abs(self._edos - self._bandgap)))
+
+        # Cache integration indices — these depend only on edos and bandgap,
+        # neither of which can change after construction. Must be set before
+        # normalise_dos(), which reads _p0_integration_idx via sum_dos().
+        mid_gap = (self._p0_idx + self._n0_idx) // 2
+        self._p0_integration_idx = max(mid_gap, self._p0_idx + 1)
+        self._n0_integration_idx = min(mid_gap, self._n0_idx - 1) + 1
+
+        self.normalise_dos()
 
     @property
     def dos(self) -> np.ndarray:
@@ -195,11 +215,11 @@ class DOS:
     def sum_dos(self) -> np.ndarray:
         """
         Returns:
-            np.ndarray: integrated density-of-states up to the valence band maximum
+            np.ndarray: integrated density-of-states up to mid-gap, or up to
+                the grid point closest to the VBM if that sits above mid-gap
+                (narrow-gap case).
         """
-        vbm_index = np.where(self._edos <= 0)[0][-1]
-        sum1 = trapezoid(self._dos[: vbm_index + 1], self._edos[: vbm_index + 1])
-        return sum1
+        return trapezoid(self._dos[: self._p0_integration_idx], self._edos[: self._p0_integration_idx])
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
@@ -224,22 +244,6 @@ class DOS:
         """
         return self._edos[-1]
 
-    def _p0_index(self) -> int:
-        """find index of the valence band maximum (vbm) in ``self.edos``
-
-        Returns:
-            int: index of vbm
-        """
-        return np.where(self._edos <= 0)[0][-1]
-
-    def _n0_index(self) -> int:
-        """find index of the conduction band minimum (cbm) in ``self.edos``
-
-        Returns:
-            int: index of cbm
-        """
-        return np.where(self._edos >= self.bandgap)[0][0]
-
     @suppresses_numpy_overflow
     def carrier_concentrations(
         self, e_fermi: float, temperature: float
@@ -255,26 +259,20 @@ class DOS:
         Returns:
             Tuple[float, float]: concentration of holes, concentration of electrons
         """
-        p0 = trapezoid(
-            self._p_func(e_fermi, temperature), self._edos[: self._p0_index() + 1]
-        )
-        n0 = trapezoid(
-            self._n_func(e_fermi, temperature), self._edos[self._n0_index() :]
-        )
+        p0 = trapezoid(self._p_func(e_fermi, temperature), self._edos[: self._p0_integration_idx])
+        n0 = trapezoid(self._n_func(e_fermi, temperature), self._edos[self._n0_integration_idx :])
         return p0, n0
 
     def _p_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for holes."""
-        return self.dos[: self._p0_index() + 1] / (
+        return self.dos[: self._p0_integration_idx] / (
             1.0
-            + np.exp(
-                (e_fermi - self.edos[: self._p0_index() + 1]) / (kboltz * temperature)
-            )
+            + np.exp((e_fermi - self.edos[: self._p0_integration_idx]) / (kboltz * temperature))
         )
 
     def _n_func(self, e_fermi: float, temperature: float) -> np.ndarray:
         """Fermi Dirac distribution for electrons."""
-        return self.dos[self._n0_index() :] / (
+        return self.dos[self._n0_integration_idx :] / (
             1.0
-            + np.exp((self.edos[self._n0_index() :] - e_fermi) / (kboltz * temperature))
+            + np.exp((self.edos[self._n0_integration_idx :] - e_fermi) / (kboltz * temperature))
         )
