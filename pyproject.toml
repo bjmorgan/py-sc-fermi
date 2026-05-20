@@ -43,5 +43,8 @@ sc_fermi_solve = "py_sc_fermi.cli.sc_fermi_solve:main"
 [tool.setuptools]
 packages = ["py_sc_fermi"]
 
+[tool.setuptools.package-data]
+py_sc_fermi = ["py.typed"]
+
 [tool.setuptools.dynamic]
 version = {attr = "py_sc_fermi.__version__"}
