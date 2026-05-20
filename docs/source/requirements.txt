@@ -1,5 +1,0 @@
-sphinx>=1.6.3
-nbsphinx
-sphinx-rtd-theme
-recommonmark
-numpy

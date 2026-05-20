@@ -24,7 +24,13 @@ Alternatively, the latest development build can be installed by cloning this rep
 ```
 git clone https://github.com/bjmorgan/py-sc-fermi.git
 cd py-sc-fermi
-pip install .
+pip install -e .
+```
+
+To build the documentation locally, install with the `docs` extra:
+
+```
+pip install -e ".[docs]"
 ```
 
 ## Contributing
