@@ -1,7 +1,6 @@
 import numpy as np
-from typing import Tuple, Optional
-from scipy.constants import physical_constants  # type: ignore[import-untyped]
-from scipy.integrate import trapezoid  # type: ignore[import-untyped]
+from scipy.constants import physical_constants
+from scipy.integrate import trapezoid
 
 from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
 from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
@@ -124,8 +123,8 @@ class DOS:
     def from_vasprun(
         cls,
         path_to_vasprun: str,
-        nelect: Optional[int] = None,
-        bandgap: Optional[float] = None,
+        nelect: int | None = None,
+        bandgap: float | None = None,
     ) -> "DOS":
         """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
@@ -136,7 +135,7 @@ class DOS:
             path_to_vasprun (str): path to vasprun file
             nelect (int): number of electrons in vasp calculation associated with
               the vasprun
-            bandgap (Optional[float], optional): bandgap. Defaults to None.
+            bandgap (float | None, optional): bandgap. Defaults to None.
         """
         vr = Vasprun(
             path_to_vasprun,
@@ -251,7 +250,7 @@ class DOS:
     @suppresses_numpy_overflow
     def carrier_concentrations(
         self, e_fermi: float, temperature: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """return electron and hole carrier concentrations from the Fermi-Dirac
         distribution multiplied by the density-of-states at a given Fermi energy
         and temperature.
@@ -261,7 +260,7 @@ class DOS:
             temperature (float): temperature
 
         Returns:
-            Tuple[float, float]: concentration of holes, concentration of electrons
+            tuple[float, float]: concentration of holes, concentration of electrons
         """
         p0 = trapezoid(self._p_func(e_fermi, temperature), self._edos[: self._p0_integration_idx])
         n0 = trapezoid(self._n_func(e_fermi, temperature), self._edos[self._n0_integration_idx :])

@@ -29,6 +29,7 @@ docs = [
 dev = [
     "mypy",
     "types-PyYAML",
+    "scipy-stubs",
     "pytest",
 ]
 

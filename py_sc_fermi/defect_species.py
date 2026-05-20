@@ -1,8 +1,6 @@
-from typing import List, Dict, Tuple, Optional
-
 import numpy as np
-from scipy.special import logsumexp # type: ignore
-from scipy.constants import physical_constants # type: ignore
+from scipy.special import logsumexp
+from scipy.constants import physical_constants
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
@@ -15,7 +13,7 @@ class DefectSpecies(object):
            e.g. ``"V_O"`` might be used for an oxygen vacancy.
         nsites (int): Number of sites energetically degenerate sites where this
          defect can form in the unit cell (the site degeneracy).
-        charge_states (Dict[int, DefectChargeState]): A dictionary of
+        charge_states (dict[int, DefectChargeState]): A dictionary of
            ``DefectChargeState`` with their charge as the key, i.e.
            {charge : ``DefectChargeState``}
 
@@ -25,8 +23,8 @@ class DefectSpecies(object):
         self,
         name: str,
         nsites: int,
-        charge_states: Dict[int, DefectChargeState],
-        fixed_concentration: Optional[float] = None,
+        charge_states: dict[int, DefectChargeState],
+        fixed_concentration: float | None = None,
     ):
         """Instantiate a DefectSpecies object."""
 
@@ -64,32 +62,32 @@ class DefectSpecies(object):
     @property
     def charge_states(
         self,
-    ) -> Dict[int, DefectChargeState]:
+    ) -> dict[int, DefectChargeState]:
         """
 
         Returns:
-            Dict[int, DefectChargeState]: The charge states of this defect
+            dict[int, DefectChargeState]: The charge states of this defect
             species as a dictionary of ``{charge (int): DefectChargeState}``
             key-value pairs"""
         return self._charge_states
 
     @property
-    def charges(self) -> List[int]:
+    def charges(self) -> list[int]:
         """list of all the charges of the ``DefectChargeState`` objects that
         comprise this ``DefectSpecies``
 
         Returns:
-            List[int]: list of charge states of this ``DefectSpecies``
+            list[int]: list of charge states of this ``DefectSpecies``
         """
         return list(self.charge_states.keys())
 
     @property
-    def fixed_concentration(self) -> Optional[float]:
+    def fixed_concentration(self) -> float | None:
         """fixed concentration of the ``DefectSpecies``. ``None`` if the
         concentration of this defect is variable.
 
         Returns:
-            Optional[float]: fixed concentration per unit cell of the
+            float | None: fixed concentration per unit cell of the
             ``DefectSpecies``
         """
         return self._fixed_concentration
@@ -142,13 +140,13 @@ class DefectSpecies(object):
             )
 
     @classmethod
-    def _from_list_of_strings(cls, defect_string: List[str]):
+    def _from_list_of_strings(cls, defect_string: list[str]):
         """generate a ``DefectSpecies`` object from a string containing the defect
         species data. Only intended for use reading defect species from a
         SC-Fermi input file.
 
         Args:
-            defect_string (List[str]): list of strings describing the
+            defect_string (list[str]): list of strings describing the
             ``DefectSpecies``
 
         Returns:
@@ -168,7 +166,7 @@ class DefectSpecies(object):
 
     def charge_states_by_formation_energy(
         self, e_fermi: float
-    ) -> List[DefectChargeState]:
+    ) -> list[DefectChargeState]:
         """Returns a list of charge states sorted by formation energy at a given
         Fermi energy.
 
@@ -176,7 +174,7 @@ class DefectSpecies(object):
             e_fermi (float): Fermi energy
 
         Returns:
-            List[DefectChargeState]: list of ``DefectChargeState`` objects in this
+            list[DefectChargeState]: list of ``DefectChargeState`` objects in this
             ``DefectSpecies`` sorted by formation energy at ``e_fermi``.
 
         Note:
@@ -222,7 +220,7 @@ class DefectSpecies(object):
         """
         return self.charge_states_by_formation_energy(e_fermi)[0]
 
-    def get_formation_energies(self, e_fermi: float) -> Dict[int, float]:
+    def get_formation_energies(self, e_fermi: float) -> dict[int, float]:
         """Returns a dictionary of formation energies for all
         ``DefectChargeState`` objects in this ``DefectSpecies``.
         Formation energies are calculated at E[Fermi] relative to E[VBM].
@@ -231,7 +229,7 @@ class DefectSpecies(object):
             e_fermi (float): fermi energy
 
         Returns:
-            Dict[int, float]: key-value pairs of charge on ``DefectChargeState``
+            dict[int, float]: key-value pairs of charge on ``DefectChargeState``
             objects that comprise this ``DefectSpecies`` and their formation energy,
             i.e ``{DefectChargeState.charge : formation_energy}``
 
@@ -276,7 +274,7 @@ class DefectSpecies(object):
         points.append((efermi_max, form_e))
         return np.array(points)
 
-    def get_transition_level_and_energy(self, q1: int, q2: int) -> Tuple[float, float]:
+    def get_transition_level_and_energy(self, q1: int, q2: int) -> tuple[float, float]:
         """Calculates the Fermi energy and formation
         energy for the transition level between charge states q1 and q2.
 
@@ -285,7 +283,7 @@ class DefectSpecies(object):
             q2 (int): charge on second ``DefectChargeState`` of interest
 
         Returns:
-            Tuple[float, float]: Fermi energy and formation energy of the
+            tuple[float, float]: Fermi energy and formation energy of the
             transition level between ``DefectChargeState`` objects with charges
             q1 and q2.
         """
@@ -317,13 +315,13 @@ class DefectSpecies(object):
 
     def fixed_conc_charge_states(
         self,
-    ) -> Dict[int, DefectChargeState]:
+    ) -> dict[int, DefectChargeState]:
         """get ``DefectChargeState`` objects of this ``DefectSpecies`` with fixed
         concentration
         (i.e those for which ``DefectChargeState.fixed_concentration != None``)
 
         Returns:
-            Dict[int, DefectChargeState]: key-value pairs of charge on fixed
+            dict[int, DefectChargeState]: key-value pairs of charge on fixed
             concentration ``DefectChargeState`` objects, and the charge state
             which is variable, i.e. ``{DefectChargeState.charge : DefectChargeState}``
         """
@@ -333,12 +331,12 @@ class DefectSpecies(object):
             if cs.fixed_concentration is not None
         }
 
-    def variable_conc_charge_states(self) -> Dict[int, DefectChargeState]:
+    def variable_conc_charge_states(self) -> dict[int, DefectChargeState]:
         """get ``DefectChargeState`` objects in this ``DefectSpecies`` with variable
         concentration (i.e those with ``DefectChargeState.fixed_concentration == None``)
 
         Returns:
-            Dict[int, DefectChargeState]: key-value pairs of charge on variable
+            dict[int, DefectChargeState]: key-value pairs of charge on variable
             concentration ``DefectChargeState`` objects within this ``DefectSpecies``,
             and the charge state which is variable, i.e.
             ``{DefectChargeState.charge : DefectChargeState}``
@@ -351,7 +349,7 @@ class DefectSpecies(object):
 
     def charge_state_concentrations(
         self, e_fermi: float, temperature: float
-    ) -> Dict[int, float]:
+    ) -> dict[int, float]:
         """Calculate the concentrations of the different charge states.
     
         At a given Fermi energy and temperature, calculate the concentrations
@@ -366,7 +364,7 @@ class DefectSpecies(object):
             temperature (float): temperature
     
         Returns:
-            Dict[int, float]: key-value pairs of charge of each
+            dict[int, float]: key-value pairs of charge of each
             ``DefectChargeState`` and the concentration of the
             ``DefectChargeState`` with that charge, i.e.
             {``DefectChargeState.charge``: concentration}
@@ -421,7 +419,7 @@ class DefectSpecies(object):
 
     def defect_charge_contributions(
         self, e_fermi: float, temperature: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Calculate the defect charge contributions to the total charge of this
         ``DefectSpecies`` at a given Fermi energy and temperature.
@@ -431,7 +429,7 @@ class DefectSpecies(object):
             temperature (float): temperature
 
         Returns:
-            Tuple[float, float]: charge contributions of the
+            tuple[float, float]: charge contributions of the
             ``DefectChargeState`` objects that comprise this ``DefectSpecies``
             at the given Fermi energy and temperature.
         """

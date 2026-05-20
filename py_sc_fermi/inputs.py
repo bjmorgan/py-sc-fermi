@@ -5,8 +5,7 @@ from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.dos import DOS
 from pymatgen.core import Structure # type: ignore
-from typing import Optional, List
-import yaml # type: ignore
+import yaml
 import os
 
 InputFermiData = namedtuple(
@@ -19,10 +18,10 @@ InputFermiData = namedtuple(
 class InputSet:
     dos: DOS
     volume: float
-    defect_species: List[DefectSpecies]
+    defect_species: list[DefectSpecies]
     temperature: float
-    convergence_tolerance: Optional[float] = None
-    n_trial_steps: Optional[int] = None
+    convergence_tolerance: float | None = None
+    n_trial_steps: int | None = None
 
     @classmethod
     def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = "", fixed_conc_units: str = "cm^-3"):
@@ -131,8 +130,8 @@ class InputSet:
         input_file: str,
         structure_file: str,
         dos_file: str,
-        n_trial_steps: Optional[int] = None,
-        convergence_tolerance: Optional[float] = None,
+        n_trial_steps: int | None = None,
+        convergence_tolerance: float | None = None,
         frozen: bool = False,
     ) -> "InputSet":
         """Generate an InputSet object from a
@@ -204,7 +203,7 @@ def volume_from_unitcell(filename: str) -> float:
 
 
 def read_input_fermi(
-    filename: str, volume: Optional[float] = None, frozen: bool = False
+    filename: str, volume: float | None = None, frozen: bool = False
 ) -> InputFermiData:
     """Return all information from a input file correctly formatted to work
     for `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_.

@@ -1,8 +1,8 @@
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Any
 import warnings
 
 import numpy as np
-from scipy.optimize import brentq # type: ignore
+from scipy.optimize import brentq
 
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
@@ -16,7 +16,7 @@ class DefectSystem(object):
     conditions.
 
     Args:
-        defect_species (List[DefectSpecies]): List of ``DefectSpecies`` objects
+        defect_species (list[DefectSpecies]): List of ``DefectSpecies`` objects
           which are present in the ``DefectSystem``.
         volume (float): volume of the unit cell in Angstroms cubed
         dos (DOS): the ``DOS`` object associated with the unit cell
@@ -31,12 +31,12 @@ class DefectSystem(object):
 
     def __init__(
         self,
-        defect_species: List[DefectSpecies],
+        defect_species: list[DefectSpecies],
         dos: DOS,
         volume: float,
         temperature: float,
-        convergence_tolerance: Optional[float] = None,
-        n_trial_steps: Optional[int] = None, # deprecated
+        convergence_tolerance: float | None = None,
+        n_trial_steps: int | None = None, # deprecated
     ):
         self.defect_species = defect_species
         self.volume = volume
@@ -67,12 +67,12 @@ class DefectSystem(object):
         return "".join(to_return)
 
     @property
-    def defect_species_names(self) -> List[str]:
+    def defect_species_names(self) -> list[str]:
         """list of the names of all ``DefectSpecies`` considered in the
         ``DefectSystem``.
 
         Returns:
-            List[str]: list of names of ``DefectSpecies`` objects
+            list[str]: list of names of ``DefectSpecies`` objects
         """
         return [ds.name for ds in self.defect_species]
 
@@ -156,14 +156,14 @@ class DefectSystem(object):
         """
         return [ds for ds in self.defect_species if ds.name == name][0]
     
-    def get_sc_fermi(self) -> Tuple[float, float]:
+    def get_sc_fermi(self) -> tuple[float, float]:
         """Calculate the self-consistent Fermi energy.
         
         Finds the Fermi energy at which charge neutrality is achieved,
         using Brent's method for root finding.
         
         Returns:
-            Tuple[float, float]: The self-consistent Fermi energy and the
+            tuple[float, float]: The self-consistent Fermi energy and the
             absolute residual charge density at that energy.
         
         Raises:
@@ -233,7 +233,7 @@ class DefectSystem(object):
                 string += f"           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}\n"
         return string
 
-    def total_defect_charge_contributions(self, e_fermi: float) -> Tuple[float, float]:
+    def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float, float]:
         """
         Calculate the charge contributions from each ``DefectSpecies`` in all charge
         states to the total charge density
@@ -242,7 +242,7 @@ class DefectSystem(object):
             e_fermi (float): Fermi energy
 
         Returns:
-            Tuple[float, float]: charge contributions of positive (lhs) and
+            tuple[float, float]: charge contributions of positive (lhs) and
             negative (rhs) charge states of all defects
         """
         contrib = np.array(
@@ -274,13 +274,13 @@ class DefectSystem(object):
         diff = rhs - lhs
         return diff
 
-    def get_transition_levels(self) -> Dict[str, List[List]]:
+    def get_transition_levels(self) -> dict[str, list[list]]:
         """Return transition_levels transition levels profiles of all ``DefectSpecies``
         all defects as dictionary of ``{DefectSpecies.name : [e_fermi, e_formation]}``
         over the whole density of states energy range.
 
         Returns:
-            Dict[str, List[List]]: Dictionary giving per-defect transition-level
+            dict[str, list[list]]: Dictionary giving per-defect transition-level
             profiles.
         """
         transition_levels = {}
@@ -297,7 +297,7 @@ class DefectSystem(object):
         self,
         decomposed: bool = False,
         per_volume: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Returns a dictionary of the properties of the ``DefectSystem`` object
         after solving for the self-consistent Fermi energy.
 
@@ -310,7 +310,7 @@ class DefectSystem(object):
               of cm^-3, else returns concentration per unit cell. Defaults to True.
 
         Returns:
-            Dict[str, Any]: dictionary specifying the Fermi Energy,
+            dict[str, Any]: dictionary specifying the Fermi Energy,
             hole concentration (``"p0"``), electron concentration
             (``"n0"``), temperature, and the defect concentrations.
         """
@@ -349,13 +349,13 @@ class DefectSystem(object):
 
     def site_percentages(
         self, 
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Returns a dictionary of the DefectSpecies in the DefectSystem which
         giving the percentage of the sites in the structure that will host that 
         defect.
 
         Returns:
-            Dict[str, Any]: dictionary specifying the per-DefectSpecies site
+            dict[str, Any]: dictionary specifying the per-DefectSpecies site
             concentrations.
         """
 

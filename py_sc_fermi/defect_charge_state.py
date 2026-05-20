@@ -1,6 +1,5 @@
-import numpy as np  # type: ignore
-from scipy.constants import physical_constants  # type: ignore
-from typing import Optional
+import numpy as np
+from scipy.constants import physical_constants
 import warnings
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
@@ -22,8 +21,8 @@ class DefectChargeState:
         self,
         charge: int,
         degeneracy: int = 1,
-        energy: Optional[float] = None,
-        fixed_concentration: Optional[float] = None,
+        energy: float | None = None,
+        fixed_concentration: float | None = None,
     ):
         if energy is None and fixed_concentration is None:
             raise ValueError(
@@ -39,11 +38,11 @@ class DefectChargeState:
         self._fixed_concentration = fixed_concentration
 
     @property
-    def energy(self) -> Optional[float]:
+    def energy(self) -> float | None:
         """formation energy of the ``DefectChargeState`` at E[vbm] (E[Fermi] = 0)
 
         Returns:
-            Optional[float]: formation energy
+            float | None: formation energy
         """
         return self._energy
 
@@ -66,18 +65,18 @@ class DefectChargeState:
         return self._degeneracy
 
     @property
-    def fixed_concentration(self) -> Optional[float]:
+    def fixed_concentration(self) -> float | None:
         """fixed concentration of this ``DefectChargeState`` or ``None`` if the
         concentration is free to vary.
 
         Returns:
-            Optional[float]: fixed concentration per unit cell
+            float | None: fixed concentration per unit cell
         """
         return self._fixed_concentration
 
     @classmethod
     def from_string(
-        cls, string: str, volume: Optional[float] = None, frozen: bool = False
+        cls, string: str, volume: float | None = None, frozen: bool = False
     ) -> "DefectChargeState":
         """
         Create a ``DefectChargeState`` from a given string. This method was
@@ -106,7 +105,7 @@ class DefectChargeState:
 
         Args:
             string (str): string representation of the ``DefectChargeState``
-            volume (Optional[float], optional): volume of the unit cell, only
+            volume (float | None, optional): volume of the unit cell, only
                 if ``frozen == True``. Defaults to ``None``.
             frozen (bool, optional): if ``True`` the concentration of this
                 ``DefectChargeState`` cannot change when solving for a self
