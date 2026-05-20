@@ -18,8 +18,6 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -U numpy
           pip install mypy
           pip install types-PyYAML
           pip install pytest

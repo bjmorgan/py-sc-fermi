@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py_sc_fermi"
-dynamic = ["version", "dependencies"]
+dynamic = ["version"]
 description = "Self-consistent Fermi Analysis"
 authors = [
     {name = "Benjamin J. Morgan", email = "b.j.morgan@bath.ac.uk"},
@@ -13,6 +13,12 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
+dependencies = [
+    "numpy",
+    "scipy",
+    "pymatgen",
+    "pyyaml",
+]
 
 [project.urls]
 Homepage = "https://github.com/bjmorgan/py-sc-fermi"
@@ -26,4 +32,3 @@ packages = ["py_sc_fermi"]
 
 [tool.setuptools.dynamic]
 version = {attr = "py_sc_fermi.__version__"}
-dependencies = {file = ["requirements.txt"]}
