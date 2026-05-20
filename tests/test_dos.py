@@ -31,9 +31,11 @@ class TestDOSInit(unittest.TestCase):
 
 class TestDos(unittest.TestCase):
     def setUp(self):
-        dos_data = np.ones(101)
-        edos = np.linspace(-10.0, 10.0, 101)
+        edos = np.linspace(-10.0, 10.0, 100)
         bandgap = 3.0
+        # Semiconducting DOS: density of 1 in the valence band (E <= 0) and
+        # conduction band (E >= bandgap), zero inside the gap:
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
         nelect = 10
         spin_polarised = False
         self.dos = DOS(
@@ -63,25 +65,24 @@ class TestDos(unittest.TestCase):
         self.assertFalse(self.dos.spin_polarised)
 
     def test_normalise_dos(self):
-        # The integral of rho(E) = 1, from -10.0 to 0, is equal to 10.0
-        # With nelect = 10.0, the normaliss_dos() method should leave
-        # all dos values = 1.0
-        dos_data = np.ones(101)
-        np.testing.assert_equal(self.dos.dos, dos_data)
+        expected = np.where(
+            (self.dos.edos <= 0) | (self.dos.edos >= self.dos.bandgap), 1.0, 0.0
+        )
+        np.testing.assert_allclose(self.dos.dos, expected)
 
     def test_sum_dos(self):
-        dos_data = np.ones(101)
-        dos = DOS(
-            dos=dos_data, edos=np.linspace(-10.0, 10.0, 101), bandgap=1, nelect=10
-        )
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 1.0
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
+        dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=10)
         dos.sum_dos()
-        np.testing.assert_equal(dos.dos, dos_data)
+        np.testing.assert_allclose(dos.dos, dos_data)
 
-    def test__p0_index(self):
-        self.assertEqual(self.dos._p0_index(), 50)
+    def test__p0_idx(self):
+        self.assertEqual(self.dos._p0_idx, 49)
 
-    def test__n0_index(self):
-        self.assertEqual(self.dos._n0_index(), 65)
+    def test__n0_idx(self):
+        self.assertEqual(self.dos._n0_idx, 64)
 
     def test_emin(self):
         self.assertEqual(self.dos.emin(), -10)
@@ -95,6 +96,60 @@ class TestDos(unittest.TestCase):
             4.28893131265779e-27,
             1.7780649634855188e-30,
         )
+
+    def test_carrier_concentrations_robust_to_band_edge_index(self):
+        # carrier concentrations should be insensitive to the exact, noisy,
+        # auto-determined VBM/CBM indices. Here the physical DOS is held fixed
+        # (band edges at 0 and 3 eV) while the supplied bandgap is perturbed,
+        # which shifts the determined CBM index (_n0_idx) by two grid points,
+        # however the result should be unchanged:
+        edos = np.linspace(-10.0, 10.0, 100)
+        dos_data = np.where((edos <= 0) | (edos >= 3.0), 1.0, 0.0)
+        nelect = 10
+        e_fermi, T = 1.5, 298
+
+        result_exact = DOS(
+            dos=dos_data, edos=edos, bandgap=3.0, nelect=nelect
+        ).carrier_concentrations(e_fermi, T)
+        result_noisy = DOS(
+            dos=dos_data, edos=edos, bandgap=3.3, nelect=nelect
+        ).carrier_concentrations(e_fermi, T)
+
+        # sanity-check that the perturbed bandgap really does move the
+        # auto-determined band-edge index that the integration bound is built on
+        self.assertNotEqual(
+            DOS(dos=dos_data, edos=edos, bandgap=3.0, nelect=nelect)._n0_idx,
+            DOS(dos=dos_data, edos=edos, bandgap=3.3, nelect=nelect)._n0_idx,
+        )
+        np.testing.assert_allclose(result_exact, result_noisy, rtol=1e-3)
+
+    def test_integration_indices(self):
+        # default fixture (bandgap 3.0): p0_idx=49, n0_idx=64,
+        # mid_gap=(49+64)//2=56, so integration runs to mid-gap.
+        self.assertEqual(self.dos._p0_integration_idx, 56)
+        self.assertEqual(self.dos._n0_integration_idx, 57)
+
+    def test_integration_indices_narrow_bandgap_clamping(self):
+        # For a bandgap narrower than one grid spacing, mid-gap collapses onto
+        # the band-edge indices and the max(...)/min(...) clamps keep the hole
+        # and electron integration ranges valid and non-overlapping.
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 0.1  # narrower than the ~0.2 eV grid spacing
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
+        dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=10)
+        self.assertEqual(dos._p0_idx, 49)
+        self.assertEqual(dos._n0_idx, 50)
+        # mid_gap=(49+50)//2 = 49 alone would make the hole range end before
+        # p0_idx, the clamps push both integration bounds to 50:
+        self.assertEqual(dos._p0_integration_idx, 50)  # (min, 50]
+        self.assertEqual(dos._n0_integration_idx, 50)  # [50, max)
+
+    def test_edos_must_bracket_zero(self):
+        edos = np.linspace(1.0, 10.0, 100)  # does not bracket E=0
+        dos_data = np.ones_like(edos)
+        with self.assertRaises(ValueError) as context:
+            DOS(dos=dos_data, edos=edos, bandgap=3.0, nelect=10)
+        self.assertIn("DOS energy range must bracket zero", str(context.exception))
 
     def test_from_vasprun(self):
         dos = self.dos.from_vasprun(test_vasprun_filename, nelect=320)
@@ -139,35 +194,39 @@ class TestDos(unittest.TestCase):
         )
 
     def test_from_dict(self):
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 3.0
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
         dos = self.dos.from_dict(
             {
-                "dos": np.ones(101),
-                "edos": np.linspace(-10.0, 10.0, 101),
-                "bandgap": 3.0,
+                "dos": dos_data,
+                "edos": edos,
+                "bandgap": bandgap,
                 "nelect": 10,
-                "spin_pol": False
+                "spin_pol": False,
             }
         )
         self.assertEqual(dos.nelect, 10)
-        self.assertEqual(dos.bandgap, 3.0)
-        np.testing.assert_equal(dos.dos, np.ones(101))
+        self.assertEqual(dos.bandgap, bandgap)
+        np.testing.assert_allclose(dos.dos, dos_data)
         self.assertEqual(dos.spin_polarised, False)
 
     def test_from_dict_with_spin_polarised(self):
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 3.0
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
         dos = self.dos.from_dict(
             {
-                "dos": np.array([np.ones(101), np.ones(101)]),
-                "edos": np.linspace(-10.0, 10.0, 101),
-                "bandgap": 3.0,
+                "dos": np.array([dos_data / 2, dos_data / 2]),
+                "edos": edos,
+                "bandgap": bandgap,
                 "nelect": 10,
-                "spin_pol": True
+                "spin_pol": True,
             }
         )
         self.assertEqual(dos.nelect, 10)
-        self.assertEqual(dos.bandgap, 3.0)
-        np.testing.assert_equal(
-            dos.dos, np.sum([np.ones(101) / 2, np.ones(101) / 2], axis=0)
-        )
+        self.assertEqual(dos.bandgap, bandgap)
+        np.testing.assert_allclose(dos.dos, dos_data)
         self.assertEqual(dos.spin_polarised, True)
 
     def test_as_dict(self):
