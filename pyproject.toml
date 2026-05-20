@@ -20,6 +20,13 @@ dependencies = [
     "pyyaml",
 ]
 
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "nbsphinx",
+    "recommonmark",
+]
+
 [project.urls]
 Homepage = "https://github.com/bjmorgan/py-sc-fermi"
 Download = "https://github.com/bjmorgan/py-sc-fermi/archive/v{version}.tar.gz"
