@@ -49,10 +49,15 @@ class DOS:
                 f"maximum is taken as E=0. Got an energy range of [{self._edos[0]}, {self._edos[-1]}]."
             )
 
-        # Cache integration indices — depend only on edos and bandgap,
-        # before normalise_dos(), which reads _p0_int_idx via sum_dos().
+        # band-edge indices are determined as those closest to zero (for VBM) and bandgap (for CBM), rather
+        # than previous first-index-below-or-equal-to-zero and first-index-above-or-equal-to-bandgap, to
+        # avoid issues with accumulated noise in `edos` (e.g. ``edos`` of [-0.9999, 0.0001, 1.0001] should
+        # give VBM (``_p0_idx``) of 0.0001 not -0.9999:
         self._p0_idx = int(np.argmin(np.abs(self._edos)))
         self._n0_idx = int(np.argmin(np.abs(self._edos - self._bandgap)))
+
+        # Cache integration indices — depend only on edos and bandgap,
+        # before normalise_dos(), which reads _p0_int_idx via sum_dos():
         mid_gap = (self._p0_idx + self._n0_idx) // 2
         self._p0_integration_idx = max(mid_gap, self._p0_idx + 1)
         self._n0_integration_idx = min(mid_gap, self._n0_idx - 1) + 1
