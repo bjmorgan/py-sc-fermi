@@ -48,6 +48,10 @@ class DOS:
                 f"as the valence band maximum is taken as E=0. "
                 f"Got [{self._edos[0]}, {self._edos[-1]}]."
             )
+        if self._bandgap < 0:
+            raise ValueError(
+                f"bandgap must be non-negative, got {self._bandgap}."
+            )
         if self._bandgap > self.emax():
             raise ValueError(
                 f"bandgap ({self._bandgap}) > max(edos) ({self.emax()}); "

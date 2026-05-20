@@ -151,6 +151,13 @@ class TestDos(unittest.TestCase):
             DOS(dos=dos_data, edos=edos, bandgap=3.0, nelect=10)
         self.assertIn("DOS energy range must bracket zero", str(context.exception))
 
+    def test_negative_bandgap_rejected(self):
+        edos = np.linspace(-10.0, 10.0, 100)
+        dos_data = np.ones_like(edos)
+        with self.assertRaises(ValueError) as context:
+            DOS(dos=dos_data, edos=edos, bandgap=-1.0, nelect=10)
+        self.assertIn("bandgap must be non-negative", str(context.exception))
+
     def test_from_vasprun(self):
         dos = self.dos.from_vasprun(test_vasprun_filename, nelect=320)
         self.assertEqual(dos.nelect, 320)
