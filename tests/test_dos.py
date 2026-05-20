@@ -79,10 +79,10 @@ class TestDos(unittest.TestCase):
         np.testing.assert_allclose(dos.dos, dos_data)
 
     def test__p0_index(self):
-        self.assertEqual(self.dos._p0_index(), 49)
+        self.assertEqual(self.dos._p0_idx, 49)
 
     def test__n0_index(self):
-        self.assertEqual(self.dos._n0_index(), 64)
+        self.assertEqual(self.dos._n0_idx, 64)
 
     def test_emin(self):
         self.assertEqual(self.dos.emin(), -10)
