@@ -16,7 +16,7 @@ license = {text = "MIT"}
 dependencies = [
     "numpy",
     "scipy",
-    "pymatgen",
+    "pymatgen-core",
     "pyyaml",
 ]
 
