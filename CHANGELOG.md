@@ -1,5 +1,45 @@
 # Change log
 
+## V2.2.0
+
+### Improvements
+
+- DOS integrations are now more robust to noise / band-edge effects (#55).
+  Carrier-density integrations terminate near mid-gap rather than at
+  auto-determined VBM/CBM indices, making the result largely independent
+  of band-edge index location. Band-edge indices are now determined by
+  closest grid point to E=0 (VBM) and E=bandgap (CBM), eliminating
+  sensitivity to small noise in the energy grid. Aligns with the
+  equivalent change in pymatgen's FermiDos.
+
+### Bug Fixes
+
+- DOS construction now validates that the energy range brackets zero
+  (the VBM convention) and that bandgap ≤ max(edos), raising a
+  `ValueError` on invalid input (#55).
+- DOS construction now rejects negative bandgaps, which previously
+  produced silently incorrect carrier concentrations due to overlapping
+  hole and electron integration ranges (#56).
+
+### Build & Packaging
+
+- Minimum Python version is now 3.11. Python 3.8, 3.9, and 3.10 are
+  no longer supported; users on older Python versions can pin to
+  `py-sc-fermi <2.2`.
+- Switched from `pymatgen` to `pymatgen-core`. All py-sc-fermi imports
+  resolve unchanged; user code does not need updating.
+- Dependencies are now declared inline in `pyproject.toml`;
+  `requirements.txt` is removed.
+- Added `[docs]` and `[dev]` install extras: `pip install ".[docs]"`
+  for documentation building, `pip install ".[dev]"` for development.
+- Added a PEP 561 `py.typed` marker so downstream type checkers
+  pick up py-sc-fermi's type annotations.
+
+### Notes
+
+- All internal type hints have been updated to modern syntax
+  (PEP 585 / PEP 604).
+
 ## V2.1.0
 
 ### Bug Fixes
