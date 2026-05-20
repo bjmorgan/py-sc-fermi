@@ -120,8 +120,10 @@ class TestDefectSystem(unittest.TestCase):
                 "spin_pol": False
             }
         }
-        defect_system = self.defect_system.from_dict(dictionary)
-        self.defect_system.from_dict(dictionary)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            defect_system = self.defect_system.from_dict(dictionary)
+            self.defect_system.from_dict(dictionary)
         self.assertEqual(defect_system.volume, 100)
         self.assertEqual(defect_system.temperature, 100)
         self.assertEqual(defect_system.n_trial_steps, 100)
