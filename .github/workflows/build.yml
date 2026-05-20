@@ -18,10 +18,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install mypy
-          pip install types-PyYAML
-          pip install pytest
-          pip install .
+          pip install ".[dev]"
           pip list
       - name: Run tests
         run: |
