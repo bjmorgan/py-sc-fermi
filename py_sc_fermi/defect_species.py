@@ -1,11 +1,11 @@
 import numpy as np
-from scipy.special import logsumexp
 from scipy.constants import physical_constants
+from scipy.special import logsumexp
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
-class DefectSpecies(object):
+class DefectSpecies:
     """Class for individual defect species.
 
     Args:
@@ -158,7 +158,7 @@ class DefectSpecies(object):
         n_charge_states = int(defect_species[1])
         nsites = int(defect_species[2])
         charge_states = []
-        for i in range(n_charge_states):
+        for _i in range(n_charge_states):
             string = defect_string.pop(0)
             charge_state = DefectChargeState.from_string(string)
             charge_states.append(charge_state)
@@ -413,7 +413,9 @@ class DefectSpecies(object):
         else:
             # No fixed species concentration - standard calculation
             for cs in var_concs.values():
-                cs_concentrations[cs.charge] = cs.get_concentration(e_fermi, temperature) * self.nsites
+                cs_concentrations[cs.charge] = (
+                    cs.get_concentration(e_fermi, temperature) * self.nsites
+                )
     
         return cs_concentrations
 

@@ -1,6 +1,7 @@
+import warnings
+
 import numpy as np
 from scipy.constants import physical_constants
-import warnings
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
@@ -127,7 +128,8 @@ class DefectChargeState:
         else:
             if volume is None:
                 raise ValueError(
-                    "You must specify a real, positive cell volume if passing a frozen concentration!"
+                    "You must specify a real, positive cell volume if passing a "
+                    "frozen concentration!"
                 )
             else:
                 return cls(
@@ -150,7 +152,10 @@ class DefectChargeState:
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
         unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
         if unrecognized_keys:
-            warnings.warn(f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}")
+            warnings.warn(
+                f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}",
+                stacklevel=2,
+            )
 
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(
@@ -177,7 +182,7 @@ class DefectChargeState:
             "energy": self.energy,
             "charge": int(self.charge),
         }
-        if self.fixed_concentration != None:
+        if self.fixed_concentration is not None:
             defect_dict.update({"fixed_concentration": self.fixed_concentration})
 
         return defect_dict
@@ -207,7 +212,8 @@ class DefectChargeState:
             return self.energy + self.charge * e_fermi
         else:
             raise ValueError(
-                "Cannot calculate formation energy as a function of `e_fermi` without a defined formation energy!"
+                "Cannot calculate formation energy as a function of `e_fermi` "
+                "without a defined formation energy!"
             )
 
     @suppresses_numpy_overflow
@@ -231,7 +237,7 @@ class DefectChargeState:
         return concentration
 
     def __repr__(self):
-        if self.fixed_concentration == None:
+        if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
         else:
             return f"q={self.charge:+2}, [c]={self.fixed_concentration}, deg={self.degeneracy}"

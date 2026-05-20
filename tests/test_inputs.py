@@ -1,20 +1,20 @@
+import os
 import unittest
 from unittest.mock import Mock
-import numpy as np
+
+from pymatgen.core.structure import Structure
+
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
-import os
-
 from py_sc_fermi.inputs import (
-    volume_from_structure,
-    read_dos_data,
-    volume_from_unitcell,
-    read_volume_from_structure_file,
-    read_input_fermi,
-    is_yaml,
     InputSet,
+    is_yaml,
+    read_dos_data,
+    read_input_fermi,
+    read_volume_from_structure_file,
+    volume_from_structure,
+    volume_from_unitcell,
 )
-from pymatgen.core.structure import Structure
 
 test_data_dir = "dummy_inputs/"
 test_poscar_filename = os.path.join(os.path.dirname(__file__), test_data_dir, "POSCAR")
@@ -82,7 +82,9 @@ class TestInputSet(unittest.TestCase):
 
     def test_from_yaml_with_sc_fermi_files_totdos(self):
         input_set = InputSet.from_yaml(
-            test_defect_system_yaml_filename, dos_file=test_dos_filename, structure_file=test_unitcell_filename
+            test_defect_system_yaml_filename,
+            dos_file=test_dos_filename,
+            structure_file=test_unitcell_filename,
         )
         self.assertEqual(input_set.dos.nelect, 18)
         self.assertEqual(input_set.dos.bandgap, 0.8084)
@@ -90,7 +92,9 @@ class TestInputSet(unittest.TestCase):
 
     def test_from_yaml_with_vasp_files(self):
         input_set = InputSet.from_yaml(
-            test_defect_system_yaml_filename, dos_file=test_vasprun_filename, structure_file=test_poscar_filename
+            test_defect_system_yaml_filename,
+            dos_file=test_vasprun_filename,
+            structure_file=test_poscar_filename,
         )
         self.assertEqual(input_set.dos.nelect, 18)
         self.assertEqual(input_set.dos.bandgap, 0.8084)

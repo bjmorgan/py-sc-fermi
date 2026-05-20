@@ -1,12 +1,14 @@
+import os
 from collections import namedtuple
 from dataclasses import dataclass
+
 import numpy as np
-from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.defect_charge_state import DefectChargeState
-from py_sc_fermi.dos import DOS
-from pymatgen.core import Structure # type: ignore
 import yaml
-import os
+from pymatgen.core import Structure  # type: ignore
+
+from py_sc_fermi.defect_charge_state import DefectChargeState
+from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.dos import DOS
 
 InputFermiData = namedtuple(
     "InputFermiData",
@@ -24,7 +26,13 @@ class InputSet:
     n_trial_steps: int | None = None
 
     @classmethod
-    def from_yaml(cls, input_file: str, structure_file: str = "", dos_file: str = "", fixed_conc_units: str = "cm^-3"):
+    def from_yaml(
+        cls,
+        input_file: str,
+        structure_file: str = "",
+        dos_file: str = "",
+        fixed_conc_units: str = "cm^-3",
+    ):
         """
         Generate an InputSet object from a given yaml file
 
@@ -41,7 +49,7 @@ class InputSet:
             are not specified, the ``.yaml`` file must contain the volume and
             the density-of-states data.
         """
-        with open(input_file, "r") as f:
+        with open(input_file) as f:
             input_dict = yaml.safe_load(f)
 
         if dos_file != "":
@@ -113,7 +121,7 @@ class InputSet:
                 for charge_state in ds.charge_states:
                         if ds.charge_states[charge_state].fixed_concentration is not None:
                             ds.charge_states[charge_state].fix_concentration(
-                                (ds.charge_states[charge_state].fixed_concentration / 1e24 * volume)
+                                ds.charge_states[charge_state].fixed_concentration / 1e24 * volume
                             )
         return cls(
             dos=dos,
@@ -175,7 +183,7 @@ def is_yaml(filename: str) -> bool:
         bool: ``True`` if file is readable yaml, else ``False``.
     """
     try:
-        with open(filename, "r") as f:
+        with open(filename) as f:
             yaml.safe_load(f)
     except yaml.YAMLError:
         return False
@@ -193,10 +201,12 @@ def volume_from_unitcell(filename: str) -> float:
         float: volume in A^3
     """
 
-    with open(filename, "r") as f:
-        readin = [l for l in f.readlines() if l[0] != "#"]
+    with open(filename) as f:
+        readin = [line for line in f.readlines() if line[0] != "#"]
     factor = float(readin[0])
-    lattvec = np.array([[float(s) for s in l.split()] for l in readin[1:4]], order="F")
+    lattvec = np.array(
+        [[float(s) for s in line.split()] for line in readin[1:4]], order="F"
+    )
     lattvec *= factor
     volume = np.linalg.det(lattvec)
     return volume
@@ -224,10 +234,10 @@ def read_input_fermi(
         InputFermiData: input for generating a ``DefectSystem``.
     """
 
-    if volume == None and frozen == True:
+    if volume is None and frozen:
         raise ValueError("Volume must be specified if input contains 'frozen' defects.")
 
-    with open(filename, "r") as f:
+    with open(filename) as f:
         readin = f.readlines()
         pure_readin = [line.strip() for line in readin if line[0] != "#"]
 
@@ -240,7 +250,7 @@ def read_input_fermi(
     # read in defect species information
     defect_species = []
     ndefects = int(pure_readin.pop(0))
-    for i in range(ndefects):
+    for _i in range(ndefects):
         ds = DefectSpecies._from_list_of_strings(pure_readin)
         defect_species.append(ds)
 
@@ -248,21 +258,21 @@ def read_input_fermi(
     if frozen is True and volume is not None:
         # fix defect concentrations
         n_frozen_defects = int(pure_readin.pop(0))
-        for n in range(n_frozen_defects):
-            l = pure_readin.pop(0).split()
-            name, concentration = l[0], float(l[1])
+        for _n in range(n_frozen_defects):
+            line = pure_readin.pop(0).split()
+            name, concentration = line[0], float(line[1])
             try:
                 defect = [ds for ds in defect_species if ds.name == name][0]
                 defect.fix_concentration(concentration / 1e24 * volume)
-            except:
+            except IndexError as err:
                 raise ValueError(
                     f"Frozen defect {name} not found in defect species list"
-                )
+                ) from err
 
         # read fixed concentration charge states
         n_frozen_charge_states = int(pure_readin.pop(0))
         defect_names = [ds.name for ds in defect_species]
-        for n in range(n_frozen_charge_states):
+        for _n in range(n_frozen_charge_states):
             full_string = str(pure_readin.pop(0))
             defect_info = full_string.split()
             name, charge_state, concentration = (
@@ -342,8 +352,9 @@ def read_volume_from_structure_file(structure_file: str) -> float:
     else:
         try:
             volume = volume_from_structure(structure_file)
-        except:
+        except Exception as err:
             raise ValueError(
-                "Volume could not be read from structure file. Please check the file format."
-            )
+                "Volume could not be read from structure file. "
+                "Please check the file format."
+            ) from err
     return volume

@@ -1,9 +1,8 @@
 import numpy as np
+from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
+from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
 from scipy.constants import physical_constants
 from scipy.integrate import trapezoid
-
-from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
-from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
@@ -57,10 +56,8 @@ class DOS:
                 f"check your bandgap and energy range."
             )
 
-        # band-edge indices are determined as those closest to zero (for VBM) and bandgap (for CBM), rather
-        # than previous first-index-below-or-equal-to-zero and first-index-above-or-equal-to-bandgap, to
-        # avoid issues with accumulated noise in `edos` (e.g. ``edos`` of [-0.9999, 0.0001, 1.0001] should
-        # give VBM (``_p0_idx``) of 0.0001 not -0.9999:
+        # Use the grid point closest to zero for the VBM and closest to bandgap for the CBM,
+        # to handle small numerical noise near the band-edge energies.
         self._p0_idx = int(np.argmin(np.abs(self._edos)))
         self._n0_idx = int(np.argmin(np.abs(self._edos - self._bandgap)))
 
@@ -222,7 +219,8 @@ class DOS:
                 the grid point closest to the VBM if that sits above mid-gap
                 (narrow-gap case).
         """
-        return trapezoid(self._dos[: self._p0_integration_idx], self._edos[: self._p0_integration_idx])
+        idx = self._p0_integration_idx
+        return trapezoid(self._dos[:idx], self._edos[:idx])
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the

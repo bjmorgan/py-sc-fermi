@@ -1,17 +1,14 @@
+import os
 import unittest
-from unittest.mock import Mock, patch
-from io import StringIO
 import warnings
+from unittest.mock import Mock
 
 import numpy as np
-import os
-import textwrap
 
-from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.dos import DOS
-from py_sc_fermi.defect_system import DefectSystem
 from py_sc_fermi.defect_charge_state import DefectChargeState
-
+from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.defect_system import DefectSystem
+from py_sc_fermi.dos import DOS
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 input_string_spin = (
@@ -163,7 +160,7 @@ class TestDefectSystem(unittest.TestCase):
             return_value={-1: 1000}
         )
 
-        with open(test_report_filename, "r") as tst_string:
+        with open(test_report_filename) as tst_string:
             test_string = tst_string.read()
 
         self.assertEqual(
@@ -242,7 +239,9 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
         self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
         self.defect_system.defect_species[0].charge_state_concentrations = Mock(return_value={1: 1})
-        self.defect_system.defect_species[1].charge_state_concentrations = Mock(return_value={-1: 1})
+        self.defect_system.defect_species[1].charge_state_concentrations = Mock(
+            return_value={-1: 1}
+        )
         self.defect_system.defect_species[0].charge_states = {1: 1}
         self.defect_system.defect_species[1].charge_states = {-1: 1}
         self.defect_system.defect_species[0].name = "v_O"
@@ -277,7 +276,10 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.dos.bandgap = 0.1
         self.assertEqual(
             str(self.defect_system).strip(),
-            f"DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n  temperature: 298 K\n\nContains defect species:\n".strip(),
+            (
+                "DefectSystem\n  nelect: 100 e\n  bandgap: 0.1 eV\n  volume: 100 A^3\n"
+                "  temperature: 298 K\n\nContains defect species:\n"
+            ).strip(),
         )
         
     def test_n_trial_steps_deprecation_warning(self):

@@ -20,9 +20,9 @@ jobs:
           pip install --upgrade pip
           pip install ".[dev]"
           pip list
+      - name: Lint
+        run: ruff check py_sc_fermi tests
       - name: Run tests
-        run: |
-          pytest
+        run: pytest
       - name: Static type checking
-        run: |
-          mypy py_sc_fermi
+        run: mypy py_sc_fermi

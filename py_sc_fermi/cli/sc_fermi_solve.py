@@ -1,7 +1,9 @@
-from py_sc_fermi.inputs import InputSet
-from py_sc_fermi.defect_system import DefectSystem
 import argparse
+
 import yaml
+
+from py_sc_fermi.defect_system import DefectSystem
+from py_sc_fermi.inputs import InputSet
 
 
 def parse_command_line_arguments():

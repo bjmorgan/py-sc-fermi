@@ -1,15 +1,15 @@
-from typing import Any
 import warnings
+from typing import Any
 
 import numpy as np
 from scipy.optimize import brentq
 
-from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.dos import DOS
 from py_sc_fermi.inputs import InputSet
 
 
-class DefectSystem(object):
+class DefectSystem:
     """This class is used to calculate the self consistent Fermi energy for
     a defective material, observing the condition of charge neutrality and
     therefore, point defect and carrier concentrations under equilibrium
@@ -55,12 +55,12 @@ class DefectSystem(object):
 
     def __repr__(self):
         to_return = [
-            f"DefectSystem\n",
+            "DefectSystem\n",
             f"  nelect: {self.dos.nelect} e\n",
             f"  bandgap: {self.dos.bandgap} eV\n",
             f"  volume: {self.volume} A^3\n",
             f"  temperature: {self.temperature} K\n",
-            f"\nContains defect species:\n",
+            "\nContains defect species:\n",
         ]
         for ds in self.defect_species:
             to_return.append(str(ds))
@@ -185,8 +185,8 @@ class DefectSystem(object):
                 emax,
                 **kwargs,
             )  # type: ignore[call-overload]
-        except ValueError:
-            raise RuntimeError(f"No solution found between {emin} and {emax}")
+        except ValueError as err:
+            raise RuntimeError(f"No solution found between {emin} and {emax}") from err
         
         residual = abs(self.q_tot(e_fermi))
         return e_fermi, residual
@@ -208,8 +208,12 @@ class DefectSystem(object):
         string += f"p (holes)      : {p0 * 1e24 / self.volume} cm^-3\n"
         for ds in self.defect_species:
             concall = ds.get_concentration(e_fermi, self.temperature)
-            if ds.fixed_concentration == None:
-                string += f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3, (percentage of defective sites: {(concall / ds.nsites) * 100:.3} %)\n"
+            if ds.fixed_concentration is None:
+                string += (
+                    f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3, "
+                    f"(percentage of defective sites: "
+                    f"{(concall / ds.nsites) * 100:.3} %)\n"
+                )
             else:
                 string += (
                     f"{ds.name:9}      : {concall * 1e24 / self.volume} cm^-3 [fixed]\n"
@@ -230,7 +234,10 @@ class DefectSystem(object):
                 else:
                     fix_str = ""
 
-                string += f"           : {q: 1}  {conc * 1e24 / self.volume:5e}          {(conc * 100 / concall):.2f} {fix_str}\n"
+                string += (
+                    f"           : {q: 1}  {conc * 1e24 / self.volume:5e}          "
+                    f"{(conc * 100 / concall):.2f} {fix_str}\n"
+                )
         return string
 
     def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float, float]:
@@ -314,7 +321,7 @@ class DefectSystem(object):
             hole concentration (``"p0"``), electron concentration
             (``"n0"``), temperature, and the defect concentrations.
         """
-        if per_volume == True:
+        if per_volume:
             scale = 1e24 / self.volume
         else:
             scale = 1
@@ -326,7 +333,7 @@ class DefectSystem(object):
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
-        if decomposed == False:
+        if not decomposed:
             sum_concs = {
                 str(ds.name): float(
                     ds.get_concentration(e_fermi, self.temperature) * scale
