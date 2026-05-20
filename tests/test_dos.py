@@ -97,6 +97,60 @@ class TestDos(unittest.TestCase):
             1.7780649634855188e-30,
         )
 
+    def test_carrier_concentrations_robust_to_band_edge_index(self):
+        # carrier concentrations should be insensitive to the exact, noisy,
+        # auto-determined VBM/CBM indices. Here the physical DOS is held fixed
+        # (band edges at 0 and 3 eV) while the supplied bandgap is perturbed,
+        # which shifts the determined CBM index (_n0_idx) by two grid points,
+        # however the result should be unchanged:
+        edos = np.linspace(-10.0, 10.0, 100)
+        dos_data = np.where((edos <= 0) | (edos >= 3.0), 1.0, 0.0)
+        nelect = 10
+        e_fermi, T = 1.5, 298
+
+        result_exact = DOS(
+            dos=dos_data, edos=edos, bandgap=3.0, nelect=nelect
+        ).carrier_concentrations(e_fermi, T)
+        result_noisy = DOS(
+            dos=dos_data, edos=edos, bandgap=3.3, nelect=nelect
+        ).carrier_concentrations(e_fermi, T)
+
+        # sanity-check that the perturbed bandgap really does move the
+        # auto-determined band-edge index that the integration bound is built on
+        self.assertNotEqual(
+            DOS(dos=dos_data, edos=edos, bandgap=3.0, nelect=nelect)._n0_idx,
+            DOS(dos=dos_data, edos=edos, bandgap=3.3, nelect=nelect)._n0_idx,
+        )
+        np.testing.assert_allclose(result_exact, result_noisy, rtol=1e-3)
+
+    def test_integration_indices(self):
+        # default fixture (bandgap 3.0): p0_idx=49, n0_idx=64,
+        # mid_gap=(49+64)//2=56, so integration runs to mid-gap.
+        self.assertEqual(self.dos._p0_integration_idx, 56)
+        self.assertEqual(self.dos._n0_integration_idx, 57)
+
+    def test_integration_indices_narrow_bandgap_clamping(self):
+        # For a bandgap narrower than one grid spacing, mid-gap collapses onto
+        # the band-edge indices and the max(...)/min(...) clamps keep the hole
+        # and electron integration ranges valid and non-overlapping.
+        edos = np.linspace(-10.0, 10.0, 100)
+        bandgap = 0.1  # narrower than the ~0.2 eV grid spacing
+        dos_data = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
+        dos = DOS(dos=dos_data, edos=edos, bandgap=bandgap, nelect=10)
+        self.assertEqual(dos._p0_idx, 49)
+        self.assertEqual(dos._n0_idx, 50)
+        # mid_gap=(49+50)//2 = 49 alone would make the hole range end before
+        # p0_idx, the clamps push both integration bounds to 50:
+        self.assertEqual(dos._p0_integration_idx, 50)  # (min, 50]
+        self.assertEqual(dos._n0_integration_idx, 50)  # [50, max)
+
+    def test_edos_must_bracket_zero(self):
+        edos = np.linspace(1.0, 10.0, 100)  # does not bracket E=0
+        dos_data = np.ones_like(edos)
+        with self.assertRaises(ValueError) as context:
+            DOS(dos=dos_data, edos=edos, bandgap=3.0, nelect=10)
+        self.assertIn("DOS edos must bracket zero", str(context.exception))
+
     def test_from_vasprun(self):
         dos = self.dos.from_vasprun(test_vasprun_filename, nelect=320)
         self.assertEqual(dos.nelect, 320)

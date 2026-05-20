@@ -42,6 +42,13 @@ class DOS:
         else:
             self._dos = dos
 
+        # The band-edge indices are found relative to E=0 (the VBM), so edos must bracket zero:
+        if not (self._edos[0] <= 0 <= self._edos[-1]):
+            raise ValueError(
+                f"DOS edos must bracket zero (i.e. extend above and below zero), as the valence band "
+                f"maximum is taken as E=0. Got an energy range of [{self._edos[0]}, {self._edos[-1]}]."
+            )
+
         # Cache integration indices — depend only on edos and bandgap,
         # before normalise_dos(), which reads _p0_int_idx via sum_dos().
         self._p0_idx = int(np.argmin(np.abs(self._edos)))
