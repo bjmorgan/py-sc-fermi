@@ -1,7 +1,6 @@
 # py-sc-fermi
 
 ![Build Status](https://github.com/bjmorgan/py-sc-fermi/actions/workflows/build.yml/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/bjmorgan/py-sc-fermi/badge.svg?branch=main)](https://coveralls.io/github/bjmorgan/py-sc-fermi?branch=main)
 [![Documentation Status](https://readthedocs.org/projects/py-sc-fermi/badge/?version=latest)](https://py-sc-fermi.readthedocs.io/en/latest/?badge=latest)
 [![status](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7/status.svg)](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7)
 [![PyPI version](https://badge.fury.io/py/py-sc-fermi.svg)](https://badge.fury.io/py/py-sc-fermi)
