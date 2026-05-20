@@ -78,10 +78,10 @@ class TestDos(unittest.TestCase):
         dos.sum_dos()
         np.testing.assert_allclose(dos.dos, dos_data)
 
-    def test__p0_index(self):
+    def test__p0_idx(self):
         self.assertEqual(self.dos._p0_idx, 49)
 
-    def test__n0_index(self):
+    def test__n0_idx(self):
         self.assertEqual(self.dos._n0_idx, 64)
 
     def test_emin(self):
@@ -149,7 +149,7 @@ class TestDos(unittest.TestCase):
         dos_data = np.ones_like(edos)
         with self.assertRaises(ValueError) as context:
             DOS(dos=dos_data, edos=edos, bandgap=3.0, nelect=10)
-        self.assertIn("DOS edos must bracket zero", str(context.exception))
+        self.assertIn("DOS energy range must bracket zero", str(context.exception))
 
     def test_from_vasprun(self):
         dos = self.dos.from_vasprun(test_vasprun_filename, nelect=320)

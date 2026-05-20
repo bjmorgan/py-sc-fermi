@@ -42,11 +42,16 @@ class DOS:
         else:
             self._dos = dos
 
-        # The band-edge indices are found relative to E=0 (the VBM), so edos must bracket zero:
         if not (self._edos[0] <= 0 <= self._edos[-1]):
             raise ValueError(
-                f"DOS edos must bracket zero (i.e. extend above and below zero), as the valence band "
-                f"maximum is taken as E=0. Got an energy range of [{self._edos[0]}, {self._edos[-1]}]."
+                f"DOS energy range must bracket zero (i.e. extend both above and below zero), "
+                f"as the valence band maximum is taken as E=0. "
+                f"Got [{self._edos[0]}, {self._edos[-1]}]."
+            )
+        if self._bandgap > self.emax():
+            raise ValueError(
+                f"bandgap ({self._bandgap}) > max(edos) ({self.emax()}); "
+                f"check your bandgap and energy range."
             )
 
         # band-edge indices are determined as those closest to zero (for VBM) and bandgap (for CBM), rather
@@ -56,19 +61,14 @@ class DOS:
         self._p0_idx = int(np.argmin(np.abs(self._edos)))
         self._n0_idx = int(np.argmin(np.abs(self._edos - self._bandgap)))
 
-        # Cache integration indices — depend only on edos and bandgap,
-        # before normalise_dos(), which reads _p0_int_idx via sum_dos():
+        # Cache integration indices — these depend only on edos and bandgap,
+        # neither of which can change after construction. Must be set before
+        # normalise_dos(), which reads _p0_integration_idx via sum_dos().
         mid_gap = (self._p0_idx + self._n0_idx) // 2
         self._p0_integration_idx = max(mid_gap, self._p0_idx + 1)
         self._n0_integration_idx = min(mid_gap, self._n0_idx - 1) + 1
-        
-        self.normalise_dos()
 
-        if self.bandgap > self.emax():
-            raise ValueError(
-                """bandgap > max(self.edos). Please check your bandgap and
-                 energy range (self.edos)."""
-            )
+        self.normalise_dos()
 
     @property
     def dos(self) -> np.ndarray:
@@ -215,7 +215,9 @@ class DOS:
     def sum_dos(self) -> np.ndarray:
         """
         Returns:
-            np.ndarray: integrated density-of-states up to mid-gap
+            np.ndarray: integrated density-of-states up to mid-gap, or up to
+                the grid point closest to the VBM if that sits above mid-gap
+                (narrow-gap case).
         """
         return trapezoid(self._dos[: self._p0_integration_idx], self._edos[: self._p0_integration_idx])
 
