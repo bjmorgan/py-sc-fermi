@@ -1,7 +1,7 @@
 # Top-level .md files are local by default
 /*.md
 !/README.md
-!/changes.md
+!/CHANGELOG.md
 
 py_sc_fermi.egg-info
 **/__pycache__
