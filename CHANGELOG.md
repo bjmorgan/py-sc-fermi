@@ -1,5 +1,37 @@
 # Change log
 
+## V3.0.0
+
+### Breaking Changes
+
+- `DefectSpecies.charge_states` is now a `list[DefectChargeState]` rather than
+  a `dict[int, DefectChargeState]`, and `charge_state_concentrations` now
+  returns `list[tuple[DefectChargeState, float]]` rather than
+  `dict[int, float]`. This allows a `DefectSpecies` to contain multiple
+  `DefectChargeState` objects with the same formal charge, to support
+  metastable defects.
+- Removed `py_sc_fermi.inputs` (`InputSet`) and the `sc_fermi_solve` CLI tool,
+  dropping support for reading the legacy SC-Fermi text input-file format.
+  `DefectSystem`/`DefectSpecies`/`DefectChargeState` should now be constructed
+  directly, via `from_dict`, or from a `.yaml` file.
+- Removed `DefectChargeState.from_string` and
+  `DefectSpecies._from_list_of_strings`, which existed solely to support the
+  removed text input-file format.
+
+### Improvements
+
+- Added site pools and element pools (`DefectSystem(site_pools=..., element_pools=...)`)
+  to model site competition between `DefectSpecies` sharing a finite number of
+  lattice sites, or competition for a fixed total amount of a dopant element.
+- Added temperature-dependent band-edge corrections
+  (`vbm_shift_fn`, `cbm_shift_fn`, `formation_energy_corrections`, `rigid_shift`)
+  to `DefectSystem`, allowing formation energies and the band gap to be
+  corrected as a function of temperature before solving for the self-consistent
+  Fermi energy.
+- Refactored the self-consistent Fermi energy solver to use
+  `scipy.optimize.brentq`. `n_trial_steps` is now deprecated and emits a
+  `DeprecationWarning`.
+
 ## V2.2.0
 
 ### Improvements
