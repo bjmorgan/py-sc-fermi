@@ -1,7 +1,9 @@
-import unittest
-from unittest.mock import patch, Mock, mock_open
-import numpy as np
 import os
+import unittest
+from unittest.mock import Mock, patch
+
+import numpy as np
+
 from py_sc_fermi.dos import DOS
 
 test_data_dir = "dummy_inputs/"

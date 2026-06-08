@@ -29,15 +29,26 @@ docs = [
 dev = [
     "mypy",
     "types-PyYAML",
+    "scipy-stubs",
     "pytest",
+    "ruff",
 ]
 
 [project.urls]
 Homepage = "https://github.com/bjmorgan/py-sc-fermi"
 Download = "https://github.com/bjmorgan/py-sc-fermi/archive/v{version}.tar.gz"
 
-[project.scripts]
-sc_fermi_solve = "py_sc_fermi.cli.sc_fermi_solve:main"
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
 
 [tool.setuptools]
 packages = ["py_sc_fermi"]

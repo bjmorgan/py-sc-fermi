@@ -1,10 +1,8 @@
 import numpy as np
-from typing import Tuple, Optional
-from scipy.constants import physical_constants  # type: ignore[import-untyped]
-from scipy.integrate import trapezoid  # type: ignore[import-untyped]
-
-from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
 from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
+from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
+from scipy.constants import physical_constants
+from scipy.integrate import trapezoid
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
@@ -58,10 +56,8 @@ class DOS:
                 f"check your bandgap and energy range."
             )
 
-        # band-edge indices are determined as those closest to zero (for VBM) and bandgap (for CBM), rather
-        # than previous first-index-below-or-equal-to-zero and first-index-above-or-equal-to-bandgap, to
-        # avoid issues with accumulated noise in `edos` (e.g. ``edos`` of [-0.9999, 0.0001, 1.0001] should
-        # give VBM (``_p0_idx``) of 0.0001 not -0.9999:
+        # Use the grid point closest to zero for the VBM and closest to bandgap for the CBM,
+        # to handle small numerical noise near the band-edge energies.
         self._p0_idx = int(np.argmin(np.abs(self._edos)))
         self._n0_idx = int(np.argmin(np.abs(self._edos - self._bandgap)))
 
@@ -124,8 +120,8 @@ class DOS:
     def from_vasprun(
         cls,
         path_to_vasprun: str,
-        nelect: Optional[int] = None,
-        bandgap: Optional[float] = None,
+        nelect: int | None = None,
+        bandgap: float | None = None,
     ) -> "DOS":
         """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
@@ -136,7 +132,7 @@ class DOS:
             path_to_vasprun (str): path to vasprun file
             nelect (int): number of electrons in vasp calculation associated with
               the vasprun
-            bandgap (Optional[float], optional): bandgap. Defaults to None.
+            bandgap (float | None, optional): bandgap. Defaults to None.
         """
         vr = Vasprun(
             path_to_vasprun,
@@ -223,7 +219,9 @@ class DOS:
                 the grid point closest to the VBM if that sits above mid-gap
                 (narrow-gap case).
         """
-        return trapezoid(self._dos[: self._p0_integration_idx], self._edos[: self._p0_integration_idx])
+        return trapezoid(
+            self._dos[: self._p0_integration_idx], self._edos[: self._p0_integration_idx]
+        )
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
@@ -251,7 +249,7 @@ class DOS:
     @suppresses_numpy_overflow
     def carrier_concentrations(
         self, e_fermi: float, temperature: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """return electron and hole carrier concentrations from the Fermi-Dirac
         distribution multiplied by the density-of-states at a given Fermi energy
         and temperature.
@@ -261,7 +259,7 @@ class DOS:
             temperature (float): temperature
 
         Returns:
-            Tuple[float, float]: concentration of holes, concentration of electrons
+            tuple[float, float]: concentration of holes, concentration of electrons
         """
         p0 = trapezoid(self._p_func(e_fermi, temperature), self._edos[: self._p0_integration_idx])
         n0 = trapezoid(self._n_func(e_fermi, temperature), self._edos[self._n0_integration_idx :])

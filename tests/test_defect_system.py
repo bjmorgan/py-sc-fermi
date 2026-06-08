@@ -1,17 +1,15 @@
+import os
 import unittest
-from unittest.mock import Mock, patch
-from io import StringIO
 import warnings
+from io import StringIO
+from unittest.mock import Mock, patch
 
 import numpy as np
-import os
-import textwrap
 
-from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.dos import DOS
-from py_sc_fermi.defect_system import DefectSystem
 from py_sc_fermi.defect_charge_state import DefectChargeState
-
+from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.defect_system import DefectSystem
+from py_sc_fermi.dos import DOS
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 input_string_spin = (
@@ -215,8 +213,12 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
         self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
         self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[0].charge_state_concentrations = Mock(return_value=[(cs_v_O, 1)])
-        self.defect_system.defect_species[1].charge_state_concentrations = Mock(return_value=[(cs_O_i, 1)])
+        self.defect_system.defect_species[0].charge_state_concentrations = Mock(
+            return_value=[(cs_v_O, 1)]
+        )
+        self.defect_system.defect_species[1].charge_state_concentrations = Mock(
+            return_value=[(cs_O_i, 1)]
+        )
         self.defect_system.defect_species[0].charge_states = [cs_v_O]
         self.defect_system.defect_species[1].charge_states = [cs_O_i]
         self.defect_system.defect_species[0].name = "v_O"

@@ -2,10 +2,9 @@ import unittest
 from unittest.mock import Mock, PropertyMock, patch
 
 import numpy as np
-from numpy.testing import assert_equal
 
-from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_charge_state import DefectChargeState
+from py_sc_fermi.defect_species import DefectSpecies
 
 
 class TestDefectSpeciesInit(unittest.TestCase):
@@ -383,13 +382,17 @@ class TestDefectSpecies(unittest.TestCase):
             charge_states=[cs_0, cs_1]
         )
 
-        result = dict((cs.charge, conc) for cs, conc in defect.charge_state_concentrations(e_fermi=0.0, temperature=298))
+        result = dict(
+            (cs.charge, conc)
+            for cs, conc in defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+        )
 
         self.assertEqual(result[0], 0.5)
         self.assertEqual(result[1], 0.3)
 
     def test_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
-        """Fixed concentration scaling should not produce NaN when variable concentrations underflow."""
+        """Fixed concentration scaling should not produce NaN when variable
+        concentrations underflow."""
         cs_0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
         cs_minus1 = DefectChargeState(charge=-1, energy=2.0, degeneracy=1)
 

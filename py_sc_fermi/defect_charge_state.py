@@ -1,7 +1,7 @@
-import numpy as np  # type: ignore
-from scipy.constants import physical_constants  # type: ignore
-from typing import Optional
 import warnings
+
+import numpy as np
+from scipy.constants import physical_constants
 
 from py_sc_fermi.warnings import suppresses_numpy_overflow
 
@@ -22,8 +22,8 @@ class DefectChargeState:
         self,
         charge: int,
         degeneracy: float = 1,
-        energy: Optional[float] = None,
-        fixed_concentration: Optional[float] = None,
+        energy: float | None = None,
+        fixed_concentration: float | None = None,
     ):
         if energy is None and fixed_concentration is None:
             raise ValueError(
@@ -39,11 +39,11 @@ class DefectChargeState:
         self._fixed_concentration = fixed_concentration
 
     @property
-    def energy(self) -> Optional[float]:
+    def energy(self) -> float | None:
         """formation energy of the ``DefectChargeState`` at E[vbm] (E[Fermi] = 0)
 
         Returns:
-            Optional[float]: formation energy
+            float | None: formation energy
         """
         return self._energy
 
@@ -66,12 +66,12 @@ class DefectChargeState:
         return self._degeneracy
 
     @property
-    def fixed_concentration(self) -> Optional[float]:
+    def fixed_concentration(self) -> float | None:
         """fixed concentration of this ``DefectChargeState`` or ``None`` if the
         concentration is free to vary.
 
         Returns:
-            Optional[float]: fixed concentration per unit cell
+            float | None: fixed concentration per unit cell
         """
         return self._fixed_concentration
 
@@ -90,7 +90,9 @@ class DefectChargeState:
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
         unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
         if unrecognized_keys:
-            warnings.warn(f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}")
+            warnings.warn(
+                f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}", stacklevel=2
+            )
 
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(
@@ -117,7 +119,7 @@ class DefectChargeState:
             "energy": self.energy,
             "charge": int(self.charge),
         }
-        if self.fixed_concentration != None:
+        if self.fixed_concentration is not None:
             defect_dict.update({"fixed_concentration": self.fixed_concentration})
 
         return defect_dict
@@ -147,7 +149,8 @@ class DefectChargeState:
             return self.energy + self.charge * e_fermi
         else:
             raise ValueError(
-                "Cannot calculate formation energy as a function of `e_fermi` without a defined formation energy!"
+                "Cannot calculate formation energy as a function of `e_fermi` without "
+                "a defined formation energy!"
             )
 
     @suppresses_numpy_overflow
@@ -171,7 +174,7 @@ class DefectChargeState:
         return concentration
 
     def __repr__(self):
-        if self.fixed_concentration == None:
+        if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
         else:
             return f"q={self.charge:+2}, [c]={self.fixed_concentration}, deg={self.degeneracy}"

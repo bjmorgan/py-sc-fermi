@@ -1,4 +1,5 @@
 import unittest
+
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
