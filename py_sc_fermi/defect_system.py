@@ -1,12 +1,17 @@
-from typing import Dict, List, Tuple, Any, Optional
+from contextlib import contextmanager
+from typing import Callable, Dict, List, Optional, Tuple, Any
 import warnings
 
 import numpy as np
 from scipy.optimize import brentq # type: ignore
+from scipy.special import logsumexp # type: ignore
+from scipy.constants import physical_constants as _physical_constants
+
+_kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
 
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.inputs import InputSet
+from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
 class DefectSystem(object):
@@ -41,13 +46,23 @@ class DefectSystem(object):
         temperature: float,
         convergence_tolerance: Optional[float] = None,
         n_trial_steps: Optional[int] = None, # deprecated
-        site_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None
+        site_pools: Optional[Dict[str, Tuple[float, List[DefectSpecies]]]] = None,
+        element_pools: Optional[Dict[str, Tuple[float, List[Tuple[Any, float]]]]] = None,
+        vbm_shift_fn: Optional[Callable[[float], float]] = None,
+        cbm_shift_fn: Optional[Callable[[float], float]] = None,
+        formation_energy_corrections: Optional[Dict[Tuple[str, int], Callable[[float], float]]] = None,
+        rigid_shift: bool = True,
     ):
         self.defect_species = defect_species
         self.volume = volume
         self.dos = dos
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
+        self.vbm_shift_fn = vbm_shift_fn
+        self.cbm_shift_fn = cbm_shift_fn
+        self.formation_energy_corrections = formation_energy_corrections or {}
+        self.rigid_shift = rigid_shift
+        self._corrections_active = False
         if n_trial_steps is not None:
             warnings.warn(
                 "n_trial_steps is deprecated and will be removed in a future version. "
@@ -59,19 +74,82 @@ class DefectSystem(object):
         self.n_trial_steps = n_trial_steps
 
         self.site_pools = site_pools or {}
+        self.element_pools = element_pools or {}
 
     def __repr__(self):
-        to_return = [
-            f"DefectSystem\n",
-            f"  nelect: {self.dos.nelect} e\n",
-            f"  bandgap: {self.dos.bandgap} eV\n",
-            f"  volume: {self.volume} A^3\n",
-            f"  temperature: {self.temperature} K\n",
-            f"\nContains defect species:\n",
+        # Compute corrections at current temperature (if any)
+        has_corrections = self.vbm_shift_fn is not None or self.cbm_shift_fn is not None
+        if has_corrections:
+            d_vbm = self.vbm_shift_fn(self.temperature) if self.vbm_shift_fn else 0.0
+            d_cbm = self.cbm_shift_fn(self.temperature) if self.cbm_shift_fn else 0.0
+            corrected_bandgap = self.dos.bandgap + (d_cbm - d_vbm)
+        else:
+            d_vbm = 0.0
+            corrected_bandgap = self.dos.bandgap
+        has_fe_corrections = bool(self.formation_energy_corrections) or not self.rigid_shift
+
+        if has_corrections:
+            bandgap_str = (
+                f"{self.dos.bandgap:.3g} eV  \u2192  {corrected_bandgap:.3g} eV"
+                f" at {self.temperature} K"
+            )
+        else:
+            bandgap_str = f"{self.dos.bandgap:.3g} eV"
+
+        lines = [
+            "DefectSystem",
+            f"  bandgap:     {bandgap_str}    nelect: {self.dos.nelect}",
+            f"  volume:      {self.volume:.4g} \u00c5\u00b3    temperature: {self.temperature} K",
+            f"\n  {len(self.defect_species)} defect species:",
         ]
         for ds in self.defect_species:
-            to_return.append(str(ds))
-        return "".join(to_return)
+            header = f"\n  {ds.name}  [nsites: {ds.nsites}]"
+            if ds.fixed_concentration is not None:
+                header += f"  [fixed conc: {ds.fixed_concentration:.3e}]"
+            lines.append(header)
+            for cs in ds.charge_states:
+                if cs.fixed_concentration is not None:
+                    lines.append(
+                        f"    q = {cs.charge:+2d}   [c] = {cs.fixed_concentration:.3e}"
+                        f"  (deg. {cs.degeneracy})"
+                    )
+                else:
+                    e_stored = cs.energy
+                    if has_fe_corrections:
+                        key = (ds.name, cs.charge)
+                        if key in self.formation_energy_corrections:
+                            delta = self.formation_energy_corrections[key](self.temperature)
+                        elif not self.rigid_shift:
+                            delta = -cs.charge * d_vbm
+                        else:
+                            delta = 0.0
+                        e_corr = e_stored + delta
+                        energy_str = (
+                            f"E = {e_stored:8.4f} eV  \u2192  {e_corr:8.4f} eV"
+                            f" at {self.temperature} K"
+                        )
+                    else:
+                        energy_str = f"E = {e_stored:8.4f} eV"
+                    lines.append(
+                        f"    q = {cs.charge:+2d}   {energy_str}  (deg. {cs.degeneracy})"
+                    )
+        if self.site_pools:
+            lines.append("\n  site pools:")
+            for pool_name, (n, species) in self.site_pools.items():
+                sp_names = ", ".join(
+                    sp.name if isinstance(sp, DefectSpecies) else sp
+                    for sp in species
+                )
+                lines.append(f"    {pool_name}: {n:.4g} sites  \u2192  [{sp_names}]")
+        if self.element_pools:
+            lines.append("\n  element pools:")
+            for elem, (n, pool_list) in self.element_pools.items():
+                sp_names = ", ".join(
+                    (sp if isinstance(sp, str) else sp.name) + f" \u00d7{stoich:g}"
+                    for sp, stoich in pool_list
+                )
+                lines.append(f"    {elem}: {n:.4g} per cell  \u2192  [{sp_names}]")
+        return "\n".join(lines)
 
     @property
     def defect_species_names(self) -> List[str]:
@@ -83,103 +161,194 @@ class DefectSystem(object):
         """
         return [ds.name for ds in self.defect_species]
 
-    @classmethod
-    def from_input_set(cls, input_set: InputSet) -> "DefectSystem":
-        """generate ``DefectSystem`` from ``InputSet``
+    @contextmanager
+    def _with_band_edge_corrections(self):
+        """Temporarily apply VBM/CBM shift corrections at the current temperature.
 
-        Args:
-            input_set (InputSet): ``InputSet`` defining input parameters
+        Re-entrant: nested calls (e.g. report → get_sc_fermi) are no-ops once
+        the corrections are already active, so corrections are never applied twice.
+        """
+        if self._corrections_active or (
+            self.vbm_shift_fn is None and self.cbm_shift_fn is None
+        ):
+            yield
+            return
+
+        self._corrections_active = True
+        applied: Dict[Tuple[str, int], float] = {}
+        bandgap_delta = 0.0
+        try:
+            d_vbm = self.vbm_shift_fn(self.temperature) if self.vbm_shift_fn else 0.0
+            d_cbm = self.cbm_shift_fn(self.temperature) if self.cbm_shift_fn else 0.0
+
+            # Apply formation energy corrections per charge state.
+            # By default (rigid_shift=True) only the band gap changes; formation
+            # energies are unchanged unless explicit per-charge-state corrections
+            # are provided. With rigid_shift=False the legacy q·d_vbm correction is
+            # used as a fallback.
+            for ds in self.defect_species:
+                for cs in ds.charge_states:
+                    if cs._energy is None:
+                        continue
+                    key = (ds.name, cs.charge)
+                    if key in self.formation_energy_corrections:
+                        delta = self.formation_energy_corrections[key](self.temperature)
+                    elif not self.rigid_shift:
+                        delta = -cs.charge * d_vbm
+                    else:
+                        delta = 0.0
+                    cs._energy += delta
+                    applied[key] = delta
+
+            bandgap_delta = d_cbm - d_vbm
+            self.dos._bandgap += bandgap_delta
+
+            yield
+        finally:
+            for ds in self.defect_species:
+                for cs in ds.charge_states:
+                    if cs._energy is not None:
+                        cs._energy -= applied.get((ds.name, cs.charge), 0.0)
+            self.dos._bandgap -= bandgap_delta
+            self._corrections_active = False
+
+    def report(self) -> str:
+        """Solve for the self-consistent Fermi energy and print a summary of
+        the system: SC Fermi energy, carrier concentrations, and per-species
+        and per-charge-state defect concentrations.
 
         Returns:
-            DefectSystem: ``DefectSystem`` corresponding to provided ``InputSet``
+            str: the formatted report (also printed to stdout)
         """
+        with self._with_band_edge_corrections():
+            return self._report_inner()
 
-        return cls(
-            defect_species=input_set.defect_species,
-            dos=input_set.dos,
-            volume=input_set.volume,
-            temperature=input_set.temperature,
-            convergence_tolerance=input_set.convergence_tolerance,
-            n_trial_steps=input_set.n_trial_steps,
-        )
+    def _report_inner(self) -> str:
+        scale = 1e24 / self.volume
+        e_fermi, _ = self.get_sc_fermi()
+        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
 
-    @classmethod
-    def from_yaml(cls, filename: str, structure_file="", dos_file="") -> "DefectSystem":
-        """generate ``DefectSystem`` via a yaml file.
+        # pool-aware per-charge-state concentrations (per unit cell)
+        cs_concs = self._global_defect_concs(e_fermi)
 
-        Args:
-            filename (str): path to yaml file containing the ``DefectSystem``
-              data
-            structure_file (str): path to file containing volume information.
-              Defaults to an empty string.
-            dos_file (str): path to file containing dos information. Defaults
-              to an empty string.
+        # group concentrations back to their parent DefectSpecies
+        sp_cs: Dict[str, List[Tuple[DefectChargeState, float]]] = {
+            ds.name: [] for ds in self.defect_species
+        }
+        for ds in self.defect_species:
+            for cs in ds.charge_states:
+                if cs in cs_concs:
+                    sp_cs[ds.name].append((cs, cs_concs[cs]))
 
-        Returns:
-            DefectSystem: ``DefectSystem`` corresponding to provided yaml file
-        """
+        lines = [
+            repr(self),
+            "",
+            f"SC Fermi energy:  {e_fermi:.6f} eV",
+            "",
+            "Carriers:",
+            f"  p0 (holes):     {p0 * scale:.3e} cm\u207b\u00b3",
+            f"  n0 (electrons): {n0 * scale:.3e} cm\u207b\u00b3",
+            "",
+            "Defect concentrations:",
+        ]
+        for ds in self.defect_species:
+            cs_list = sp_cs[ds.name]
+            sp_total = sum(c for _, c in cs_list) * scale
+            header = f"  {ds.name:<16s}  {sp_total:.3e} cm\u207b\u00b3"
+            if ds.fixed_concentration is not None:
+                header += "  [fixed]"
+            lines.append(header)
+            total_per_cell = sum(c for _, c in cs_list)
+            for cs, conc in sorted(cs_list, key=lambda x: x[0].charge):
+                pct = 100 * conc / total_per_cell if total_per_cell > 0 else 0.0
+                flag = "  [fixed]" if cs.fixed_concentration is not None else ""
+                lines.append(
+                    f"    q = {cs.charge:+2d}   {conc * scale:.3e} cm\u207b\u00b3"
+                    f"  ({pct:6.2f}%){flag}"
+                )
 
-        input_set = InputSet.from_yaml(filename, structure_file, dos_file)
-        return cls(
-            defect_species=input_set.defect_species,
-            dos=input_set.dos,
-            volume=input_set.volume,
-            temperature=input_set.temperature,
-            convergence_tolerance=input_set.convergence_tolerance,
-            n_trial_steps=input_set.n_trial_steps,
-        )
-    
+        output = "\n".join(lines)
+        print(output)
+        return output
 
     def _apply_element_constraints(
         self,
-        concs: Dict[DefectChargeState, float]
+        concs: Dict[DefectChargeState, float],
+        e_fermi: float,
     ) -> None:
-        """
-        Rescale per-state concentrations so that each element-pool’s
-        total defect content matches a fixed target.
+        """Rescale variable-concentration charge state concentrations so that each
+        element pool’s total defect content matches its fixed target.
+
+        Site pool competition (if any) is applied before this method is called, so
+        site pools take priority. This method then scales all variable-concentration
+        states of the element’s species together to satisfy the elemental content
+        constraint. Fixed-concentration charge states are left unchanged.
 
         Args:
             concs: mapping from every DefectChargeState → concentration per cell.
-                   This dict is modified in place.
-
-        For each element in self.element_pools, which is defined as:
-            element_pools = {
-                "Mg": (fixed_total_Mg, [(Mg_on_Li, stoich1),
-                                        (Mg_on_Ni, stoich2),
-                                        (Mg_i,     stoich3)]),
-                …
-            }
-
-        1) Build per-species totals:
-               species_total[sp] = sum(concs[cs] for cs in sp.charge_states)
-        2) Compute the current elemental content:
-               current = sum(species_total[sp] * stoich for sp,stoich in pool_list)
-        3) Compute scale = fixed_total / current.
-        4) Multiply **every** cs in each species by that scale.
+                   Modified in place.
         """
-        for elem, (fixed_total, pool_list) in self.element_pools.items():
-            # 1) per-species totals
-            species_total: Dict[DefectSpecies, float] = {}
-            for sp, stoich in pool_list:
-                total_sp = 0.0
-                for cs in sp.charge_states:
-                    total_sp += concs.get(cs, 0.0)
-                species_total[sp] = total_sp
+        # build set of species already governed by a site pool
+        site_pooled_species: set = {
+            self.defect_species_by_name(sp) if isinstance(sp, str) else sp
+            for _, (_, sps) in self.site_pools.items()
+            for sp in sps
+        }
 
-            # 2) current elemental amount
-            current = sum(species_total[sp] * stoich for sp, stoich in pool_list)
-            if current <= 0:
-                # nothing to rescale (or inconsistent input)
+        for elem, (fixed_total, pool_list) in self.element_pools.items():
+            # resolve string species names
+            resolved: List[Tuple[DefectSpecies, float]] = [
+                (self.defect_species_by_name(sp) if isinstance(sp, str) else sp, stoich)
+                for sp, stoich in pool_list
+            ]
+
+            # split species into site-pool-governed (fixed for our purposes) and free
+            site_governed = [(sp, stoich) for sp, stoich in resolved if sp in site_pooled_species]
+            free = [(sp, stoich) for sp, stoich in resolved if sp not in site_pooled_species]
+
+            # 1) elemental content already committed by site-pool species and fixed-cs species
+            committed = sum(
+                sum(concs.get(cs, 0.0) for cs in sp.charge_states) * stoich
+                for sp, stoich in site_governed
+            )
+            committed += sum(
+                sum(concs.get(cs, 0.0) for cs in sp.charge_states if cs.fixed_concentration is not None) * stoich
+                for sp, stoich in free
+            )
+
+            remaining = fixed_total - committed
+            if remaining < 0:
+                raise ValueError(
+                    f"Element pool ‘{elem}’: site pool and fixed-concentration states "
+                    f"already contribute {committed:.3e} which exceeds the target "
+                    f"{fixed_total:.3e}. Your constraints are mutually inconsistent."
+                )
+
+            # 2) compute log-weights for all free variable states (log-space to avoid overflow)
+            log_contributions: List[Tuple] = []  # (cs, stoich, log_w)
+            for sp, stoich in free:
+                for cs in sp.charge_states:
+                    if cs in concs and cs.fixed_concentration is None and cs._energy is not None:
+                        Ef = cs.get_formation_energy(e_fermi)
+                        log_w = (
+                            np.log(sp.nsites)
+                            + np.log(cs.degeneracy)
+                            - Ef / (_kboltz * self.temperature)
+                            + np.log(stoich)
+                        )
+                        log_contributions.append((cs, stoich, log_w))
+
+            if not log_contributions:
                 continue
 
-            # 3) scale factor
-            scale = fixed_total / current
+            # log of total elemental content from free variable states
+            log_current_var = logsumexp([lw for _, _, lw in log_contributions])
 
-            # 4) apply to every state of each species
-            for sp, _ in pool_list:
-                for cs in sp.charge_states:
-                    if cs in concs:
-                        concs[cs] *= scale
+            # 3) assign concentrations: remaining * (unnorm_w / total_elem_w)
+            #    where unnorm_w = nsites * deg * exp(-Ef/kT), total_elem_w sums stoich * unnorm_w
+            log_remaining = np.log(remaining)
+            for cs, stoich, log_w in log_contributions:
+                concs[cs] = np.exp(log_remaining + (log_w - np.log(stoich)) - log_current_var)
 
     def _global_defect_concs(self, e_fermi: float):
         """
@@ -218,31 +387,42 @@ class DefectSystem(object):
                     f"occupy {total_fixed}"
                 )
 
-            # b) Boltzmann weight per species (sum over its variable states)
-            species_weights = {}
+            # b) log Boltzmann weight per species and per variable state
+            #    (log-space to avoid overflow at extreme Fermi energies)
+            sp_log_ws: dict = {}  # sp -> list of (cs, log_w)
             for sp in sp_objs:
-                wsum = 0.0
-                for nsites, cs, w in sp.site_weights(e_fermi, self.temperature):
-                    wsum += nsites * w
-                species_weights[sp] = wsum
+                sp_log_ws[sp] = []
+                for cs in sp.variable_conc_charge_states():
+                    Ef = cs.get_formation_energy(e_fermi)
+                    log_w = (
+                        np.log(sp.nsites)
+                        + np.log(cs.degeneracy)
+                        - Ef / (_kboltz * self.temperature)
+                    )
+                    sp_log_ws[sp].append((cs, log_w))
 
-            # c) partition function
-            Z = 1.0 + sum(species_weights.values())
+            # log of total weight per species (-inf if no variable states)
+            sp_log_total = {
+                sp: logsumexp([lw for _, lw in pairs]) if pairs else -np.inf
+                for sp, pairs in sp_log_ws.items()
+            }
+
+            # c) partition function: log(1 + sum_sp w_sp)
+            log_Z = logsumexp([0.0] + list(sp_log_total.values()))
 
             # d) assign each species its share
             for sp in sp_objs:
-                share = free_sites * species_weights[sp] / Z
-                # add back fixed part
-                all_concs.update({
-                    cs: conc
-                    for cs, conc in sp.charge_state_concentrations(
-                        e_fermi, self.temperature
-                    )
-                    if cs.fixed_concentration is not None
-                })
-                # now assign the variable states proportionally:
-                for nsites, cs, w in sp.site_weights(e_fermi, self.temperature):
-                    all_concs[cs] = share * w * nsites / species_weights[sp] if species_weights[sp] > 0 else 0.0
+                # fixed states pass through unchanged
+                for cs, conc in sp.charge_state_concentrations(
+                    e_fermi, self.temperature
+                ):
+                    if cs.fixed_concentration is not None:
+                        all_concs[cs] = conc
+                # variable states: share proportional to Boltzmann weight
+                if sp_log_ws[sp]:
+                    log_share = np.log(free_sites) + sp_log_total[sp] - log_Z
+                    for cs, log_w_i in sp_log_ws[sp]:
+                        all_concs[cs] = np.exp(log_share + log_w_i - sp_log_total[sp])
 
         # 2) Species not in any pool: old dilute‐limit
         pooled = {
@@ -253,6 +433,9 @@ class DefectSystem(object):
             if sp not in pooled:
                 for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
                     all_concs[cs] = conc
+
+        if self.element_pools:
+            self._apply_element_constraints(all_concs, e_fermi)
 
         return all_concs
 
@@ -303,6 +486,10 @@ class DefectSystem(object):
         Raises:
             RuntimeError: If no solution is found within the DOS energy range.
         """
+        with self._with_band_edge_corrections():
+            return self._sc_fermi_solve()
+
+    def _sc_fermi_solve(self) -> Tuple[float, float]:
         emin = self.dos.emin()
         emax = self.dos.emax()
         
@@ -362,6 +549,10 @@ class DefectSystem(object):
             Dict[str, List[List]]: Dictionary giving per-defect transition-level
             profiles.
         """
+        with self._with_band_edge_corrections():
+            return self._transition_levels_inner()
+
+    def _transition_levels_inner(self) -> Dict[str, List[List]]:
         transition_levels = {}
         for defect_species in self.defect_species_names:
             transition_level = self.defect_species_by_name(defect_species).tl_profile(
@@ -393,6 +584,10 @@ class DefectSystem(object):
             hole concentration (``"p0"``), electron concentration
             (``"n0"``), temperature, and the defect concentrations.
         """
+        with self._with_band_edge_corrections():
+            return self._concentration_dict_inner(decomposed=decomposed, per_volume=per_volume)
+
+    def _concentration_dict_inner(self, decomposed: bool = False, per_volume: bool = True) -> Dict[str, Any]:
         if per_volume == True:
             scale = 1e24 / self.volume
         else:
@@ -405,25 +600,21 @@ class DefectSystem(object):
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
+        cs_concs = self._global_defect_concs(e_fermi)
         if decomposed == False:
-            sum_concs = {
-                str(ds.name): float(
-                    ds.get_concentration(e_fermi, self.temperature) * scale
-                )
-                for ds in self.defect_species
-            }
+            sum_concs = {}
+            for ds in self.defect_species:
+                total = sum(cs_concs.get(cs, 0.0) for cs in ds.charge_states)
+                sum_concs[str(ds.name)] = float(total * scale)
             return {**run_stats, **sum_concs}
         else:
-            decomp_concs = {
-                str(ds.name): {
-                    int(q): float(
-                        ds.charge_state_concentrations(e_fermi, self.temperature)[q]
-                        * scale
-                    )
-                    for q in ds.charge_states
-                }
-                for ds in self.defect_species
-            }
+            decomp_concs: Dict[str, Dict[int, float]] = {}
+            for ds in self.defect_species:
+                by_charge: Dict[int, float] = {}
+                for cs in ds.charge_states:
+                    if cs in cs_concs:
+                        by_charge[cs.charge] = by_charge.get(cs.charge, 0.0) + float(cs_concs[cs] * scale)
+                decomp_concs[str(ds.name)] = by_charge
             return {**run_stats, **decomp_concs}
 
     def site_percentages(
@@ -437,7 +628,10 @@ class DefectSystem(object):
             Dict[str, Any]: dictionary specifying the per-DefectSpecies site
             concentrations.
         """
+        with self._with_band_edge_corrections():
+            return self._site_percentages_inner()
 
+    def _site_percentages_inner(self) -> Dict[str, float]:
         e_fermi = self.get_sc_fermi()[0]
 
         sum_concs = {

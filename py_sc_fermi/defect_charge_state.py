@@ -13,7 +13,7 @@ class DefectChargeState:
 
     Args:
          charge (int): charge of this ``DefectChargeState``
-         degeneracy (int): degeneracy per unit cell
+         degeneracy (float): degeneracy per unit cell
          energy (float): formation energy at E[Fermi] = 0
          fixed_concentration (float): fixed concentration per unit cell
     """
@@ -21,7 +21,7 @@ class DefectChargeState:
     def __init__(
         self,
         charge: int,
-        degeneracy: int = 1,
+        degeneracy: float = 1,
         energy: Optional[float] = None,
         fixed_concentration: Optional[float] = None,
     ):
@@ -31,8 +31,8 @@ class DefectChargeState:
                 this defect! \n Note, if you specify both, the concentration
                 will treated as fixed"""
             )
-        if degeneracy < 1:
-            raise ValueError("degeneracy must be a positive integer")
+        if degeneracy <= 0:
+            raise ValueError("degeneracy must be a positive number")
         self._charge = charge
         self._degeneracy = degeneracy
         self._energy = energy
@@ -57,11 +57,11 @@ class DefectChargeState:
         return self._charge
 
     @property
-    def degeneracy(self) -> int:
+    def degeneracy(self) -> float:
         """The degeneracy of the ``DefectChargeState`` (e.g. spin degeneracy)
 
         Returns:
-            int: degeneracy per unit cell
+            float: degeneracy per unit cell
         """
         return self._degeneracy
 
@@ -113,7 +113,7 @@ class DefectChargeState:
         """
 
         defect_dict = {
-            "degeneracy": int(self.degeneracy),
+            "degeneracy": float(self.degeneracy),
             "energy": self.energy,
             "charge": int(self.charge),
         }

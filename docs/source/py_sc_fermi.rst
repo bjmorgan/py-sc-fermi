@@ -33,14 +33,6 @@ py\_sc\_fermi.dos module
    :undoc-members:
    :show-inheritance:
 
-py\_sc\_fermi.inputs module
----------------------------
-
-.. automodule:: py_sc_fermi.inputs
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Module contents
 ---------------
 

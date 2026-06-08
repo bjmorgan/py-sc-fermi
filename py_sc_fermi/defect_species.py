@@ -126,7 +126,7 @@ class DefectSpecies(object):
         if self.fixed_concentration is not None:
             to_return += f"\nfixed [c] = {self.fixed_concentration}"
         to_return += "\n" + "".join(
-            [f"  {cs.__repr__()}\n" for cs in self.charge_states.values()]
+            [f"  {cs.__repr__()}\n" for cs in self.charge_states]
         )
         return to_return
 

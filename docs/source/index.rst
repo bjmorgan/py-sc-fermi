@@ -10,7 +10,6 @@ py-sc-fermi
    installation
    usage_notes
    tutorials
-   cli_tutorial
    FAQs
    py_sc_fermi
 
