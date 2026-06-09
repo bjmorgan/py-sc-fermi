@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 from scipy.constants import physical_constants
 from scipy.special import logsumexp
@@ -106,7 +108,7 @@ class DefectSpecies:
         return to_return
 
     @classmethod
-    def from_dict(cls, defect_species_dict: dict) -> "DefectSpecies":
+    def from_dict(cls, defect_species_dict: dict) -> DefectSpecies:
         """return a ``DefectSpecies`` object from a dictionary containing the defect
         species data. Primarily for use defining a full ``DefectSystem`` from a
         .yaml file.
@@ -145,7 +147,7 @@ class DefectSpecies:
             )
 
     @classmethod
-    def _from_list_of_strings(cls, defect_string: list[str]) -> "DefectSpecies":
+    def _from_list_of_strings(cls, defect_string: list[str]) -> DefectSpecies:
         """generate a ``DefectSpecies`` object from a string containing the defect
         species data. Only intended for use reading defect species from a
         SC-Fermi input file.

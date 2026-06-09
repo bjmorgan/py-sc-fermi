@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 from typing import Any
 
@@ -77,7 +79,7 @@ class DefectSystem:
         return [ds.name for ds in self.defect_species]
 
     @classmethod
-    def from_input_set(cls, input_set: InputSet) -> "DefectSystem":
+    def from_input_set(cls, input_set: InputSet) -> DefectSystem:
         """generate ``DefectSystem`` from ``InputSet``
 
         Args:
@@ -99,7 +101,7 @@ class DefectSystem:
     @classmethod
     def from_yaml(
         cls, filename: str, structure_file: str = "", dos_file: str = ""
-    ) -> "DefectSystem":
+    ) -> DefectSystem:
         """generate ``DefectSystem`` via a yaml file.
 
         Args:
@@ -125,7 +127,7 @@ class DefectSystem:
         )
 
     @classmethod
-    def from_dict(cls, dictionary: dict) -> "DefectSystem":
+    def from_dict(cls, dictionary: dict) -> DefectSystem:
         """Generate a DefectSystem from a dictionary.
     
         Args:
