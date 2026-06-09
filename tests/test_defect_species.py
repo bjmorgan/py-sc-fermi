@@ -49,6 +49,11 @@ class TestDefectSpeciesInit(unittest.TestCase):
         self.assertEqual(defect_species._charge_states[1], mock_charge_states[1])
         self.assertEqual(defect_species._fixed_concentration, fixed_concentration)
 
+    def test_defect_species_raises_with_empty_charge_states(self):
+        with self.assertRaises(ValueError) as cm:
+            DefectSpecies(name="V_O", nsites=2, charge_states={})
+        self.assertIn("V_O", str(cm.exception))
+
 
 class TestDefectSpecies(unittest.TestCase):
     def setUp(self):
@@ -176,6 +181,14 @@ class TestDefectSpecies(unittest.TestCase):
             self.defect_species.min_energy_charge_state(0),
             self.defect_species.charge_states[1],
         )
+
+    def test_min_energy_charge_state_raises_with_no_variable_charge_states(self):
+        cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
+        defect = DefectSpecies(name="V_O", nsites=1, charge_states={0: cs_0, 1: cs_1})
+        with self.assertRaises(ValueError) as cm:
+            defect.min_energy_charge_state(e_fermi=0.0)
+        self.assertIn("V_O", str(cm.exception))
 
     def test_get_concentrations(self):
         with patch(
