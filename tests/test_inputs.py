@@ -107,11 +107,19 @@ class TestInputSet(unittest.TestCase):
             )
         self.assertIn("per_unit_cell", str(cm.exception))
 
-    def test_from_yaml_accepts_per_unit_cell_units(self):
+    def test_from_yaml_per_unit_cell_leaves_concentrations_unconverted(self):
         input_set = InputSet.from_yaml(
             test_defect_system_yaml_filename, fixed_conc_units="per_unit_cell"
         )
-        self.assertEqual(len(input_set.defect_species), 3)
+        v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
+        self.assertEqual(v_ga.fixed_concentration, 0.32856e20)
+
+    def test_from_yaml_cm3_units_convert_concentrations(self):
+        # v_Ga fixed_concentration 0.32856e+20 cm^-3 in a 59 A^3 cell becomes
+        # 0.32856e+20 / 1e24 * 59 = 1.938504e-3 per unit cell.
+        input_set = InputSet.from_yaml(test_defect_system_yaml_filename)
+        v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
+        self.assertAlmostEqual(v_ga.fixed_concentration, 1.938504e-3, places=9)
 
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
