@@ -13,7 +13,7 @@ class DefectChargeState:
 
     Args:
          charge (int): charge of this ``DefectChargeState``
-         degeneracy (int): degeneracy per unit cell
+         degeneracy (int): degeneracy of this charge state
          energy (float): formation energy at E[Fermi] = 0
          fixed_concentration (float): fixed concentration per unit cell
     """
@@ -27,9 +27,8 @@ class DefectChargeState:
     ):
         if energy is None and fixed_concentration is None:
             raise ValueError(
-                """You must specify either a fixed concentration or energy for 
-                this defect! \n Note, if you specify both, the concentration
-                will treated as fixed"""
+                "You must specify either a fixed concentration or an energy for "
+                "this defect. If you specify both, the concentration is treated as fixed."
             )
         if degeneracy < 1:
             raise ValueError("degeneracy must be a positive integer")
@@ -61,7 +60,7 @@ class DefectChargeState:
         """The degeneracy of the ``DefectChargeState`` (e.g. spin degeneracy)
 
         Returns:
-            int: degeneracy per unit cell
+            int: degeneracy of this charge state
         """
         return self._degeneracy
 
@@ -139,7 +138,7 @@ class DefectChargeState:
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> "DefectChargeState":
-        """generate a dictionary from a ``DefectChargeState`` object
+        """generate a ``DefectChargeState`` object from a dictionary
 
         Args:
             dictionary (dict): dictionary defining ``DefectChargeState``. Any

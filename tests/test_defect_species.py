@@ -49,6 +49,11 @@ class TestDefectSpeciesInit(unittest.TestCase):
         self.assertEqual(defect_species._charge_states[1], mock_charge_states[1])
         self.assertEqual(defect_species._fixed_concentration, fixed_concentration)
 
+    def test_defect_species_raises_with_empty_charge_states(self):
+        with self.assertRaises(ValueError) as cm:
+            DefectSpecies(name="V_O", nsites=2, charge_states={})
+        self.assertIn("V_O", str(cm.exception))
+
 
 class TestDefectSpecies(unittest.TestCase):
     def setUp(self):

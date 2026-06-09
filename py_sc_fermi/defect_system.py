@@ -382,10 +382,11 @@ class DefectSystem:
         return sum_concs
 
     def as_dict(self) -> dict:
-        """
+        """Return a dictionary representation of the ``DefectSystem``.
 
         Returns:
-            dict: _description_
+            dict: dictionary representation of the ``DefectSystem``, suitable for
+            round-tripping through ``DefectSystem.from_dict``.
         """
 
         defect_system_dict = dict(

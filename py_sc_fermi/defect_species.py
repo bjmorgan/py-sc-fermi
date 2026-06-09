@@ -28,6 +28,10 @@ class DefectSpecies:
     ):
         """Instantiate a DefectSpecies object."""
 
+        if not charge_states:
+            raise ValueError(
+                f"DefectSpecies '{name}' must have at least one charge state."
+            )
         self._name = name
         self._nsites = nsites
         self._charge_states = charge_states
@@ -116,7 +120,7 @@ class DefectSpecies:
                fixed concentration and no formation energy
 
         Returns:
-            DefectChargeState: as specified by the provided dictionary
+            DefectSpecies: as specified by the provided dictionary
         """
         defect_charge_list = [
             DefectChargeState.from_dict(charge_state_dictionary)
@@ -191,7 +195,7 @@ class DefectSpecies:
         """get representation of ``DefectSpecies`` as a dictionary
 
         Returns:
-            dict: dictionary representation of ``DefectChargeState``
+            dict: dictionary representation of ``DefectSpecies``
         """
 
         charge_state_dicts = {
