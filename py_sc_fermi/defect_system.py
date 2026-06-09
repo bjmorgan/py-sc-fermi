@@ -186,7 +186,9 @@ class DefectSystem:
                 **kwargs,
             )  # type: ignore[call-overload]
         except ValueError as err:
-            raise RuntimeError(f"No solution found between {emin} and {emax}") from err
+            raise RuntimeError(
+                f"No solution found between {emin} and {emax}: {err}"
+            ) from err
         
         residual = abs(self.q_tot(e_fermi))
         return e_fermi, residual

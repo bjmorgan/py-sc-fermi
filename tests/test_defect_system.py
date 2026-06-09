@@ -194,7 +194,18 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.q_tot = lambda e_fermi: -0.1
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
-            
+
+    def test_get_sc_fermi_no_solution_error_carries_brentq_message(self):
+        """The no-solution RuntimeError surfaces brentq's own ValueError
+        message rather than discarding it."""
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1)
+        self.defect_system.q_tot = lambda e_fermi: 0.1
+        with self.assertRaises(RuntimeError) as ctx:
+            self.defect_system.get_sc_fermi()
+        self.assertIsInstance(ctx.exception.__cause__, ValueError)
+        self.assertIn(str(ctx.exception.__cause__), str(ctx.exception))
+
     def test_get_sc_fermi_finds_charge_neutral_fermi_energy(self):
         """Solver should find Fermi energy where total charge is zero."""
         dos = DOS(
