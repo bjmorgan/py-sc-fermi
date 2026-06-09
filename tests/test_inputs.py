@@ -113,19 +113,29 @@ class TestInputSet(unittest.TestCase):
         )
         v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
         self.assertEqual(v_ga.fixed_concentration, 0.32856e20)
+        self.assertEqual(v_ga.charge_states[-1].fixed_concentration, 0.19e19)
 
     def test_from_yaml_cm3_units_convert_concentrations(self):
-        # v_Ga fixed_concentration 0.32856e+20 cm^-3 in a 59 A^3 cell becomes
-        # 0.32856e+20 / 1e24 * 59 = 1.938504e-3 per unit cell.
+        # In a 59 A^3 cell, dividing a cm^-3 value by 1e24 and multiplying by
+        # the volume gives the per-unit-cell value. Species-level for v_Ga:
+        # 0.32856e+20 / 1e24 * 59 = 1.938504e-3; charge-state-level for its
+        # charge -1 state: 0.19e+19 / 1e24 * 59 = 1.121e-4.
         input_set = InputSet.from_yaml(test_defect_system_yaml_filename)
         v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
         self.assertAlmostEqual(v_ga.fixed_concentration, 1.938504e-3, places=9)
+        self.assertAlmostEqual(
+            v_ga.charge_states[-1].fixed_concentration, 1.121e-4, places=9
+        )
 
     def test_from_yaml_unsupported_dos_file_extension_raises(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as cm:
             InputSet.from_yaml(
                 test_defect_system_yaml_filename, dos_file="dos.txt"
             )
+        message = str(cm.exception)
+        self.assertIn("dos.txt", message)
+        self.assertIn(".dat", message)
+        self.assertIn(".xml", message)
 
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
