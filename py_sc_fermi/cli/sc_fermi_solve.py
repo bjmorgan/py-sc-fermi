@@ -6,7 +6,7 @@ from py_sc_fermi.defect_system import DefectSystem
 from py_sc_fermi.inputs import InputSet
 
 
-def parse_command_line_arguments():
+def parse_command_line_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "input_file", type=str, help="Path to input file defining the defect system"
@@ -43,7 +43,7 @@ def parse_command_line_arguments():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     """
     read in input files for a defect system and return the defect system dumped
     to a yaml file.

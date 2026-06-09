@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from collections import namedtuple
 from dataclasses import dataclass
@@ -32,7 +34,7 @@ class InputSet:
         structure_file: str = "",
         dos_file: str = "",
         fixed_conc_units: str = "cm^-3",
-    ):
+    ) -> InputSet:
         """
         Generate an InputSet object from a given yaml file
 
@@ -141,7 +143,7 @@ class InputSet:
         n_trial_steps: int | None = None,
         convergence_tolerance: float | None = None,
         frozen: bool = False,
-    ) -> "InputSet":
+    ) -> InputSet:
         """Generate an InputSet object from a
         `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_ -formatted input file.
 

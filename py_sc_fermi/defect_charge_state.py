@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
@@ -77,7 +79,7 @@ class DefectChargeState:
     @classmethod
     def from_string(
         cls, string: str, volume: float | None = None, frozen: bool = False
-    ) -> "DefectChargeState":
+    ) -> DefectChargeState:
         """
         Create a ``DefectChargeState`` from a given string. This method was
         envisaged for use as a way to read in defect charge states from an input
@@ -137,7 +139,7 @@ class DefectChargeState:
                 )
 
     @classmethod
-    def from_dict(cls, dictionary: dict) -> "DefectChargeState":
+    def from_dict(cls, dictionary: dict) -> DefectChargeState:
         """generate a ``DefectChargeState`` object from a dictionary
 
         Args:
@@ -235,7 +237,7 @@ class DefectChargeState:
             concentration = self.fixed_concentration
         return concentration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
         else:

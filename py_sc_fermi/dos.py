@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
 from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
@@ -122,7 +124,7 @@ class DOS:
         path_to_vasprun: str,
         nelect: int | None = None,
         bandgap: float | None = None,
-    ) -> "DOS":
+    ) -> DOS:
         """Generate DOS object from a VASP vasprun.xml
         file. As this is parsed using pymatgen, the number of electrons is not
         contained in the vasprun data and must be passed in. On the other hand,
@@ -167,7 +169,7 @@ class DOS:
         )
 
     @classmethod
-    def from_dict(cls, dos_dict: dict) -> "DOS":
+    def from_dict(cls, dos_dict: dict) -> DOS:
         """return a ``DOS`` object from a dictionary containing the density-of-states
         data. If the density-of-states data is spin polarised, it should
         be stored as a list of two arrays, one for each spin. The order is not

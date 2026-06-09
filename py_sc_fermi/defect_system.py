@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 from typing import Any
 
@@ -53,7 +55,7 @@ class DefectSystem:
             )
         self.n_trial_steps = n_trial_steps
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         to_return = [
             "DefectSystem\n",
             f"  nelect: {self.dos.nelect} e\n",
@@ -77,7 +79,7 @@ class DefectSystem:
         return [ds.name for ds in self.defect_species]
 
     @classmethod
-    def from_input_set(cls, input_set: InputSet) -> "DefectSystem":
+    def from_input_set(cls, input_set: InputSet) -> DefectSystem:
         """generate ``DefectSystem`` from ``InputSet``
 
         Args:
@@ -97,7 +99,9 @@ class DefectSystem:
         )
 
     @classmethod
-    def from_yaml(cls, filename: str, structure_file="", dos_file="") -> "DefectSystem":
+    def from_yaml(
+        cls, filename: str, structure_file: str = "", dos_file: str = ""
+    ) -> DefectSystem:
         """generate ``DefectSystem`` via a yaml file.
 
         Args:
@@ -123,7 +127,7 @@ class DefectSystem:
         )
 
     @classmethod
-    def from_dict(cls, dictionary: dict) -> "DefectSystem":
+    def from_dict(cls, dictionary: dict) -> DefectSystem:
         """Generate a DefectSystem from a dictionary.
     
         Args:
