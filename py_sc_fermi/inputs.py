@@ -118,11 +118,11 @@ class InputSet:
             for ds in defect_species:
                 if ds.fixed_concentration is not None:
                     ds.fix_concentration(ds.fixed_concentration / 1e24 * volume)
-                for charge_state in ds.charge_states:
-                        if ds.charge_states[charge_state].fixed_concentration is not None:
-                            ds.charge_states[charge_state].fix_concentration(
-                                ds.charge_states[charge_state].fixed_concentration / 1e24 * volume
-                            )
+                for charge_state in ds.charge_states.values():
+                    if charge_state.fixed_concentration is not None:
+                        charge_state.fix_concentration(
+                            charge_state.fixed_concentration / 1e24 * volume
+                        )
         return cls(
             dos=dos,
             volume=volume,

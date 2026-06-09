@@ -27,6 +27,10 @@
 - Corrected the `DefectSpecies.as_dict` and `DefectSpecies.from_dict`
   return-type descriptions, which mislabelled the result as a
   `DefectChargeState` representation.
+- Added a `DefectSpecies` return-type annotation to `DefectSpecies.from_dict`
+  (and the private `_from_list_of_strings`), so the return contract is checked
+  by mypy and surfaced to downstream type checkers rather than only described
+  in the docstring.
 - Filled in the placeholder `DefectSystem.as_dict` docstring.
 
 ## V2.2.1
