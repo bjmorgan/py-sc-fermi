@@ -28,9 +28,6 @@
   to `DefectSystem`, allowing formation energies and the band gap to be
   corrected as a function of temperature before solving for the self-consistent
   Fermi energy.
-- Refactored the self-consistent Fermi energy solver to use
-  `scipy.optimize.brentq`. `n_trial_steps` is now deprecated and emits a
-  `DeprecationWarning`.
 
 ## V2.2.1
 
