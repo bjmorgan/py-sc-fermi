@@ -1,5 +1,22 @@
 # Change log
 
+## V2.2.3
+
+### Improvements
+
+- Completed static type-hint coverage of the package. Added the missing
+  return-type and parameter annotations on the `__repr__` methods,
+  `InputSet.from_yaml`, `DefectSystem.from_yaml`, and the CLI entry points,
+  and gave the `suppresses_numpy_overflow` decorator a signature-preserving
+  `ParamSpec`/`TypeVar` typing so it no longer erases the type of the public
+  `DefectChargeState.get_concentration` it wraps. These are annotation-only
+  changes with no runtime effect.
+
+### Build & Packaging
+
+- Enabled `disallow_untyped_defs` and `disallow_incomplete_defs` in the mypy
+  configuration, so missing or incomplete annotations are caught in CI.
+
 ## V2.2.2
 
 ### Bug Fixes

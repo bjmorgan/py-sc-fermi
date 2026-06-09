@@ -235,7 +235,7 @@ class DefectChargeState:
             concentration = self.fixed_concentration
         return concentration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
         else:
