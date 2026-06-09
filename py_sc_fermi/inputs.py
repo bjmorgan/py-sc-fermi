@@ -32,7 +32,7 @@ class InputSet:
         structure_file: str = "",
         dos_file: str = "",
         fixed_conc_units: str = "cm^-3",
-    ):
+    ) -> "InputSet":
         """
         Generate an InputSet object from a given yaml file
 

@@ -96,7 +96,7 @@ class DefectSpecies:
         """
         return self._fixed_concentration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         to_return = f"\n{self.name}, nsites={self.nsites}"
         if self.fixed_concentration is not None:
             to_return += f"\nfixed [c] = {self.fixed_concentration}"
