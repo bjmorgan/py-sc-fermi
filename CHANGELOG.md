@@ -13,6 +13,10 @@
   that relied on an arbitrary string to get the no-conversion path should now
   pass `"per_unit_cell"`. The parameter is also now documented in the method
   docstring.
+- `InputSet.from_yaml` now raises a clear `ValueError` when `dos_file` is given
+  with an unsupported extension (anything other than `.dat` or `.xml`).
+  Previously such a path left the local `dos` variable unbound and failed later
+  with a cryptic `UnboundLocalError`.
 
 ## V2.2.3
 

@@ -121,6 +121,12 @@ class TestInputSet(unittest.TestCase):
         v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
         self.assertAlmostEqual(v_ga.fixed_concentration, 1.938504e-3, places=9)
 
+    def test_from_yaml_unsupported_dos_file_extension_raises(self):
+        with self.assertRaises(ValueError):
+            InputSet.from_yaml(
+                test_defect_system_yaml_filename, dos_file="dos.txt"
+            )
+
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
             test_sc_fermi_input_filename, test_unitcell_filename, test_dos_filename

@@ -84,6 +84,12 @@ class InputSet:
                     dos_file, input_dict["nelect"], input_dict["bandgap"]
                 )
 
+            else:
+                raise ValueError(
+                    f"Unsupported dos_file extension '{dos_file}'; expected a "
+                    "'.dat' or '.xml' file."
+                )
+
         elif "edos" in input_dict.keys() and "dos" in input_dict.keys():
             dos = DOS.from_dict(input_dict)
 
