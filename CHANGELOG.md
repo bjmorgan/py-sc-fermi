@@ -8,9 +8,10 @@
   return-type and parameter annotations on the `__repr__` methods,
   `InputSet.from_yaml`, `DefectSystem.from_yaml`, and the CLI entry points,
   and gave the `suppresses_numpy_overflow` decorator a signature-preserving
-  `ParamSpec`/`TypeVar` typing so it no longer erases the type of the public
-  `DefectChargeState.get_concentration` it wraps. These are annotation-only
-  changes with no runtime effect.
+  `ParamSpec`/`TypeVar` typing so it no longer erases the types of the public
+  methods it wraps (`DefectChargeState.get_concentration` and
+  `DOS.carrier_concentrations`). These are annotation-only changes with no
+  runtime effect.
 - Adopted `from __future__ import annotations` in the modules that define
   classmethod constructors, so their return-type forward references (e.g.
   `-> "DefectSpecies"`) are now written unquoted. Annotation-only, with no
