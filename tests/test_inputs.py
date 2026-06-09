@@ -100,6 +100,19 @@ class TestInputSet(unittest.TestCase):
         self.assertEqual(input_set.dos.bandgap, 0.8084)
         self.assertAlmostEqual(input_set.volume, volume)
 
+    def test_from_yaml_rejects_unknown_fixed_conc_units(self):
+        with self.assertRaises(ValueError) as cm:
+            InputSet.from_yaml(
+                test_defect_system_yaml_filename, fixed_conc_units="cm-3"
+            )
+        self.assertIn("per_unit_cell", str(cm.exception))
+
+    def test_from_yaml_accepts_per_unit_cell_units(self):
+        input_set = InputSet.from_yaml(
+            test_defect_system_yaml_filename, fixed_conc_units="per_unit_cell"
+        )
+        self.assertEqual(len(input_set.defect_species), 3)
+
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
             test_sc_fermi_input_filename, test_unitcell_filename, test_dos_filename

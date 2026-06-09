@@ -1,5 +1,19 @@
 # Change log
 
+## V2.2.4
+
+### Bug Fixes
+
+- `InputSet.from_yaml` now validates the `fixed_conc_units` argument and raises
+  a `ValueError` for any value other than the two allowed units, `"cm^-3"`
+  (convert from cm^-3 to per-unit-cell) and `"per_unit_cell"` (no conversion).
+  Previously any string other than the exact `"cm^-3"` silently skipped the
+  conversion, so a mistyped unit such as `"cm-3"` gave fixed concentrations
+  wrong by a factor of roughly 1e24 / volume with no error or warning. Callers
+  that relied on an arbitrary string to get the no-conversion path should now
+  pass `"per_unit_cell"`. The parameter is also now documented in the method
+  docstring.
+
 ## V2.2.3
 
 ### Improvements
