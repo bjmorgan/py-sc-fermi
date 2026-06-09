@@ -1,9 +1,18 @@
 # Change log
 
-## V2.2.4
+## V2.2.2
 
 ### Bug Fixes
 
+- `DefectSpecies` now rejects an empty set of charge states at construction,
+  raising a `ValueError` naming the species, rather than constructing
+  successfully and failing later with a confusing `IndexError` (e.g. in
+  `min_energy_charge_state`).
+- `DefectSpecies.min_energy_charge_state` now raises a `ValueError` naming the
+  species when there are no variable-concentration charge states (e.g. every
+  charge state has a fixed concentration), rather than failing with a bare
+  `IndexError`. This also covers the `tl_profile` analysis path, which calls
+  it.
 - `InputSet.from_yaml` now validates the `fixed_conc_units` argument and raises
   a `ValueError` for any value other than the two allowed units, `"cm^-3"`
   (convert from cm^-3 to per-unit-cell) and `"per_unit_cell"` (no conversion).
@@ -17,8 +26,6 @@
   with an unsupported extension (anything other than `.dat` or `.xml`).
   Previously such a path left the local `dos` variable unbound and failed later
   with a cryptic `UnboundLocalError`.
-
-## V2.2.3
 
 ### Improvements
 
@@ -34,25 +41,6 @@
   classmethod constructors, so their return-type forward references (e.g.
   `-> "DefectSpecies"`) are now written unquoted. Annotation-only, with no
   runtime effect.
-
-### Build & Packaging
-
-- Enabled `disallow_untyped_defs` and `disallow_incomplete_defs` in the mypy
-  configuration, so missing or incomplete annotations are caught in CI.
-
-## V2.2.2
-
-### Bug Fixes
-
-- `DefectSpecies` now rejects an empty set of charge states at construction,
-  raising a `ValueError` naming the species, rather than constructing
-  successfully and failing later with a confusing `IndexError` (e.g. in
-  `min_energy_charge_state`).
-- `DefectSpecies.min_energy_charge_state` now raises a `ValueError` naming the
-  species when there are no variable-concentration charge states (e.g. every
-  charge state has a fixed concentration), rather than failing with a bare
-  `IndexError`. This also covers the `tl_profile` analysis path, which calls
-  it.
 
 ### Documentation
 
@@ -72,6 +60,11 @@
   by mypy and surfaced to downstream type checkers rather than only described
   in the docstring.
 - Filled in the placeholder `DefectSystem.as_dict` docstring.
+
+### Build & Packaging
+
+- Enabled `disallow_untyped_defs` and `disallow_incomplete_defs` in the mypy
+  configuration, so missing or incomplete annotations are caught in CI.
 
 ## V2.2.1
 
