@@ -186,8 +186,13 @@ class DefectSystem:
                 **kwargs,
             )  # type: ignore[call-overload]
         except ValueError as err:
-            raise RuntimeError(f"No solution found between {emin} and {emax}") from err
+            raise RuntimeError(
+                f"No solution found between {emin} and {emax}: {err}"
+            ) from err
         
+        # q_tot is continuous wherever finite, so a sign change across the DOS
+        # window brackets a genuine root. The returned residual is a diagnostic
+        # on that solution.
         residual = abs(self.q_tot(e_fermi))
         return e_fermi, residual
 

@@ -194,7 +194,18 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.q_tot = lambda e_fermi: -0.1
         with self.assertRaises(RuntimeError):
             self.defect_system.get_sc_fermi()
-            
+
+    def test_get_sc_fermi_no_solution_error_carries_brentq_message(self):
+        """The no-solution RuntimeError surfaces brentq's own ValueError
+        message rather than discarding it."""
+        self.defect_system.dos.emin = Mock(return_value=0)
+        self.defect_system.dos.emax = Mock(return_value=1)
+        self.defect_system.q_tot = lambda e_fermi: 0.1
+        with self.assertRaises(RuntimeError) as ctx:
+            self.defect_system.get_sc_fermi()
+        self.assertIsInstance(ctx.exception.__cause__, ValueError)
+        self.assertIn(str(ctx.exception.__cause__), str(ctx.exception))
+
     def test_get_sc_fermi_finds_charge_neutral_fermi_energy(self):
         """Solver should find Fermi energy where total charge is zero."""
         dos = DOS(
@@ -222,7 +233,38 @@ class TestDefectSystem(unittest.TestCase):
         q_tot = defect_system.q_tot(e_fermi)
         self.assertAlmostEqual(q_tot, 0.0, places=10)
         self.assertLess(residual,  1e-10)
-    
+
+    def test_get_sc_fermi_with_overflowing_endpoint_finds_interior_root(self):
+        """A defect concentration can overflow at the edge of the DOS window,
+        making q_tot non-finite there, while the physical Fermi level sits at a
+        finite interior root. brentq brackets inward to that root, so the solve
+        succeeds rather than failing on the overflow."""
+        dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-10.0, 10.0, 101),
+            bandgap=3.0,
+            nelect=10,
+        )
+        charge_state = DefectChargeState(charge=-2, energy=0.0, degeneracy=1)
+        defect_species = DefectSpecies(
+            name="deep_acceptor",
+            nsites=1,
+            charge_states={-2: charge_state},
+        )
+        defect_system = DefectSystem(
+            dos=dos,
+            volume=100,
+            temperature=300,
+            defect_species=[defect_species],
+        )
+
+        # q_tot overflows to +inf at the top of the DOS window...
+        self.assertFalse(np.isfinite(defect_system.q_tot(dos.emax())))
+        # ...yet the solve returns the finite interior root.
+        e_fermi, residual = defect_system.get_sc_fermi()
+        self.assertTrue(np.isfinite(e_fermi))
+        self.assertLess(residual, 1e-10)
+
     def test_get_transition_levels(self):
         self.defect_system.defect_species_by_name("v_O").tl_profile = Mock(
             return_value=[[1, 2], [1, 2]]

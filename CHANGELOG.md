@@ -1,5 +1,15 @@
 # Change log
 
+## V2.2.1
+
+### Improvements
+
+- When `DefectSystem.get_sc_fermi` cannot bracket a self-consistent Fermi
+  level, the raised `RuntimeError` now includes the underlying
+  `scipy.optimize.brentq` message and chains it as the cause, rather than
+  replacing it with a generic "no solution found" string, so the reason a
+  solve failed is visible (#57).
+
 ## V2.2.0
 
 ### Improvements
