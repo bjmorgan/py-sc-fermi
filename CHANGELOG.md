@@ -11,6 +11,10 @@
   `ParamSpec`/`TypeVar` typing so it no longer erases the type of the public
   `DefectChargeState.get_concentration` it wraps. These are annotation-only
   changes with no runtime effect.
+- Adopted `from __future__ import annotations` in the modules that define
+  classmethod constructors, so their return-type forward references (e.g.
+  `-> "DefectSpecies"`) are now written unquoted. Annotation-only, with no
+  runtime effect.
 
 ### Build & Packaging
 
