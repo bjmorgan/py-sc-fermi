@@ -100,6 +100,43 @@ class TestInputSet(unittest.TestCase):
         self.assertEqual(input_set.dos.bandgap, 0.8084)
         self.assertAlmostEqual(input_set.volume, volume)
 
+    def test_from_yaml_rejects_unknown_fixed_conc_units(self):
+        with self.assertRaises(ValueError) as cm:
+            InputSet.from_yaml(
+                test_defect_system_yaml_filename, fixed_conc_units="cm-3"
+            )
+        self.assertIn("per_unit_cell", str(cm.exception))
+
+    def test_from_yaml_per_unit_cell_leaves_concentrations_unconverted(self):
+        input_set = InputSet.from_yaml(
+            test_defect_system_yaml_filename, fixed_conc_units="per_unit_cell"
+        )
+        v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
+        self.assertEqual(v_ga.fixed_concentration, 0.32856e20)
+        self.assertEqual(v_ga.charge_states[-1].fixed_concentration, 0.19e19)
+
+    def test_from_yaml_cm3_units_convert_concentrations(self):
+        # In a 59 A^3 cell, dividing a cm^-3 value by 1e24 and multiplying by
+        # the volume gives the per-unit-cell value. Species-level for v_Ga:
+        # 0.32856e+20 / 1e24 * 59 = 1.938504e-3; charge-state-level for its
+        # charge -1 state: 0.19e+19 / 1e24 * 59 = 1.121e-4.
+        input_set = InputSet.from_yaml(test_defect_system_yaml_filename)
+        v_ga = next(ds for ds in input_set.defect_species if ds.name == "v_Ga")
+        self.assertAlmostEqual(v_ga.fixed_concentration, 1.938504e-3, places=9)
+        self.assertAlmostEqual(
+            v_ga.charge_states[-1].fixed_concentration, 1.121e-4, places=9
+        )
+
+    def test_from_yaml_unsupported_dos_file_extension_raises(self):
+        with self.assertRaises(ValueError) as cm:
+            InputSet.from_yaml(
+                test_defect_system_yaml_filename, dos_file="dos.txt"
+            )
+        message = str(cm.exception)
+        self.assertIn("dos.txt", message)
+        self.assertIn(".dat", message)
+        self.assertIn(".xml", message)
+
     def test_from_sc_fermi_inputs(self):
         input_set = InputSet.from_sc_fermi_inputs(
             test_sc_fermi_input_filename, test_unitcell_filename, test_dos_filename

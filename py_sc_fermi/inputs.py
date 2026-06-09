@@ -42,6 +42,11 @@ class InputSet:
             input_file (str): path to yaml file to read
             structure_file (str): path to structure file to read
             dos_file (str): path to dos file to read
+            fixed_conc_units (str): units of any fixed concentrations given in
+                the input. ``"cm^-3"`` (the default) converts them from cm^-3
+                to per-unit-cell using the cell volume; ``"per_unit_cell"``
+                treats them as already per-unit-cell. Any other value raises
+                ``ValueError``.
 
         Returns:
             InputSet: full set of inputs for ``py-sc-fermi.DefectSystem``.
@@ -51,6 +56,13 @@ class InputSet:
             are not specified, the ``.yaml`` file must contain the volume and
             the density-of-states data.
         """
+        allowed_units = ("cm^-3", "per_unit_cell")
+        if fixed_conc_units not in allowed_units:
+            raise ValueError(
+                f"Unrecognised fixed_conc_units '{fixed_conc_units}'. Allowed "
+                f"values are: {', '.join(allowed_units)}."
+            )
+
         with open(input_file) as f:
             input_dict = yaml.safe_load(f)
 
@@ -70,6 +82,12 @@ class InputSet:
             elif dos_file.endswith(".xml"):
                 dos = DOS.from_vasprun(
                     dos_file, input_dict["nelect"], input_dict["bandgap"]
+                )
+
+            else:
+                raise ValueError(
+                    f"Unsupported dos_file extension '{dos_file}'; expected a "
+                    "'.dat' or '.xml' file."
                 )
 
         elif "edos" in input_dict.keys() and "dos" in input_dict.keys():

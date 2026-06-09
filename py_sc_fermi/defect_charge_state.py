@@ -151,10 +151,10 @@ class DefectChargeState:
         """
 
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
-        unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
-        if unrecognized_keys:
+        unrecognised_keys = set(dictionary.keys()) - set(valid_keys)
+        if unrecognised_keys:
             warnings.warn(
-                f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}",
+                f"Ignoring unrecognised keys: {', '.join(unrecognised_keys)}",
                 stacklevel=2,
             )
 
