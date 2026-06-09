@@ -182,6 +182,14 @@ class TestDefectSpecies(unittest.TestCase):
             self.defect_species.charge_states[1],
         )
 
+    def test_min_energy_charge_state_raises_with_no_variable_charge_states(self):
+        cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
+        defect = DefectSpecies(name="V_O", nsites=1, charge_states={0: cs_0, 1: cs_1})
+        with self.assertRaises(ValueError) as cm:
+            defect.min_energy_charge_state(e_fermi=0.0)
+        self.assertIn("V_O", str(cm.exception))
+
     def test_get_concentrations(self):
         with patch(
             "py_sc_fermi.defect_species.DefectSpecies.fixed_concentration",

@@ -8,6 +8,11 @@
   raising a `ValueError` naming the species, rather than constructing
   successfully and failing later with a confusing `IndexError` (e.g. in
   `min_energy_charge_state`).
+- `DefectSpecies.min_energy_charge_state` now raises a `ValueError` naming the
+  species when there are no variable-concentration charge states (e.g. every
+  charge state has a fixed concentration), rather than failing with a bare
+  `IndexError`. This also covers the `tl_profile` analysis path, which calls
+  it.
 
 ### Documentation
 

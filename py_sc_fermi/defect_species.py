@@ -221,8 +221,19 @@ class DefectSpecies:
         Returns:
             DefectChargeState: the ``DefectChargeState`` of this ``DefectSpecies``
             with the lowest energy at ``e_fermi``.
+
+        Raises:
+            ValueError: if this ``DefectSpecies`` has no variable-concentration
+                charge states, as the minimum-energy charge state is then
+                undefined.
         """
-        return self.charge_states_by_formation_energy(e_fermi)[0]
+        charge_states = self.charge_states_by_formation_energy(e_fermi)
+        if not charge_states:
+            raise ValueError(
+                f"DefectSpecies '{self.name}' has no variable-concentration "
+                "charge states, so a minimum-energy charge state is undefined."
+            )
+        return charge_states[0]
 
     def get_formation_energies(self, e_fermi: float) -> dict[int, float]:
         """Returns a dictionary of formation energies for all
