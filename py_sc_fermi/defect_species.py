@@ -116,8 +116,9 @@ class DefectSpecies:
                data.
 
         Raises:
-            ValueError: if any of the ``DefectChargeState`` objects specified have no
-               fixed concentration and no formation energy
+            ValueError: if the dictionary specifies no charge states, or if any
+               of the specified ``DefectChargeState`` objects have no fixed
+               concentration and no formation energy
 
         Returns:
             DefectSpecies: as specified by the provided dictionary
