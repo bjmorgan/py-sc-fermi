@@ -267,13 +267,21 @@ class DefectSystem:
         concs: dict[DefectChargeState, float],
         e_fermi: float,
     ) -> None:
-        """Rescale variable-concentration charge state concentrations so that each
-        element pool’s total defect content matches its fixed target.
+        """Redistribute variable-concentration charge state concentrations so that
+        each element pool's total defect content matches its fixed target.
 
         Site pool competition (if any) is applied before this method is called, so
-        site pools take priority. This method then scales all variable-concentration
-        states of the element’s species together to satisfy the elemental content
-        constraint. Fixed-concentration charge states are left unchanged.
+        site pools take priority. The remaining elemental budget is then shared
+        among the free variable-concentration states of the element's species
+        according to mass action: each state's concentration is set to
+        ``c_i = u_i * lambda**s_i``, where ``u_i`` is its Boltzmann weight, ``s_i``
+        is its species' stoichiometry in this pool, and the single scalar
+        ``lambda`` (an effective chemical potential for the pooled element) is
+        solved for such that ``sum(s_i * c_i) == remaining``. This preserves
+        mass-action ratios (e.g. c_B/c_A**2 for a stoich-2 species B and stoich-1
+        species A) as the pool target changes, unlike a uniform rescale of all
+        states by the same factor. Fixed-concentration charge states are left
+        unchanged.
 
         Args:
             concs: mapping from every DefectChargeState → concentration per cell.
@@ -293,14 +301,26 @@ class DefectSystem:
                 for sp, stoich in pool_list
             ]
 
-            # split species into site-pool-governed (fixed for our purposes) and free
-            site_governed = [(sp, stoich) for sp, stoich in resolved if sp in site_pooled_species]
-            free = [(sp, stoich) for sp, stoich in resolved if sp not in site_pooled_species]
+            # split species into those whose total occupancy is already fixed
+            # (by a site pool or a species-level fixed_concentration) and the
+            # remaining free/variable species
+            committed_species = [
+                (sp, stoich)
+                for sp, stoich in resolved
+                if sp in site_pooled_species or sp.fixed_concentration is not None
+            ]
+            free = [
+                (sp, stoich)
+                for sp, stoich in resolved
+                if sp not in site_pooled_species and sp.fixed_concentration is None
+            ]
 
-            # 1) elemental content already committed by site-pool species and fixed-cs species
+            # 1) elemental content already committed by site-pool species,
+            #    species-level fixed_concentration, and individually fixed
+            #    charge states
             committed = sum(
                 sum(concs.get(cs, 0.0) for cs in sp.charge_states) * stoich
-                for sp, stoich in site_governed
+                for sp, stoich in committed_species
             )
             committed += sum(
                 sum(
@@ -320,31 +340,49 @@ class DefectSystem:
                     f"{fixed_total:.3e}. Your constraints are mutually inconsistent."
                 )
 
-            # 2) compute log-weights for all free variable states (log-space to avoid overflow)
-            log_contributions: list[tuple] = []  # (cs, stoich, log_w)
+            # 2) collect (cs, stoich, log_u) for all free variable states, where
+            #    u = nsites * deg * exp(-Ef/kT) is the unconstrained Boltzmann weight
+            log_contributions: list[tuple] = []  # (cs, stoich, log_u)
             for sp, stoich in free:
                 for cs in sp.charge_states:
                     if cs in concs and cs.fixed_concentration is None and cs._energy is not None:
                         Ef = cs.get_formation_energy(e_fermi)
-                        log_w = (
+                        log_u = (
                             np.log(sp.nsites)
                             + np.log(cs.degeneracy)
                             - Ef / (_kboltz * self.temperature)
-                            + np.log(stoich)
                         )
-                        log_contributions.append((cs, stoich, log_w))
+                        log_contributions.append((cs, stoich, log_u))
 
             if not log_contributions:
                 continue
 
-            # log of total elemental content from free variable states
-            log_current_var = logsumexp([lw for _, _, lw in log_contributions])
+            if remaining == 0:
+                for cs, _, _ in log_contributions:
+                    concs[cs] = 0.0
+                continue
 
-            # 3) assign concentrations: remaining * (unnorm_w / total_elem_w)
-            #    where unnorm_w = nsites * deg * exp(-Ef/kT), total_elem_w sums stoich * unnorm_w
+            # 3) solve for the effective chemical potential mu = log(lambda) such
+            #    that sum(s_i * u_i * exp(s_i * mu)) == remaining, then set
+            #    c_i = u_i * exp(s_i * mu)
             log_remaining = np.log(remaining)
-            for cs, stoich, log_w in log_contributions:
-                concs[cs] = np.exp(log_remaining + (log_w - np.log(stoich)) - log_current_var)
+
+            def excess(mu: float) -> float:
+                log_terms = [
+                    np.log(stoich) + log_u + stoich * mu
+                    for _, stoich, log_u in log_contributions
+                ]
+                return logsumexp(log_terms) - log_remaining
+
+            lo, hi = -1.0, 1.0
+            while excess(lo) > 0:
+                lo *= 2
+            while excess(hi) < 0:
+                hi *= 2
+            mu = brentq(excess, lo, hi)
+
+            for cs, stoich, log_u in log_contributions:
+                concs[cs] = np.exp(log_u + stoich * mu)
 
     def _global_defect_concs(self, e_fermi: float) -> dict[DefectChargeState, float]:
         """

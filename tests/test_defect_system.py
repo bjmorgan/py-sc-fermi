@@ -496,6 +496,76 @@ class TestDefectSystemElementPools(unittest.TestCase):
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
 
+    def test_element_pool_honours_species_level_fixed_concentration(self):
+        fixed_value = 3.0
+        species_a = DefectSpecies(
+            "A", nsites=1, fixed_concentration=fixed_value,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        species_b = DefectSpecies(
+            "B", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        target = 10.0
+        system = DefectSystem(
+            defect_species=[species_a, species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (target, [(species_a, 1.0), (species_b, 2.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        c_a = concs[species_a.charge_states[0]]
+        c_b = concs[species_b.charge_states[0]]
+        self.assertAlmostEqual(c_a, fixed_value, places=8)
+        self.assertAlmostEqual(1.0 * c_a + 2.0 * c_b, target, places=6)
+
+    def test_element_pool_raises_when_species_level_fixed_concentration_exceeds_target(
+        self,
+    ):
+        species_a = DefectSpecies(
+            "A", nsites=1, fixed_concentration=3.0,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        species_b = DefectSpecies(
+            "B", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species_a, species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (2.0, [(species_a, 1.0), (species_b, 2.0)])},
+        )
+        with self.assertRaises(ValueError):
+            system._global_defect_concs(1.0)
+
+    def test_element_pool_preserves_mass_action_ratio_across_targets(self):
+        species_a = DefectSpecies(
+            "A", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        species_b = DefectSpecies(
+            "B", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        ratios = []
+        for target in (6.0, 20.0):
+            system = DefectSystem(
+                defect_species=[species_a, species_b],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                element_pools={"X": (target, [(species_a, 1.0), (species_b, 2.0)])},
+            )
+            concs = system._global_defect_concs(1.0)
+            c_a = concs[species_a.charge_states[0]]
+            c_b = concs[species_b.charge_states[0]]
+            self.assertAlmostEqual(1.0 * c_a + 2.0 * c_b, target, places=6)
+            ratios.append(c_b / c_a**2)
+        self.assertAlmostEqual(ratios[0], ratios[1], places=6)
+
 
 class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
     def setUp(self):
