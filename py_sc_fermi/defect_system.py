@@ -364,17 +364,21 @@ class DefectSystem:
                 else:
                     sp_objs.append(sp)
 
-            # a) fixed occupancy per species
-            fixed_per_sp = {
-                sp: sum(
-                    conc
-                    for cs, conc in sp.charge_state_concentrations(
-                        e_fermi, self.temperature
+            # a) fixed occupancy per species. A species-level fixed_concentration
+            #    pins the species' total occupancy, so it counts in full;
+            #    otherwise sum any individually-fixed charge states.
+            fixed_per_sp = {}
+            for sp in sp_objs:
+                if sp.fixed_concentration is not None:
+                    fixed_per_sp[sp] = sp.fixed_concentration
+                else:
+                    fixed_per_sp[sp] = sum(
+                        conc
+                        for cs, conc in sp.charge_state_concentrations(
+                            e_fermi, self.temperature
+                        )
+                        if cs.fixed_concentration is not None
                     )
-                    if cs.fixed_concentration is not None
-                )
-                for sp in sp_objs
-            }
             total_fixed = sum(fixed_per_sp.values())
             free_sites = N_pool - total_fixed
             if free_sites < 0:
@@ -384,10 +388,15 @@ class DefectSystem:
                 )
 
             # b) log Boltzmann weight per species and per variable state
-            #    (log-space to avoid overflow at extreme Fermi energies)
+            #    (log-space to avoid overflow at extreme Fermi energies).
+            #    Species with a species-level fixed_concentration are fully
+            #    committed (accounted for in (a) and (d)) and take no share
+            #    of free_sites.
             sp_log_ws: dict = {}  # sp -> list of (cs, log_w)
             for sp in sp_objs:
                 sp_log_ws[sp] = []
+                if sp.fixed_concentration is not None:
+                    continue
                 for cs in sp.variable_conc_charge_states():
                     Ef = cs.get_formation_energy(e_fermi)
                     log_w = (
@@ -408,7 +417,15 @@ class DefectSystem:
 
             # d) assign each species its share
             for sp in sp_objs:
-                # fixed states pass through unchanged
+                if sp.fixed_concentration is not None:
+                    # committed total, distributed over this species' charge
+                    # states by their relative Boltzmann weights
+                    for cs, conc in sp.charge_state_concentrations(
+                        e_fermi, self.temperature
+                    ):
+                        all_concs[cs] = conc
+                    continue
+                # fixed charge states pass through unchanged
                 for cs, conc in sp.charge_state_concentrations(
                     e_fermi, self.temperature
                 ):

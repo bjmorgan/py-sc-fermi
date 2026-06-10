@@ -384,6 +384,46 @@ class TestDefectSystemSitePools(unittest.TestCase):
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
 
+    def test_pooled_species_honours_species_level_fixed_concentration(self):
+        self.species_a.fix_concentration(3.0)
+        no_pool_system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        pooled_system = DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (10.0, [self.species_a, self.species_b])},
+        )
+        no_pool_total = sum(
+            no_pool_system._global_defect_concs(1.0)[cs]
+            for cs in self.species_a.charge_states
+        )
+        pooled_total = sum(
+            pooled_system._global_defect_concs(1.0)[cs]
+            for cs in self.species_a.charge_states
+        )
+        self.assertAlmostEqual(no_pool_total, 3.0, places=8)
+        self.assertAlmostEqual(pooled_total, 3.0, places=8)
+
+    def test_pool_raises_when_species_level_fixed_concentration_exceeds_site_count(
+        self,
+    ):
+        self.species_a.fix_concentration(20.0)
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (10.0, [self.species_a])},
+        )
+        with self.assertRaises(ValueError):
+            system._global_defect_concs(1.0)
+
 
 class TestDefectSystemElementPools(unittest.TestCase):
     def setUp(self):
