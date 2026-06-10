@@ -1,6 +1,5 @@
 import os
 import unittest
-import warnings
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -46,7 +45,6 @@ class TestDefectSystemInit(unittest.TestCase):
         self.assertEqual(defect_system.temperature, temperature)
         self.assertEqual(defect_system.defect_species[0], mock_defect_species[0])
         self.assertEqual(defect_system.defect_species[1], mock_defect_species[1])
-        self.assertEqual(defect_system.n_trial_steps, None)
 
 
 class TestDefectSystem(unittest.TestCase):
@@ -103,7 +101,6 @@ class TestDefectSystem(unittest.TestCase):
         dictionary = {
             "volume": 100,
             "temperature": 100,
-            "n_trial_steps": 100,
             "convergence_tolerance": 1,
             "defect_species": [{
                 "name": "V_O",
@@ -118,13 +115,9 @@ class TestDefectSystem(unittest.TestCase):
                 "spin_pol": False
             }
         }
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            defect_system = self.defect_system.from_dict(dictionary)
-            self.defect_system.from_dict(dictionary)
+        defect_system = self.defect_system.from_dict(dictionary)
         self.assertEqual(defect_system.volume, 100)
         self.assertEqual(defect_system.temperature, 100)
-        self.assertEqual(defect_system.n_trial_steps, 100)
         self.assertEqual(defect_system.convergence_tolerance, 1)
 
     def test_site_percentages(self):
@@ -301,22 +294,6 @@ class TestDefectSystem(unittest.TestCase):
             "\n"
             "  0 defect species:",
         )
-        
-    def test_n_trial_steps_deprecation_warning(self):
-        """Setting n_trial_steps should emit a DeprecationWarning."""
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            DefectSystem(
-                defect_species=[],
-                dos=Mock(spec=DOS),
-                volume=100,
-                temperature=300,
-                n_trial_steps=100,
-            )
-        
-        deprecation_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-        self.assertEqual(len(deprecation_warnings), 1)
-        self.assertIn("n_trial_steps", str(deprecation_warnings[0].message))
 
 
 class TestDefectSystemSitePools(unittest.TestCase):

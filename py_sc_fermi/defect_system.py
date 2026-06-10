@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -32,9 +31,6 @@ class DefectSystem:
           will be solved for.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV. If not specified, uses scipy's default.
-        n_trial_steps (int, optional): Deprecated. Previously set the maximum
-          number of solver iterations. The solver now uses Brent's method
-          which converges reliably without this parameter.
         site_pools (dict[str, tuple[float, list[DefectSpecies]]] | None, optional):
                 Mapping of pool name → (total sites in that pool, list of
                 DefectSpecies sharing those sites). If None, no site competition
@@ -48,7 +44,6 @@ class DefectSystem:
         volume: float,
         temperature: float,
         convergence_tolerance: float | None = None,
-        n_trial_steps: int | None = None, # deprecated
         site_pools: dict[str, tuple[float, list[DefectSpecies]]] | None = None,
         element_pools: dict[str, tuple[float, list[tuple[Any, float]]]] | None = None,
         vbm_shift_fn: Callable[[float], float] | None = None,
@@ -66,15 +61,6 @@ class DefectSystem:
         self.formation_energy_corrections = formation_energy_corrections or {}
         self.rigid_shift = rigid_shift
         self._corrections_active = False
-        if n_trial_steps is not None:
-            warnings.warn(
-                "n_trial_steps is deprecated and will be removed in a future version. "
-                "The solver now uses Brent's method which converges reliably without "
-                "this parameter.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        self.n_trial_steps = n_trial_steps
 
         self.site_pools = site_pools or {}
         self.element_pools = element_pools or {}
@@ -464,7 +450,6 @@ class DefectSystem:
             volume=dictionary["volume"],
             temperature=dictionary["temperature"],
             convergence_tolerance=dictionary.get("convergence_tolerance"),
-            n_trial_steps=dictionary.get("n_trial_steps"),
             defect_species=[
                 DefectSpecies.from_dict(defect_species)
                 for defect_species in dictionary["defect_species"]
@@ -507,9 +492,7 @@ class DefectSystem:
             kwargs = {}
             if self.convergence_tolerance is not None:
                 kwargs['xtol'] = self.convergence_tolerance
-            if self.n_trial_steps is not None:
-                kwargs['maxiter'] = self.n_trial_steps
-            
+
             e_fermi = brentq(
                 self.q_tot,
                 emin,
@@ -679,6 +662,4 @@ class DefectSystem:
         )
         if self.convergence_tolerance is not None:
             defect_system_dict["convergence_tolerance"] = self.convergence_tolerance
-        if self.n_trial_steps is not None:
-            defect_system_dict["n_trial_steps"] = self.n_trial_steps
         return defect_system_dict

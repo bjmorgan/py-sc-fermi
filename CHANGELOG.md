@@ -17,6 +17,10 @@
 - Removed `DefectChargeState.from_string` and
   `DefectSpecies._from_list_of_strings`, which existed solely to support the
   removed text input-file format.
+- Removed the `n_trial_steps` parameter from `DefectSystem`, deprecated since
+  v2.1.0. The self-consistent Fermi energy solver uses `scipy.optimize.brentq`
+  and no longer takes a maximum-iterations argument; pass
+  `convergence_tolerance` to control solver precision instead.
 
 ### Improvements
 
