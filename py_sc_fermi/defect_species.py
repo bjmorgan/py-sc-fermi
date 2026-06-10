@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 from scipy.constants import physical_constants
 from scipy.special import logsumexp
@@ -29,6 +31,10 @@ class DefectSpecies:
     ):
         """Instantiate a DefectSpecies object."""
 
+        if not charge_states:
+            raise ValueError(
+                f"DefectSpecies '{name}' must have at least one charge state."
+            )
         self._name = name
         self._nsites = nsites
         self._charge_states = charge_states
@@ -118,7 +124,7 @@ class DefectSpecies:
         """
         return self._fixed_concentration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         to_return = f"\n{self.name}, nsites={self.nsites}"
         if self.fixed_concentration is not None:
             to_return += f"\nfixed [c] = {self.fixed_concentration}"
@@ -128,7 +134,7 @@ class DefectSpecies:
         return to_return
 
     @classmethod
-    def from_dict(cls, d: dict) -> "DefectSpecies":
+    def from_dict(cls, d: dict) -> DefectSpecies:
         """return a ``DefectSpecies`` object from a dictionary containing the defect
         species data. Primarily for use defining a full ``DefectSystem`` from a
         .yaml file.
@@ -138,11 +144,12 @@ class DefectSpecies:
                data.
 
         Raises:
-            ValueError: if any of the ``DefectChargeState`` objects specified have no
-               fixed concentration and no formation energy
+            ValueError: if the dictionary specifies no charge states, or if any
+               of the specified ``DefectChargeState`` objects have no fixed
+               concentration and no formation energy
 
         Returns:
-            DefectChargeState: as specified by the provided dictionary
+            DefectSpecies: as specified by the provided dictionary
         """
         states = [
             DefectChargeState.from_dict(cs_dict) for cs_dict in d["charge_states"]
@@ -178,7 +185,7 @@ class DefectSpecies:
         """get representation of ``DefectSpecies`` as a dictionary
 
         Returns:
-            dict: dictionary representation of ``DefectChargeState``
+            dict: dictionary representation of ``DefectSpecies``
         """
 
         defect_dict = {
@@ -201,8 +208,19 @@ class DefectSpecies:
         Returns:
             DefectChargeState: the ``DefectChargeState`` of this ``DefectSpecies``
             with the lowest energy at ``e_fermi``.
+
+        Raises:
+            ValueError: if this ``DefectSpecies`` has no variable-concentration
+                charge states, as the minimum-energy charge state is then
+                undefined.
         """
-        return self.charge_states_by_formation_energy(e_fermi)[0]
+        charge_states = self.charge_states_by_formation_energy(e_fermi)
+        if not charge_states:
+            raise ValueError(
+                f"DefectSpecies '{self.name}' has no variable-concentration "
+                "charge states, so a minimum-energy charge state is undefined."
+            )
+        return charge_states[0]
 
     def get_formation_energies(self, e_fermi: float) -> dict[int, float]:
         """

@@ -50,6 +50,10 @@ select = [
     "B",   # flake8-bugbear
 ]
 
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
 [tool.setuptools]
 packages = ["py_sc_fermi"]
 

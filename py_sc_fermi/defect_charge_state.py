@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
@@ -13,7 +15,7 @@ class DefectChargeState:
 
     Args:
          charge (int): charge of this ``DefectChargeState``
-         degeneracy (float): degeneracy per unit cell
+         degeneracy (float): degeneracy of this charge state
          energy (float): formation energy at E[Fermi] = 0
          fixed_concentration (float): fixed concentration per unit cell
     """
@@ -27,9 +29,8 @@ class DefectChargeState:
     ):
         if energy is None and fixed_concentration is None:
             raise ValueError(
-                """You must specify either a fixed concentration or energy for 
-                this defect! \n Note, if you specify both, the concentration
-                will treated as fixed"""
+                "You must specify either a fixed concentration or an energy for "
+                "this defect. If you specify both, the concentration is treated as fixed."
             )
         if degeneracy <= 0:
             raise ValueError("degeneracy must be a positive number")
@@ -61,7 +62,7 @@ class DefectChargeState:
         """The degeneracy of the ``DefectChargeState`` (e.g. spin degeneracy)
 
         Returns:
-            float: degeneracy per unit cell
+            float: degeneracy of this charge state
         """
         return self._degeneracy
 
@@ -76,8 +77,8 @@ class DefectChargeState:
         return self._fixed_concentration
 
     @classmethod
-    def from_dict(cls, dictionary: dict) -> "DefectChargeState":
-        """generate a dictionary from a ``DefectChargeState`` object
+    def from_dict(cls, dictionary: dict) -> DefectChargeState:
+        """generate a ``DefectChargeState`` object from a dictionary
 
         Args:
             dictionary (dict): dictionary defining ``DefectChargeState``. Any
@@ -88,10 +89,11 @@ class DefectChargeState:
         """
 
         valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
-        unrecognized_keys = set(dictionary.keys()) - set(valid_keys)
-        if unrecognized_keys:
+        unrecognised_keys = set(dictionary.keys()) - set(valid_keys)
+        if unrecognised_keys:
             warnings.warn(
-                f"Ignoring unrecognized keys: {', '.join(unrecognized_keys)}", stacklevel=2
+                f"Ignoring unrecognised keys: {', '.join(unrecognised_keys)}",
+                stacklevel=2,
             )
 
         if "fixed_concentration" in dictionary.keys():
@@ -173,7 +175,7 @@ class DefectChargeState:
             concentration = self.fixed_concentration
         return concentration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
         else:

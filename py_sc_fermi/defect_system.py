@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -77,7 +79,7 @@ class DefectSystem:
         self.site_pools = site_pools or {}
         self.element_pools = element_pools or {}
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         # Compute corrections at current temperature (if any)
         has_corrections = self.vbm_shift_fn is not None or self.cbm_shift_fn is not None
         if has_corrections:
@@ -115,7 +117,9 @@ class DefectSystem:
                         f"  (deg. {cs.degeneracy})"
                     )
                 else:
+                    # a variable (non-fixed) charge state always carries an energy
                     e_stored = cs.energy
+                    assert e_stored is not None
                     if has_fe_corrections:
                         key = (ds.name, cs.charge)
                         if key in self.formation_energy_corrections:
@@ -163,7 +167,7 @@ class DefectSystem:
         return [ds.name for ds in self.defect_species]
 
     @contextmanager
-    def _with_band_edge_corrections(self):
+    def _with_band_edge_corrections(self) -> Iterator[None]:
         """Temporarily apply VBM/CBM shift corrections at the current temperature.
 
         Re-entrant: nested calls (e.g. report → get_sc_fermi) are no-ops once
@@ -356,7 +360,7 @@ class DefectSystem:
             for cs, stoich, log_w in log_contributions:
                 concs[cs] = np.exp(log_remaining + (log_w - np.log(stoich)) - log_current_var)
 
-    def _global_defect_concs(self, e_fermi: float):
+    def _global_defect_concs(self, e_fermi: float) -> dict[DefectChargeState, float]:
         """
         Returns a dict mapping each DefectChargeState → concentration per cell,
         applying site-competition for any pools defined in self.site_pools.
@@ -446,7 +450,7 @@ class DefectSystem:
         return all_concs
 
     @classmethod
-    def from_dict(cls, dictionary: dict) -> "DefectSystem":
+    def from_dict(cls, dictionary: dict) -> DefectSystem:
         """Generate a DefectSystem from a dictionary.
     
         Args:
@@ -658,10 +662,11 @@ class DefectSystem:
         return sum_concs
 
     def as_dict(self) -> dict:
-        """
+        """Return a dictionary representation of the ``DefectSystem``.
 
         Returns:
-            dict: _description_
+            dict: dictionary representation of the ``DefectSystem``, suitable for
+            round-tripping through ``DefectSystem.from_dict``.
         """
 
         defect_system_dict = dict(
