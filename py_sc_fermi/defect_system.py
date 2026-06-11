@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
-from scipy.optimize import brentq  # type: ignore[call-overload]
+from scipy.optimize import brentq, minimize  # type: ignore[call-overload]
 from scipy.special import logsumexp
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
@@ -14,6 +15,21 @@ from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
+
+
+@dataclass
+class _ExclusionGroup:
+    """A set of charge states competing for a shared budget of `n_free`
+    sites under Langmuir/site-exclusion statistics.
+
+    `variable_states` holds ``(charge_state, species, log_w)`` for every
+    non-fixed-concentration charge state in the group, where
+    ``log_w = log(degeneracy) - Ef / (kB * T)`` is the *per-site* Boltzmann
+    weight (independent of `nsites`/pool size).
+    """
+
+    n_free: float
+    variable_states: list[tuple[DefectChargeState, DefectSpecies, float]]
 
 
 class DefectSystem:
@@ -262,231 +278,296 @@ class DefectSystem:
         print(output)
         return output
 
-    def _apply_element_constraints(
+    def _resolve_species(self, sp: DefectSpecies | str) -> DefectSpecies:
+        """Resolve a DefectSpecies or its name to a DefectSpecies instance."""
+        return self.defect_species_by_name(sp) if isinstance(sp, str) else sp
+
+    def _build_group(
         self,
-        concs: dict[DefectChargeState, float],
+        label: str,
+        n_sites: float,
+        species: list[DefectSpecies],
         e_fermi: float,
-    ) -> None:
-        """Redistribute variable-concentration charge state concentrations so that
-        each element pool's total defect content matches its fixed target.
+        fixed_concs: dict[DefectChargeState, float],
+    ) -> _ExclusionGroup:
+        """Build an exclusion group of `n_sites` sites shared by `species`.
 
-        Site pool competition (if any) is applied before this method is called, so
-        site pools take priority. The remaining elemental budget is then shared
-        among the free variable-concentration states of the element's species
-        according to mass action: each state's concentration is set to
-        ``c_i = u_i * lambda**s_i``, where ``u_i`` is its Boltzmann weight, ``s_i``
-        is its species' stoichiometry in this pool, and the single scalar
-        ``lambda`` (an effective chemical potential for the pooled element) is
-        solved for such that ``sum(s_i * c_i) == remaining``. This preserves
-        mass-action ratios (e.g. c_B/c_A**2 for a stoich-2 species B and stoich-1
-        species A) as the pool target changes, unlike a uniform rescale of all
-        states by the same factor. Fixed-concentration charge states are left
-        unchanged.
-
-        Args:
-            concs: mapping from every DefectChargeState → concentration per cell.
-                   Modified in place.
+        Species-level `fixed_concentration` and individually-fixed charge
+        states are written into `fixed_concs` and subtracted from `n_sites`
+        to give the group's free-site budget; every other charge state
+        becomes a variable state of the group.
         """
-        # build set of species already governed by a site pool
-        site_pooled_species: set = {
-            self.defect_species_by_name(sp) if isinstance(sp, str) else sp
-            for _, (_, sps) in self.site_pools.items()
-            for sp in sps
+        fixed_total = 0.0
+        variable_states: list[tuple[DefectChargeState, DefectSpecies, float]] = []
+        for sp in species:
+            if sp.fixed_concentration is not None:
+                fixed_total += sp.fixed_concentration
+                for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
+                    fixed_concs[cs] = conc
+                continue
+            for cs in sp.charge_states:
+                if cs.fixed_concentration is not None:
+                    fixed_concs[cs] = cs.fixed_concentration
+                    fixed_total += cs.fixed_concentration
+                else:
+                    Ef = cs.get_formation_energy(e_fermi)
+                    log_w = np.log(cs.degeneracy) - Ef / (_kboltz * self.temperature)
+                    variable_states.append((cs, sp, log_w))
+
+        n_free = n_sites - fixed_total
+        if n_free < 0:
+            raise ValueError(
+                f"'{label}' has {n_sites} sites but fixed-concentration "
+                f"states occupy {fixed_total}"
+            )
+        return _ExclusionGroup(n_free=n_free, variable_states=variable_states)
+
+    def _build_exclusion_groups(
+        self, e_fermi: float
+    ) -> tuple[list[_ExclusionGroup], dict[DefectChargeState, float]]:
+        """Partition all charge states into site-exclusion groups.
+
+        Each `site_pools` entry forms a group sharing its pool size between
+        its member species. Every other species forms an implicit
+        single-species group of size `nsites` -- so an unpooled species and
+        a `site_pools` entry of `(nsites, [species])` are equivalent.
+
+        Returns the groups (covering every variable charge state) together
+        with a dict of concentrations for every fixed and species-fixed
+        charge state.
+        """
+        groups: list[_ExclusionGroup] = []
+        fixed_concs: dict[DefectChargeState, float] = {}
+        pooled_species: set[DefectSpecies] = set()
+
+        for pool_name, (n_pool, species_list) in self.site_pools.items():
+            sp_objs = [self._resolve_species(sp) for sp in species_list]
+            pooled_species.update(sp_objs)
+            groups.append(self._build_group(pool_name, n_pool, sp_objs, e_fermi, fixed_concs))
+
+        for sp in self.defect_species:
+            if sp not in pooled_species:
+                groups.append(self._build_group(sp.name, sp.nsites, [sp], e_fermi, fixed_concs))
+
+        return groups, fixed_concs
+
+    def _resolve_element_pools(
+        self,
+    ) -> dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]:
+        """Resolve string species references in `element_pools` to DefectSpecies."""
+        return {
+            elem: (target, [(self._resolve_species(sp), stoich) for sp, stoich in pool_list])
+            for elem, (target, pool_list) in self.element_pools.items()
         }
 
-        for elem, (fixed_total, pool_list) in self.element_pools.items():
-            # resolve string species names
-            resolved: list[tuple[DefectSpecies, float]] = [
-                (self.defect_species_by_name(sp) if isinstance(sp, str) else sp, stoich)
-                for sp, stoich in pool_list
-            ]
+    @staticmethod
+    def _stoichiometry_lookup(
+        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+    ) -> dict[DefectSpecies, dict[str, float]]:
+        """Map each species to {element: stoichiometry} for every element
+        pool it participates in."""
+        lookup: dict[DefectSpecies, dict[str, float]] = {}
+        for elem, (_, pool_list) in pools.items():
+            for sp, stoich in pool_list:
+                lookup.setdefault(sp, {})[elem] = stoich
+        return lookup
 
-            # split species into those whose total occupancy is already fixed
-            # (by a site pool or a species-level fixed_concentration) and the
-            # remaining free/variable species
-            committed_species = [
-                (sp, stoich)
-                for sp, stoich in resolved
-                if sp in site_pooled_species or sp.fixed_concentration is not None
-            ]
-            free = [
-                (sp, stoich)
-                for sp, stoich in resolved
-                if sp not in site_pooled_species and sp.fixed_concentration is None
-            ]
-
-            # 1) elemental content already committed by site-pool species,
-            #    species-level fixed_concentration, and individually fixed
-            #    charge states
-            committed = sum(
-                sum(concs.get(cs, 0.0) for cs in sp.charge_states) * stoich
-                for sp, stoich in committed_species
-            )
-            committed += sum(
-                sum(
-                    concs.get(cs, 0.0)
-                    for cs in sp.charge_states
-                    if cs.fixed_concentration is not None
-                )
-                * stoich
-                for sp, stoich in free
-            )
-
-            remaining = fixed_total - committed
-            if remaining < 0:
+    @staticmethod
+    def _remaining_element_targets(
+        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+    ) -> dict[str, float]:
+        """For each element pool, the target content still to be supplied by
+        variable-concentration states, after subtracting fixed contributions."""
+        remaining: dict[str, float] = {}
+        for elem, (target, pool_list) in pools.items():
+            committed = 0.0
+            for sp, stoich in pool_list:
+                if sp.fixed_concentration is not None:
+                    committed += stoich * sp.fixed_concentration
+                else:
+                    committed += stoich * sum(
+                        cs.fixed_concentration
+                        for cs in sp.charge_states
+                        if cs.fixed_concentration is not None
+                    )
+            rem = target - committed
+            if rem < 0:
                 raise ValueError(
-                    f"Element pool ‘{elem}’: site pool and fixed-concentration states "
-                    f"already contribute {committed:.3e} which exceeds the target "
-                    f"{fixed_total:.3e}. Your constraints are mutually inconsistent."
+                    f"Element pool '{elem}': fixed-concentration states "
+                    f"already contribute {committed:.3e} which exceeds the "
+                    f"target {target:.3e}. Your constraints are mutually "
+                    "inconsistent."
+                )
+            remaining[elem] = rem
+        return remaining
+
+    @staticmethod
+    def _group_term_arrays(
+        group: _ExclusionGroup,
+        elements: list[str],
+        stoich: dict[DefectSpecies, dict[str, float]],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Per-state log Boltzmann weights and stoichiometry vectors for a
+        group's variable states, as arrays of shape (n,) and (n, len(elements))."""
+        log_w = np.array([lw for _, _, lw in group.variable_states])
+        s = np.array(
+            [
+                [stoich.get(sp, {}).get(elem, 0.0) for elem in elements]
+                for _, sp, _ in group.variable_states
+            ]
+        )
+        return log_w, s
+
+    @staticmethod
+    def _group_concs(
+        n_free: float, log_w: np.ndarray, s: np.ndarray, mu: np.ndarray
+    ) -> np.ndarray:
+        """c_i = n_free * w_i * exp(s_i . mu) / (1 + sum_j w_j * exp(s_j . mu))
+        for every variable state in a group, given the element chemical
+        potentials `mu`."""
+        exponents = log_w + s @ mu
+        log_z = logsumexp(np.concatenate(([0.0], exponents)))
+        return n_free * np.exp(exponents - log_z)
+
+    def _solve_chemical_potentials(
+        self,
+        groups: list[_ExclusionGroup],
+        elements: list[str],
+        stoich: dict[DefectSpecies, dict[str, float]],
+        remaining: dict[str, float],
+        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+    ) -> np.ndarray:
+        """Solve for one chemical potential `mu_X` per element pool such
+        that, summing `_group_concs` over every group, the total content of
+        each pooled element equals `remaining[X]`.
+
+        This is the stationarity condition of the convex grand potential
+        ``F(mu) = sum_g n_free_g * log(Z_g(mu)) - mu . remaining``, whose
+        gradient is the element-content vector and whose Hessian is, group
+        by group, the covariance matrix of the states' stoichiometry vectors
+        weighted by their occupancy -- symmetric positive semi-definite, so
+        `F` has a single minimum whenever `remaining` is achievable.
+        """
+        K = len(elements)
+        remaining_vec = np.array([remaining[e] for e in elements])
+
+        group_data = [
+            (group.n_free, *self._group_term_arrays(group, elements, stoich))
+            for group in groups
+            if group.n_free > 0 and group.variable_states
+        ]
+
+        # feasibility: the most of element X any group can supply is
+        # n_free * (largest stoichiometry among its variable states).
+        for k, elem in enumerate(elements):
+            max_content = sum(
+                n_free * max(0.0, s[:, k].max()) for n_free, _, s in group_data
+            )
+            if remaining_vec[k] > max_content:
+                target, _ = pools[elem]
+                committed = target - remaining_vec[k]
+                raise ValueError(
+                    f"Element pool '{elem}': target {target:.3e} exceeds "
+                    f"the maximum achievable content "
+                    f"{committed + max_content:.3e} (committed "
+                    f"{committed:.3e} plus up to {max_content:.3e} from "
+                    "variable states)."
                 )
 
-            # 2) collect (cs, stoich, log_u) for all free variable states, where
-            #    u = nsites * deg * exp(-Ef/kT) is the unconstrained Boltzmann weight
-            log_contributions: list[tuple] = []  # (cs, stoich, log_u)
-            for sp, stoich in free:
-                for cs in sp.charge_states:
-                    if cs in concs and cs.fixed_concentration is None and cs._energy is not None:
-                        Ef = cs.get_formation_energy(e_fermi)
-                        log_u = (
-                            np.log(sp.nsites)
-                            + np.log(cs.degeneracy)
-                            - Ef / (_kboltz * self.temperature)
-                        )
-                        log_contributions.append((cs, stoich, log_u))
+        def total_content(mu: np.ndarray) -> np.ndarray:
+            total = np.zeros(K)
+            for n_free, log_w, s in group_data:
+                c = self._group_concs(n_free, log_w, s, mu)
+                total += s.T @ c
+            return total
 
-            if not log_contributions:
-                continue
+        if K == 1:
+            target = remaining_vec[0]
 
-            if remaining == 0:
-                for cs, _, _ in log_contributions:
-                    concs[cs] = 0.0
-                continue
-
-            # 3) solve for the effective chemical potential mu = log(lambda) such
-            #    that sum(s_i * u_i * exp(s_i * mu)) == remaining, then set
-            #    c_i = u_i * exp(s_i * mu)
-            log_remaining = np.log(remaining)
-
-            def excess(mu: float) -> float:
-                log_terms = [
-                    np.log(stoich) + log_u + stoich * mu
-                    for _, stoich, log_u in log_contributions
-                ]
-                return logsumexp(log_terms) - log_remaining
+            def excess(mu0: float) -> float:
+                return total_content(np.array([mu0]))[0] - target
 
             lo, hi = -1.0, 1.0
             while excess(lo) > 0:
                 lo *= 2
             while excess(hi) < 0:
                 hi *= 2
-            mu = brentq(excess, lo, hi)
+            try:
+                mu0 = brentq(excess, lo, hi)
+            except ValueError as err:
+                raise ValueError(
+                    f"Element pool '{elements[0]}': target {target:.3e} "
+                    "could not be reached."
+                ) from err
+            return np.array([mu0])
 
-            for cs, stoich, log_u in log_contributions:
-                concs[cs] = np.exp(log_u + stoich * mu)
+        def fun_and_grad(mu: np.ndarray) -> tuple[float, np.ndarray]:
+            f = -mu @ remaining_vec
+            grad = -remaining_vec.copy()
+            for n_free, log_w, s in group_data:
+                exponents = log_w + s @ mu
+                log_z = logsumexp(np.concatenate(([0.0], exponents)))
+                f += n_free * log_z
+                c = n_free * np.exp(exponents - log_z)
+                grad += s.T @ c
+            return f, grad
+
+        def hess(mu: np.ndarray) -> np.ndarray:
+            h = np.zeros((K, K))
+            for n_free, log_w, s in group_data:
+                c = self._group_concs(n_free, log_w, s, mu)
+                mean_s = (s * c[:, None]).sum(axis=0) / n_free
+                ds = s - mean_s
+                h += (ds * c[:, None]).T @ ds
+            return h
+
+        result = minimize(
+            fun_and_grad, x0=np.zeros(K), jac=True, hess=hess, method="trust-exact"
+        )
+        if not result.success:
+            targets = ", ".join(f"{elem}={remaining[elem]:.3e}" for elem in elements)
+            raise ValueError(
+                f"Element pool targets ({targets}) are jointly infeasible: "
+                "no chemical potentials satisfy all constraints simultaneously."
+            )
+        return result.x
 
     def _global_defect_concs(self, e_fermi: float) -> dict[DefectChargeState, float]:
         """
-        Returns a dict mapping each DefectChargeState → concentration per cell,
-        applying site-competition for any pools defined in self.site_pools.
-        Pool entries may be either DefectSpecies instances or their name strings.
+        Returns a dict mapping each DefectChargeState -> concentration per cell.
+
+        Every species is assigned to a site-exclusion group (a `site_pools`
+        entry, or its own implicit single-species group of `nsites` sites)
+        and its variable charge states are given Langmuir/site-exclusion
+        statistics, ``c_i = n_free * w_i / (1 + sum_j w_j)``. If
+        `element_pools` are defined, the element chemical potentials are
+        solved for first (`_solve_chemical_potentials`) and folded into each
+        state's weight as ``w_i * exp(s_i . mu)``.
         """
-        all_concs= {}
+        groups, all_concs = self._build_exclusion_groups(e_fermi)
 
-        # 1) Handle each pool
-        for pool_name, (N_pool, species_list) in self.site_pools.items():
-            # normalize list to DefectSpecies objects
-            sp_objs = []
-            for sp in species_list:
-                if isinstance(sp, str):
-                    sp_objs.append(self.defect_species_by_name(sp))
-                else:
-                    sp_objs.append(sp)
+        pools = self._resolve_element_pools()
+        elements = list(pools.keys())
+        stoich = self._stoichiometry_lookup(pools)
 
-            # a) fixed occupancy per species. A species-level fixed_concentration
-            #    pins the species' total occupancy, so it counts in full;
-            #    otherwise sum any individually-fixed charge states.
-            fixed_per_sp = {}
-            for sp in sp_objs:
-                if sp.fixed_concentration is not None:
-                    fixed_per_sp[sp] = sp.fixed_concentration
-                else:
-                    fixed_per_sp[sp] = sum(
-                        conc
-                        for cs, conc in sp.charge_state_concentrations(
-                            e_fermi, self.temperature
-                        )
-                        if cs.fixed_concentration is not None
-                    )
-            total_fixed = sum(fixed_per_sp.values())
-            free_sites = N_pool - total_fixed
-            if free_sites < 0:
-                raise ValueError(
-                    f"Pool '{pool_name}' has {N_pool} sites but fixed states "
-                    f"occupy {total_fixed}"
-                )
+        if elements:
+            remaining = self._remaining_element_targets(pools)
+            mu = self._solve_chemical_potentials(groups, elements, stoich, remaining, pools)
+        else:
+            mu = np.array([])
 
-            # b) log Boltzmann weight per species and per variable state
-            #    (log-space to avoid overflow at extreme Fermi energies).
-            #    Species with a species-level fixed_concentration are fully
-            #    committed (accounted for in (a) and (d)) and take no share
-            #    of free_sites.
-            sp_log_ws: dict = {}  # sp -> list of (cs, log_w)
-            for sp in sp_objs:
-                sp_log_ws[sp] = []
-                if sp.fixed_concentration is not None:
-                    continue
-                for cs in sp.variable_conc_charge_states():
-                    Ef = cs.get_formation_energy(e_fermi)
-                    log_w = (
-                        np.log(sp.nsites)
-                        + np.log(cs.degeneracy)
-                        - Ef / (_kboltz * self.temperature)
-                    )
-                    sp_log_ws[sp].append((cs, log_w))
-
-            # log of total weight per species (-inf if no variable states)
-            sp_log_total = {
-                sp: logsumexp([lw for _, lw in pairs]) if pairs else -np.inf
-                for sp, pairs in sp_log_ws.items()
-            }
-
-            # c) partition function: log(1 + sum_sp w_sp)
-            log_Z = logsumexp([0.0] + list(sp_log_total.values()))
-
-            # d) assign each species its share
-            for sp in sp_objs:
-                if sp.fixed_concentration is not None:
-                    # committed total, distributed over this species' charge
-                    # states by their relative Boltzmann weights
-                    for cs, conc in sp.charge_state_concentrations(
-                        e_fermi, self.temperature
-                    ):
-                        all_concs[cs] = conc
-                    continue
-                # fixed charge states pass through unchanged
-                for cs, conc in sp.charge_state_concentrations(
-                    e_fermi, self.temperature
-                ):
-                    if cs.fixed_concentration is not None:
-                        all_concs[cs] = conc
-                # variable states: share proportional to Boltzmann weight
-                if sp_log_ws[sp]:
-                    log_share = np.log(free_sites) + sp_log_total[sp] - log_Z
-                    for cs, log_w_i in sp_log_ws[sp]:
-                        all_concs[cs] = np.exp(log_share + log_w_i - sp_log_total[sp])
-
-        # 2) Species not in any pool: old dilute‐limit
-        pooled = {
-            self.defect_species_by_name(sp) if isinstance(sp, str) else sp
-            for _, (_, sps) in self.site_pools.items() for sp in sps
-        }
-        for sp in self.defect_species:
-            if sp not in pooled:
-                for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
-                    all_concs[cs] = conc
-
-        if self.element_pools:
-            self._apply_element_constraints(all_concs, e_fermi)
+        for group in groups:
+            if not group.variable_states:
+                continue
+            if group.n_free == 0:
+                for cs, _, _ in group.variable_states:
+                    all_concs[cs] = 0.0
+                continue
+            log_w, s = self._group_term_arrays(group, elements, stoich)
+            for (cs, _, _), c_i in zip(
+                group.variable_states, self._group_concs(group.n_free, log_w, s, mu)
+            ):
+                all_concs[cs] = c_i
 
         return all_concs
 
