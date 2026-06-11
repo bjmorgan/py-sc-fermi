@@ -734,6 +734,48 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
                 )
                 self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
 
+    def test_content_jacobian_matches_finite_differences_at_high_occupancy(self):
+        """The analytic Jacobian of the element-content map must agree with
+        finite differences at O(1) site occupancy, where the empty state's
+        contribution to the per-site covariance is not negligible."""
+        sp = {
+            name: DefectSpecies(
+                name, nsites=20,
+                charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+            )
+            for name in ("A", "B", "C")
+        }
+        system = DefectSystem(
+            defect_species=list(sp.values()),
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (8.0, [("A", 1.0), ("B", 1.0)]),
+                "Y": (5.0, [("A", 1.0), ("C", 1.0)]),
+            },
+        )
+        groups, _ = system._build_exclusion_groups(1.0)
+        pools = system._resolve_element_pools()
+        elements = list(pools.keys())
+        stoich = system._stoichiometry_lookup(pools)
+        group_data = [
+            (g.n_free, *system._group_term_arrays(g.variable_states, elements, stoich))
+            for g in groups
+            if g.n_free > 0 and g.variable_states
+        ]
+        mu = np.array([-0.7, -1.6])
+        _, jacobian = DefectSystem._content_and_hessian(group_data, mu)
+        eps = 1e-6
+        fd = np.zeros((2, 2))
+        for k in range(2):
+            d = np.zeros(2)
+            d[k] = eps
+            up, _ = DefectSystem._content_and_hessian(group_data, mu + d)
+            down, _ = DefectSystem._content_and_hessian(group_data, mu - d)
+            fd[:, k] = (up - down) / (2 * eps)
+        np.testing.assert_allclose(jacobian, fd, rtol=1e-6)
+
     def test_post_solve_guard_raises_when_solver_misreports_convergence(self):
         """A solver that returns success without converging (the failure
         mode of an absolute-tolerance criterion on dilute targets) must

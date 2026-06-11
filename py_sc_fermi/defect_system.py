@@ -428,6 +428,30 @@ class DefectSystem:
         log_z = logsumexp(np.concatenate(([0.0], exponents)))
         return n_free * np.exp(exponents - log_z)
 
+    @staticmethod
+    def _content_and_hessian(
+        group_data: list[tuple[float, np.ndarray, np.ndarray]],
+        mu: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Total element content and its Jacobian d(content)/d(mu), summed
+        over all groups, at element chemical potentials `mu`.
+
+        Per group, the Jacobian is `n_free` times the per-site covariance
+        of the stoichiometry vectors over the full state ensemble,
+        including the empty state (stoichiometry zero, occupancy
+        ``n_free - sum_i c_i``)."""
+        K = len(mu)
+        content = np.zeros(K)
+        hessian = np.zeros((K, K))
+        for n_free, log_w, s in group_data:
+            c = DefectSystem._group_concs(n_free, log_w, s, mu)
+            content += s.T @ c
+            mean_s = (s * c[:, None]).sum(axis=0) / n_free
+            ds = s - mean_s
+            hessian += (ds * c[:, None]).T @ ds
+            hessian += max(n_free - c.sum(), 0.0) * np.outer(mean_s, mean_s)
+        return content, hessian
+
     def _solve_chemical_potentials(
         self,
         groups: list[_ExclusionGroup],
@@ -476,19 +500,8 @@ class DefectSystem:
                     "variable states)."
                 )
 
-        def content_and_hessian(mu: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-            content = np.zeros(K)
-            hessian = np.zeros((K, K))
-            for n_free, log_w, s in group_data:
-                c = self._group_concs(n_free, log_w, s, mu)
-                content += s.T @ c
-                mean_s = (s * c[:, None]).sum(axis=0) / n_free
-                ds = s - mean_s
-                hessian += (ds * c[:, None]).T @ ds
-            return content, hessian
-
         def residual_and_jacobian(mu: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-            content, hessian = content_and_hessian(mu)
+            content, hessian = self._content_and_hessian(group_data, mu)
             return content / remaining_vec - 1.0, hessian / remaining_vec[:, None]
 
         # Defect concentrations natively span ~1e-30..1 per cell, and
@@ -506,7 +519,7 @@ class DefectSystem:
         # ``sbar_X = H_XX / content_X``. Started from mu = 0 itself, the
         # solver can sit on an underflow plateau where the Jacobian
         # vanishes.
-        c0, h0 = content_and_hessian(np.zeros(K))
+        c0, h0 = self._content_and_hessian(group_data, np.zeros(K))
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
             x0 = np.log(remaining_vec / c0) * c0 / np.diag(h0)
         x0 = np.clip(
@@ -525,7 +538,7 @@ class DefectSystem:
         # an optimiser returning success without moving from its starting
         # point is exactly the failure mode that motivated the
         # dimensionless formulation, and any recurrence must be loud.
-        achieved, _ = content_and_hessian(result.x)
+        achieved, _ = self._content_and_hessian(group_data, result.x)
         rel_err = np.abs(achieved / remaining_vec - 1.0)
         worst = int(np.argmax(rel_err))
         if rel_err[worst] > _element_pool_tolerance:
