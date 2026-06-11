@@ -12,10 +12,10 @@ class TestDefectSpeciesInit(unittest.TestCase):
     def test_defect_species_is_initialised(self):
         name = "foo"
         nsites = 2
-        mock_charge_states = {
-            0: Mock(spec=DefectChargeState),
-            1: Mock(spec=DefectChargeState),
-        }
+        mock_charge_states = [
+            Mock(spec=DefectChargeState),
+            Mock(spec=DefectChargeState),
+        ]
         mock_charge_states[0].charge = 0
         mock_charge_states[1].charge = 1
         defect_species = DefectSpecies(
@@ -31,10 +31,10 @@ class TestDefectSpeciesInit(unittest.TestCase):
         name = "foo"
         nsites = 2
         fixed_concentration = 0.1234
-        mock_charge_states = {
-            0: Mock(spec=DefectChargeState),
-            1: Mock(spec=DefectChargeState),
-        }
+        mock_charge_states = [
+            Mock(spec=DefectChargeState),
+            Mock(spec=DefectChargeState),
+        ]
         mock_charge_states[0].charge = 0
         mock_charge_states[1].charge = 1
         defect_species = DefectSpecies(
@@ -51,7 +51,7 @@ class TestDefectSpeciesInit(unittest.TestCase):
 
     def test_defect_species_raises_with_empty_charge_states(self):
         with self.assertRaises(ValueError) as cm:
-            DefectSpecies(name="V_O", nsites=2, charge_states={})
+            DefectSpecies(name="V_O", nsites=2, charge_states=[])
         self.assertIn("V_O", str(cm.exception))
 
 
@@ -59,11 +59,11 @@ class TestDefectSpecies(unittest.TestCase):
     def setUp(self):
         name = "V_O"
         nsites = 2
-        mock_charge_states = {
-            0: Mock(spec=DefectChargeState),
-            1: Mock(spec=DefectChargeState),
-            2: Mock(spec=DefectChargeState),
-        }
+        mock_charge_states = [
+            Mock(spec=DefectChargeState),
+            Mock(spec=DefectChargeState),
+            Mock(spec=DefectChargeState),
+        ]
         mock_charge_states[0].charge = 0
         mock_charge_states[1].charge = 1
         mock_charge_states[2].charge = 2
@@ -214,7 +214,7 @@ class TestDefectSpecies(unittest.TestCase):
     def test_min_energy_charge_state_raises_with_no_variable_charge_states(self):
         cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
         cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
-        defect = DefectSpecies(name="V_O", nsites=1, charge_states={0: cs_0, 1: cs_1})
+        defect = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_0, cs_1])
         with self.assertRaises(ValueError) as cm:
             defect.min_energy_charge_state(e_fermi=0.0)
         self.assertIn("V_O", str(cm.exception))
@@ -268,7 +268,7 @@ class TestDefectSpecies(unittest.TestCase):
     def test_effective_formation_energy_raises_with_no_variable_charge_states(self):
         cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
         cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
-        defect = DefectSpecies(name="V_O", nsites=1, charge_states={0: cs_0, 1: cs_1})
+        defect = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_0, cs_1])
         with self.assertRaises(ValueError) as cm:
             defect.effective_formation_energy(e_fermi=0.0)
         self.assertIn("V_O", str(cm.exception))
@@ -391,7 +391,7 @@ class TestDefectSpecies(unittest.TestCase):
         # Updated test to check the functionality of this method more directly
         charge_state_1 = DefectChargeState(0, energy=2, degeneracy=1)
         charge_state_2 = DefectChargeState(2, energy=-1, degeneracy=1)
-        defect = DefectSpecies("foo", 1, {0: charge_state_1, 2: charge_state_2})
+        defect = DefectSpecies("foo", 1, [charge_state_1, charge_state_2])
         tl_profile = defect.tl_profile(0, 5)
         self.assertEqual(tl_profile[0][0], 0)
         self.assertEqual(tl_profile[0][1], -1)
@@ -551,7 +551,7 @@ class TestDefectSpecies(unittest.TestCase):
         defect = DefectSpecies(
             name="test",
             nsites=1,
-            charge_states={0: cs_0, 1: cs_1}
+            charge_states=[cs_0, cs_1]
         )
         defect.fix_concentration(0.1)  # Less than fixed charge state concentration
         

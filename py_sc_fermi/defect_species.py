@@ -16,9 +16,10 @@ class DefectSpecies:
            e.g. ``"V_O"`` might be used for an oxygen vacancy.
         nsites (int): Number of sites energetically degenerate sites where this
          defect can form in the unit cell (the site degeneracy).
-        charge_states (dict[int, DefectChargeState]): A dictionary of
-           ``DefectChargeState`` with their charge as the key, i.e.
-           {charge : ``DefectChargeState``}
+        charge_states (list[DefectChargeState]): A list of
+           ``DefectChargeState`` objects belonging to this defect species.
+           Multiple charge states may share the same formal charge, to
+           represent metastable defect configurations.
 
     """
 
@@ -38,14 +39,6 @@ class DefectSpecies:
         self._name = name
         self._nsites = nsites
         self._charge_states = charge_states
-
-        if isinstance(charge_states, dict):
-             self._charge_states = list(charge_states.values())
-        elif isinstance(charge_states, list):
-             self._charge_states = charge_states
-        else:
-            raise TypeError("charge_states must be a dict or a list")
-        
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration: float) -> None:
