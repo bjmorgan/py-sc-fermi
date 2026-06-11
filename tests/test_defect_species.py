@@ -2,9 +2,10 @@ import unittest
 from unittest.mock import Mock, PropertyMock, patch
 
 import numpy as np
+from scipy.special import logsumexp
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
-from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.defect_species import DefectSpecies, kboltz
 
 
 class TestDefectSpeciesInit(unittest.TestCase):
@@ -158,6 +159,35 @@ class TestDefectSpecies(unittest.TestCase):
         )
         formation_energies_dict = self.defect_species.get_formation_energies(0.0)
         self.assertEqual(formation_energies_dict, {0: 0.3, 1: 0.1, 2: 0.5})
+
+    def test_get_formation_energies_with_metastable_charge_state(self):
+        # two q=+1 states (a ground state at 0.5 eV and a metastable form at
+        # 0.9 eV) must collapse to the lower-energy (0.5 eV) value, not
+        # whichever is listed last.
+        cs_low = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        cs_high = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_other = DefectChargeState(charge=0, energy=0.0, degeneracy=1)
+        defect = DefectSpecies(
+            name="V_O", nsites=1, charge_states=[cs_low, cs_high, cs_other]
+        )
+        formation_energies = defect.get_formation_energies(0.0)
+        self.assertEqual(formation_energies[1], 0.5)
+        self.assertEqual(formation_energies[0], 0.0)
+
+    def test_get_formation_energies_at_finite_temperature(self):
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        cs_b = DefectChargeState(charge=1, energy=0.6, degeneracy=2)
+        defect = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+
+        temperature = 300.0
+        kT = kboltz * temperature
+        expected = -kT * logsumexp([np.log(1) - 0.5 / kT, np.log(2) - 0.6 / kT])
+
+        formation_energies = defect.get_formation_energies(0.0, temperature=temperature)
+        self.assertAlmostEqual(formation_energies[1], expected, places=10)
+        # the Boltzmann-weighted energy of two states is below the energy of
+        # the lowest individual state
+        self.assertLess(formation_energies[1], 0.5)
 
     def test_min_energy_charge_state(self):
         self.defect_species.charge_states[0].get_formation_energy = Mock(
@@ -315,6 +345,36 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertEqual(tl_profile[1][1], 2)
         self.assertEqual(tl_profile[2][0], 5)
         self.assertEqual(tl_profile[2][1], 2)
+
+    def test_tl_profile_with_metastable_charge_state(self):
+        # q=+1 has a ground state (0.5 eV) and a higher-energy metastable
+        # form (0.9 eV). The resulting profile must reflect the ground state
+        # and must not depend on the order the charge states are listed in.
+        defect_a = DefectSpecies(
+            "foo",
+            1,
+            charge_states=[
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=1),
+                DefectChargeState(charge=0, energy=2.0, degeneracy=1),
+                DefectChargeState(charge=-1, energy=2.0, degeneracy=1),
+            ],
+        )
+        defect_b = DefectSpecies(
+            "foo",
+            1,
+            charge_states=[
+                DefectChargeState(charge=1, energy=0.9, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+                DefectChargeState(charge=0, energy=2.0, degeneracy=1),
+                DefectChargeState(charge=-1, energy=2.0, degeneracy=1),
+            ],
+        )
+        profile_a = defect_a.tl_profile(0, 5)
+        profile_b = defect_b.tl_profile(0, 5)
+        np.testing.assert_array_almost_equal(profile_a, profile_b)
+        # the q=+1 endpoint reflects the lower-energy (0.5 eV) state
+        self.assertAlmostEqual(profile_a[0][1], 0.5)
 
     def test__repr__(self):
         self.defect_species._charge_states = [

@@ -222,44 +222,103 @@ class DefectSpecies:
             )
         return charge_states[0]
 
-    def get_formation_energies(self, e_fermi: float) -> dict[int, float]:
+    def _effective_energy(
+        self, states: list[DefectChargeState], e_fermi: float, temperature: float
+    ) -> float:
+        """Boltzmann-weighted effective formation energy of a group of
+        ``DefectChargeState`` objects, at a given Fermi energy and temperature.
+
+        Args:
+            states (list[DefectChargeState]): the states to combine.
+            e_fermi (float): Fermi energy at which to evaluate formation
+                energies.
+            temperature (float): if 0, the minimum formation energy among
+                ``states`` is returned (the T -> 0 limit, in which only the
+                lowest-energy state is occupied). Otherwise, the
+                Boltzmann-weighted effective formation energy
+                ``-kT * ln(sum_i g_i * exp(-E_i / kT))`` is returned.
+
+        Returns:
+            float: the effective formation energy of ``states`` at ``e_fermi``.
         """
-        Return the formation energy of each *variable* charge‐state at a given
-        Fermi energy.
+        energies = np.array([cs.get_formation_energy(e_fermi) for cs in states])
+        if temperature == 0.0:
+            return float(np.min(energies))
+        kT = kboltz * temperature
+        log_weights = np.array([np.log(cs.degeneracy) for cs in states]) - energies / kT
+        return float(-kT * logsumexp(log_weights))
+
+    def get_formation_energies(
+        self, e_fermi: float, temperature: float = 0.0
+    ) -> dict[int, float]:
+        """
+        Return the effective formation energy of each formal charge at a given
+        Fermi energy, considering only *variable*-concentration charge states.
 
         Args:
             e_fermi (float): Fermi energy at which to calculate formation energies.
+            temperature (float, optional): if 0 (the default), the formation
+                energy of a charge is that of its lowest-energy
+                ``DefectChargeState``. If > 0, charges with multiple
+                ``DefectChargeState``s (metastable forms) instead use the
+                Boltzmann-weighted effective formation energy of those forms.
+                Defaults to 0.
 
         Returns:
             dict[int, float]: mapping from `DefectChargeState.charge` to its
-            formation energy at e_fermi.
+            (effective) formation energy at e_fermi.
         """
-        # variable_conc_charge_states() now returns list[DefectChargeState]
+        grouped: dict[int, list[DefectChargeState]] = {}
+        for cs in self.variable_conc_charge_states():
+            grouped.setdefault(cs.charge, []).append(cs)
         return {
-            cs.charge: cs.get_formation_energy(e_fermi)
-            for cs in self.variable_conc_charge_states()
+            charge: self._effective_energy(states, e_fermi, temperature)
+            for charge, states in grouped.items()
         }
 
-    def tl_profile(self, efermi_min: float, efermi_max: float) -> np.ndarray:
+    def tl_profile(
+        self, efermi_min: float, efermi_max: float, temperature: float = 0.0
+    ) -> np.ndarray:
         """get transition level profile for this ``DefectSpecies`` between a
         minimum and maximum Fermi energy.
 
         Args:
             efermi_min (float): minimum Fermi energy
             efermi_max (float): maximum Fermi energy
+            temperature (float, optional): temperature used to combine
+                metastable ``DefectChargeState``s sharing a formal charge, via
+                ``get_formation_energies``/``get_transition_level_and_energy``.
+                Defaults to 0, in which case each charge is represented by its
+                lowest-energy state.
 
         Returns:
             np.ndarray: transition level profile between efermi_min
             and efermi_max.
+
+        Raises:
+            ValueError: if this ``DefectSpecies`` has no variable-concentration
+                charge states, so a transition-level profile is undefined.
         """
-        cs = self.min_energy_charge_state(efermi_min)
-        q1 = cs.charge
-        form_e = cs.get_formation_energy(efermi_min)
-        points = [(efermi_min, form_e)]
+        form_eners = self.get_formation_energies(efermi_min, temperature=temperature)
+        if not form_eners:
+            raise ValueError(
+                f"DefectSpecies '{self.name}' has no variable-concentration "
+                "charge states, so a transition-level profile is undefined."
+            )
+        q1 = min(form_eners, key=form_eners.get)
+        points = [(efermi_min, form_eners[q1])]
         while q1 != min(self.charges):
             qlist = [q for q in self.charges if q < q1]
             nextp, nextq = min(
-                ((self.get_transition_level_and_energy(q1, q2), q2) for q2 in qlist),
+                (
+                    (
+                        self.get_transition_level_and_energy(
+                            q1, q2, temperature=temperature
+                        ),
+                        q2,
+                    )
+                    for q2 in qlist
+                ),
                 key=lambda p: p[0][0],
             )
             if nextp[0] < efermi_max:
@@ -267,18 +326,23 @@ class DefectSpecies:
                 q1 = nextq
             else:
                 break
-        cs = self.min_energy_charge_state(efermi_max)
-        form_e = cs.get_formation_energy(efermi_max)
-        points.append((efermi_max, form_e))
+        form_eners_max = self.get_formation_energies(efermi_max, temperature=temperature)
+        q_end = min(form_eners_max, key=form_eners_max.get)
+        points.append((efermi_max, form_eners_max[q_end]))
         return np.array(points)
 
-    def get_transition_level_and_energy(self, q1: int, q2: int) -> tuple[float, float]:
+    def get_transition_level_and_energy(
+        self, q1: int, q2: int, temperature: float = 0.0
+    ) -> tuple[float, float]:
         """Calculates the Fermi energy and formation
         energy for the transition level between charge states q1 and q2.
 
         Args:
             q1 (int): charge on first ``DefectChargeState`` of interest
             q2 (int): charge on second ``DefectChargeState`` of interest
+            temperature (float, optional): temperature used to combine
+                metastable ``DefectChargeState``s sharing a formal charge, via
+                ``get_formation_energies``. Defaults to 0.
 
         Returns:
             tuple[float, float]: Fermi energy and formation energy of the
@@ -286,7 +350,7 @@ class DefectSpecies:
             q1 and q2.
         """
 
-        form_eners = self.get_formation_energies(0)
+        form_eners = self.get_formation_energies(0, temperature=temperature)
         trans_level = (form_eners[q2] - form_eners[q1]) / (q1 - q2)
         energy = q1 * trans_level + form_eners[q1]
         return (trans_level, energy)

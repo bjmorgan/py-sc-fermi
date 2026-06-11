@@ -24,6 +24,13 @@
 
 ### Improvements
 
+- `DefectSpecies.get_formation_energies`, `get_transition_level_and_energy`,
+  and `tl_profile` now correctly support multiple `DefectChargeState`s sharing
+  a formal charge (metastable defects, see above): each charge is represented
+  by its lowest-energy state by default. These methods also gained an optional
+  `temperature` argument; when set, charges with multiple forms instead use
+  the Boltzmann-weighted effective formation energy
+  `-kT * ln(sum_i g_i * exp(-E_i / kT))` across those forms.
 - Added site pools and element pools (`DefectSystem(site_pools=..., element_pools=...)`)
   to model site competition between `DefectSpecies` sharing a finite number of
   lattice sites, or competition for a fixed total amount of a dopant element.
