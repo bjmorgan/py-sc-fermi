@@ -652,103 +652,68 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
             **kwargs,
         )
 
-    def test_no_shift_functions_is_a_no_op(self):
+    def test_no_shifts_leaves_energies_and_bandgap_unchanged(self):
         system = self._make_system()
-        with system._with_band_edge_corrections():
-            self.assertEqual(self.cs0.energy, 1.0)
-            self.assertEqual(self.cs1.energy, 1.5)
-            self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertFalse(system._corrections_active)
+        self.assertEqual(system.defect_species[0].charge_states[0].energy, 1.0)
+        self.assertEqual(system.defect_species[0].charge_states[1].energy, 1.5)
+        self.assertIn("2 eV", repr(system))
 
-    def test_rigid_shift_changes_bandgap_but_not_formation_energies(self):
-        system = self._make_system(
-            vbm_shift_fn=lambda T: 0.05,
-            cbm_shift_fn=lambda T: -0.02,
-            rigid_shift=True,
-        )
-        with system._with_band_edge_corrections():
-            self.assertEqual(self.cs0.energy, 1.0)
-            self.assertEqual(self.cs1.energy, 1.5)
-            self.assertAlmostEqual(system.dos._bandgap, 2.0 + (-0.02 - 0.05))
+    def test_rigid_shift_changes_displayed_bandgap_but_not_formation_energies(self):
+        system = self._make_system(vbm_shift=0.05, cbm_shift=-0.02)
+        self.assertEqual(system.defect_species[0].charge_states[0].energy, 1.0)
+        self.assertEqual(system.defect_species[0].charge_states[1].energy, 1.5)
+        self.assertIn("1.93 eV", repr(system))
+        self.assertNotIn("→", repr(system))
         self.assertEqual(self.cs0.energy, 1.0)
         self.assertEqual(self.cs1.energy, 1.5)
-        self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertFalse(system._corrections_active)
 
     def test_non_rigid_shift_applies_charge_dependent_correction(self):
         d_vbm = 0.05
-        system = self._make_system(vbm_shift_fn=lambda T: d_vbm, rigid_shift=False)
-        with system._with_band_edge_corrections():
-            self.assertAlmostEqual(self.cs0.energy, 1.0 - self.cs0.charge * d_vbm)
-            self.assertAlmostEqual(self.cs1.energy, 1.5 - self.cs1.charge * d_vbm)
+        system = self._make_system(vbm_shift=d_vbm, rigid_shift=False)
+        self.assertAlmostEqual(
+            system.defect_species[0].charge_states[0].energy,
+            1.0 - self.cs0.charge * d_vbm,
+        )
+        self.assertAlmostEqual(
+            system.defect_species[0].charge_states[1].energy,
+            1.5 - self.cs1.charge * d_vbm,
+        )
         self.assertEqual(self.cs0.energy, 1.0)
         self.assertEqual(self.cs1.energy, 1.5)
 
-    def test_formation_energy_correction_takes_priority_over_rigid_shift_flag(self):
+    def test_formation_energy_correction_distinguishes_metastable_states(self):
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        species = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            formation_energy_corrections={cs_a: 0.1, cs_b: -0.05},
+        )
+        self.assertAlmostEqual(system.defect_species[0].charge_states[0].energy, 0.6)
+        self.assertAlmostEqual(system.defect_species[0].charge_states[1].energy, 0.85)
+        self.assertEqual(cs_a.energy, 0.5)
+        self.assertEqual(cs_b.energy, 0.9)
+
+    def test_formation_energy_correction_takes_priority_over_rigid_shift(self):
         system = self._make_system(
-            vbm_shift_fn=lambda T: 0.05,
+            vbm_shift=0.05,
             rigid_shift=False,
-            formation_energy_corrections={("V_O", 1): lambda T: 0.2},
+            formation_energy_corrections={self.cs1: 0.2},
         )
-        with system._with_band_edge_corrections():
-            self.assertAlmostEqual(self.cs1.energy, 1.5 + 0.2)
-            self.assertAlmostEqual(self.cs0.energy, 1.0)
+        self.assertAlmostEqual(
+            system.defect_species[0].charge_states[1].energy, 1.5 + 0.2
+        )
+        self.assertAlmostEqual(system.defect_species[0].charge_states[0].energy, 1.0)
         self.assertEqual(self.cs0.energy, 1.0)
         self.assertEqual(self.cs1.energy, 1.5)
 
-    def test_corrections_are_not_re_applied_on_nested_entry(self):
-        system = self._make_system(
-            vbm_shift_fn=lambda T: 0.05, cbm_shift_fn=lambda T: -0.02
-        )
-        with system._with_band_edge_corrections():
-            bandgap_once_applied = system.dos._bandgap
-            with system._with_band_edge_corrections():
-                self.assertTrue(system._corrections_active)
-                self.assertEqual(system.dos._bandgap, bandgap_once_applied)
-            self.assertEqual(system.dos._bandgap, bandgap_once_applied)
-        self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertFalse(system._corrections_active)
-
-    def test_exception_in_shift_function_resets_guard_and_state(self):
-        def boom(temperature):
-            raise RuntimeError("shift function failed")
-
-        system = self._make_system(vbm_shift_fn=boom)
-        with self.assertRaises(RuntimeError):
-            with system._with_band_edge_corrections():
-                pass
-        self.assertFalse(system._corrections_active)
-        self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertEqual(self.cs0.energy, 1.0)
-        self.assertEqual(self.cs1.energy, 1.5)
-
-    def test_exception_in_formation_energy_correction_rolls_back_partial_changes(self):
-        def boom(temperature):
-            raise RuntimeError("correction failed")
-
-        system = self._make_system(
-            vbm_shift_fn=lambda T: 0.05,
-            formation_energy_corrections={("V_O", 1): boom},
-        )
-        with self.assertRaises(RuntimeError):
-            with system._with_band_edge_corrections():
-                pass
-        self.assertFalse(system._corrections_active)
-        self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertEqual(self.cs0.energy, 1.0)
-        self.assertEqual(self.cs1.energy, 1.5)
-
-    def test_exception_in_context_body_still_restores_state(self):
-        system = self._make_system(
-            vbm_shift_fn=lambda T: 0.05, cbm_shift_fn=lambda T: -0.02
-        )
+    def test_formation_energy_correction_with_unrecognised_charge_state_raises(self):
+        unknown_cs = DefectChargeState(charge=2, energy=3.0, degeneracy=1)
         with self.assertRaises(ValueError):
-            with system._with_band_edge_corrections():
-                raise ValueError("body failed")
-        self.assertFalse(system._corrections_active)
-        self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertEqual(self.cs0.energy, 1.0)
-        self.assertEqual(self.cs1.energy, 1.5)
+            self._make_system(formation_energy_corrections={unknown_cs: 0.1})
 
 
 class TestDefectSystemReport(unittest.TestCase):
@@ -783,19 +748,20 @@ class TestDefectSystemReport(unittest.TestCase):
         ):
             self.assertIn(snippet, output)
 
-    def test_report_leaves_band_edge_corrections_restored(self):
+    def test_report_shows_single_corrected_bandgap_value(self):
         system = DefectSystem(
             defect_species=[self.species],
             dos=self.dos,
             volume=100,
             temperature=300,
-            vbm_shift_fn=lambda T: 0.05,
-            cbm_shift_fn=lambda T: -0.02,
+            vbm_shift=0.05,
+            cbm_shift=-0.02,
         )
         with patch("sys.stdout", new=StringIO()):
-            system.report()
+            output = system.report()
+        self.assertIn("1.93", output)
+        self.assertNotIn("→", output)
         self.assertEqual(system.dos._bandgap, 2.0)
-        self.assertFalse(system._corrections_active)
 
 
 if __name__ == "__main__":

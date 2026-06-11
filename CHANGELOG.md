@@ -53,11 +53,20 @@
   are satisfied simultaneously. Note: within a shared `site_pools` group, only
   each charge state's `degeneracy` (not its species' `nsites`) sets its
   relative weight.
-- Added temperature-dependent band-edge corrections
-  (`vbm_shift_fn`, `cbm_shift_fn`, `formation_energy_corrections`, `rigid_shift`)
-  to `DefectSystem`, allowing formation energies and the band gap to be
-  corrected as a function of temperature before solving for the self-consistent
-  Fermi energy.
+- Added band-edge corrections (`vbm_shift`, `cbm_shift`,
+  `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
+  and `cbm_shift` are pre-evaluated shifts (in eV) used to compute the
+  effective band gap shown by `__repr__`/`report`; `formation_energy_corrections`
+  is a `dict[DefectChargeState, float]` of per-charge-state formation-energy
+  corrections, keyed by the `DefectChargeState` objects themselves so that
+  metastable states sharing a formal charge can be corrected independently. If
+  `rigid_shift` is True (the default), any variable-concentration charge state
+  not covered by `formation_energy_corrections` has its formation energy
+  shifted by `-charge * vbm_shift`; if False, such charge states are
+  unchanged. `DefectSystem` is an immutable, fixed-temperature snapshot:
+  corrections are applied once at construction to copies of `defect_species`,
+  the caller's objects are never modified, and `report()`/`as_dict()`/
+  `from_dict()` always agree.
 
 ## V2.2.2
 

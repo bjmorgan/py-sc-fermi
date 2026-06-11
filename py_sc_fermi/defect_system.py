@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -51,6 +50,41 @@ class DefectSystem:
                 Mapping of pool name → (total sites in that pool, list of
                 DefectSpecies sharing those sites). If None, no site competition
                 is applied and each species is treated independently.
+        vbm_shift (float, optional): a temperature-dependent shift of the
+          valence-band maximum, in eV, evaluated by the caller for this
+          system's `temperature`. Used (with `cbm_shift`) to compute the
+          effective band gap shown by `__repr__`/`report`, and (when
+          `rigid_shift=True`, the default) added to every variable-concentration
+          charge state's formation energy as `-charge * vbm_shift`. Defaults
+          to 0.0 (no shift).
+        cbm_shift (float, optional): a temperature-dependent shift of the
+          conduction-band minimum, in eV, evaluated by the caller for this
+          system's `temperature`. Used with `vbm_shift` to compute the
+          effective band gap shown by `__repr__`/`report`. Defaults to 0.0
+          (no shift).
+        formation_energy_corrections (dict[DefectChargeState, float] | None, optional):
+          per-charge-state formation-energy corrections (in eV), evaluated by
+          the caller for this system's `temperature`. Keying by the
+          `DefectChargeState` object itself (rather than e.g.
+          `(species_name, charge)`) allows different corrections for
+          metastable `DefectChargeState`s that share a formal charge. Every
+          key must be one of the `DefectChargeState`s in `defect_species`.
+          Defaults to None (no per-state corrections).
+        rigid_shift (bool, optional): if True (the default), every
+          variable-concentration charge state not covered by
+          `formation_energy_corrections` has its formation energy shifted by
+          `-charge * vbm_shift`. If False, such charge states are left
+          unchanged.
+
+    Note:
+        `DefectSystem` is an immutable, fixed-temperature snapshot:
+        `vbm_shift`, `cbm_shift`, `formation_energy_corrections`, and
+        `rigid_shift` are evaluated once at construction and applied to
+        copies of `defect_species` -- the objects passed in (including any
+        `formation_energy_corrections` keys) are never modified, even
+        temporarily. To build `DefectSystem`s at several temperatures from
+        temperature-dependent shift/correction functions, see
+        `DefectSystemFactory`.
     """
 
     def __init__(
@@ -62,44 +96,66 @@ class DefectSystem:
         convergence_tolerance: float | None = None,
         site_pools: dict[str, tuple[float, list[DefectSpecies]]] | None = None,
         element_pools: dict[str, tuple[float, list[tuple[Any, float]]]] | None = None,
-        vbm_shift_fn: Callable[[float], float] | None = None,
-        cbm_shift_fn: Callable[[float], float] | None = None,
-        formation_energy_corrections: dict[tuple[str, int], Callable[[float], float]] | None = None,
+        vbm_shift: float = 0.0,
+        cbm_shift: float = 0.0,
+        formation_energy_corrections: dict[DefectChargeState, float] | None = None,
         rigid_shift: bool = True,
     ):
-        self.defect_species = defect_species
         self.volume = volume
         self.dos = dos
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
-        self.vbm_shift_fn = vbm_shift_fn
-        self.cbm_shift_fn = cbm_shift_fn
-        self.formation_energy_corrections = formation_energy_corrections or {}
+        self.vbm_shift = vbm_shift
+        self.cbm_shift = cbm_shift
         self.rigid_shift = rigid_shift
-        self._corrections_active = False
+
+        if formation_energy_corrections or not rigid_shift:
+            self.defect_species = copy.deepcopy(defect_species)
+            self._apply_formation_energy_corrections(
+                defect_species, formation_energy_corrections or {}
+            )
+        else:
+            self.defect_species = defect_species
 
         self.site_pools = site_pools or {}
         self.element_pools = element_pools or {}
 
-    def __repr__(self) -> str:
-        # Compute corrections at current temperature (if any)
-        has_corrections = self.vbm_shift_fn is not None or self.cbm_shift_fn is not None
-        if has_corrections:
-            d_vbm = self.vbm_shift_fn(self.temperature) if self.vbm_shift_fn else 0.0
-            d_cbm = self.cbm_shift_fn(self.temperature) if self.cbm_shift_fn else 0.0
-            corrected_bandgap = self.dos.bandgap + (d_cbm - d_vbm)
-        else:
-            d_vbm = 0.0
-            corrected_bandgap = self.dos.bandgap
-        has_fe_corrections = bool(self.formation_energy_corrections) or not self.rigid_shift
+    def _apply_formation_energy_corrections(
+        self,
+        original_defect_species: list[DefectSpecies],
+        formation_energy_corrections: dict[DefectChargeState, float],
+    ) -> None:
+        """Permanently shift each variable-concentration charge state's
+        formation energy in `self.defect_species` (a copy of
+        `original_defect_species`) by `formation_energy_corrections[cs]` if
+        present, else `-cs.charge * self.vbm_shift` if `self.rigid_shift` is
+        False, else 0.
+        """
+        original_states = [cs for ds in original_defect_species for cs in ds.charge_states]
+        copied_states = [cs for ds in self.defect_species for cs in ds.charge_states]
 
-        if has_corrections:
-            bandgap_str = (
-                f"{self.dos.bandgap:.3g} eV  \u2192  {corrected_bandgap:.3g} eV"
-                f" at {self.temperature} K"
+        unrecognised = set(formation_energy_corrections) - set(original_states)
+        if unrecognised:
+            raise ValueError(
+                f"formation_energy_corrections references "
+                f"{len(unrecognised)} DefectChargeState object(s) that are "
+                "not part of `defect_species`."
             )
-        else:
-            bandgap_str = f"{self.dos.bandgap:.3g} eV"
+
+        for original_cs, copied_cs in zip(original_states, copied_states):
+            if copied_cs._energy is None:
+                continue
+            if original_cs in formation_energy_corrections:
+                delta = formation_energy_corrections[original_cs]
+            elif not self.rigid_shift:
+                delta = -copied_cs.charge * self.vbm_shift
+            else:
+                delta = 0.0
+            copied_cs._energy += delta
+
+    def __repr__(self) -> str:
+        bandgap = self.dos.bandgap + (self.cbm_shift - self.vbm_shift)
+        bandgap_str = f"{bandgap:.3g} eV"
 
         lines = [
             "DefectSystem",
@@ -120,25 +176,10 @@ class DefectSystem:
                     )
                 else:
                     # a variable (non-fixed) charge state always carries an energy
-                    e_stored = cs.energy
-                    assert e_stored is not None
-                    if has_fe_corrections:
-                        key = (ds.name, cs.charge)
-                        if key in self.formation_energy_corrections:
-                            delta = self.formation_energy_corrections[key](self.temperature)
-                        elif not self.rigid_shift:
-                            delta = -cs.charge * d_vbm
-                        else:
-                            delta = 0.0
-                        e_corr = e_stored + delta
-                        energy_str = (
-                            f"E = {e_stored:8.4f} eV  \u2192  {e_corr:8.4f} eV"
-                            f" at {self.temperature} K"
-                        )
-                    else:
-                        energy_str = f"E = {e_stored:8.4f} eV"
+                    energy = cs.energy
+                    assert energy is not None
                     lines.append(
-                        f"    q = {cs.charge:+2d}   {energy_str}  (deg. {cs.degeneracy})"
+                        f"    q = {cs.charge:+2d}   E = {energy:8.4f} eV  (deg. {cs.degeneracy})"
                     )
         if self.site_pools:
             lines.append("\n  site pools:")
@@ -168,57 +209,6 @@ class DefectSystem:
         """
         return [ds.name for ds in self.defect_species]
 
-    @contextmanager
-    def _with_band_edge_corrections(self) -> Iterator[None]:
-        """Temporarily apply VBM/CBM shift corrections at the current temperature.
-
-        Re-entrant: nested calls (e.g. report → get_sc_fermi) are no-ops once
-        the corrections are already active, so corrections are never applied twice.
-        """
-        if self._corrections_active or (
-            self.vbm_shift_fn is None and self.cbm_shift_fn is None
-        ):
-            yield
-            return
-
-        self._corrections_active = True
-        applied: dict[tuple[str, int], float] = {}
-        bandgap_delta = 0.0
-        try:
-            d_vbm = self.vbm_shift_fn(self.temperature) if self.vbm_shift_fn else 0.0
-            d_cbm = self.cbm_shift_fn(self.temperature) if self.cbm_shift_fn else 0.0
-
-            # Apply formation energy corrections per charge state.
-            # By default (rigid_shift=True) only the band gap changes; formation
-            # energies are unchanged unless explicit per-charge-state corrections
-            # are provided. With rigid_shift=False the legacy q·d_vbm correction is
-            # used as a fallback.
-            for ds in self.defect_species:
-                for cs in ds.charge_states:
-                    if cs._energy is None:
-                        continue
-                    key = (ds.name, cs.charge)
-                    if key in self.formation_energy_corrections:
-                        delta = self.formation_energy_corrections[key](self.temperature)
-                    elif not self.rigid_shift:
-                        delta = -cs.charge * d_vbm
-                    else:
-                        delta = 0.0
-                    cs._energy += delta
-                    applied[key] = delta
-
-            bandgap_delta = d_cbm - d_vbm
-            self.dos._bandgap += bandgap_delta
-
-            yield
-        finally:
-            for ds in self.defect_species:
-                for cs in ds.charge_states:
-                    if cs._energy is not None:
-                        cs._energy -= applied.get((ds.name, cs.charge), 0.0)
-            self.dos._bandgap -= bandgap_delta
-            self._corrections_active = False
-
     def report(self) -> str:
         """Solve for the self-consistent Fermi energy and print a summary of
         the system: SC Fermi energy, carrier concentrations, and per-species
@@ -227,10 +217,6 @@ class DefectSystem:
         Returns:
             str: the formatted report (also printed to stdout)
         """
-        with self._with_band_edge_corrections():
-            return self._report_inner()
-
-    def _report_inner(self) -> str:
         scale = 1e24 / self.volume
         e_fermi, _ = self.get_sc_fermi()
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
@@ -617,10 +603,6 @@ class DefectSystem:
         Raises:
             RuntimeError: If no solution is found within the DOS energy range.
         """
-        with self._with_band_edge_corrections():
-            return self._sc_fermi_solve()
-
-    def _sc_fermi_solve(self) -> tuple[float, float]:
         emin = self.dos.emin()
         emax = self.dos.emax()
         
@@ -683,10 +665,6 @@ class DefectSystem:
             dict[str, list[list]]: Dictionary giving per-defect transition-level
             profiles.
         """
-        with self._with_band_edge_corrections():
-            return self._transition_levels_inner()
-
-    def _transition_levels_inner(self) -> dict[str, list[list]]:
         transition_levels = {}
         for defect_species in self.defect_species_names:
             transition_level = self.defect_species_by_name(defect_species).tl_profile(
@@ -718,12 +696,6 @@ class DefectSystem:
             hole concentration (``"p0"``), electron concentration
             (``"n0"``), temperature, and the defect concentrations.
         """
-        with self._with_band_edge_corrections():
-            return self._concentration_dict_inner(decomposed=decomposed, per_volume=per_volume)
-
-    def _concentration_dict_inner(
-        self, decomposed: bool = False, per_volume: bool = True
-    ) -> dict[str, Any]:
         if per_volume:
             scale = 1e24 / self.volume
         else:
@@ -766,10 +738,6 @@ class DefectSystem:
             dict[str, Any]: dictionary specifying the per-DefectSpecies site
             concentrations.
         """
-        with self._with_band_edge_corrections():
-            return self._site_percentages_inner()
-
-    def _site_percentages_inner(self) -> dict[str, float]:
         e_fermi = self.get_sc_fermi()[0]
 
         sum_concs = {
