@@ -198,11 +198,11 @@ class TestDefectSystem(unittest.TestCase):
         self.assertAlmostEqual(q_tot, 0.0, places=10)
         self.assertLess(residual,  1e-10)
 
-    def test_get_sc_fermi_with_overflowing_endpoint_finds_interior_root(self):
-        """A defect concentration can overflow at the edge of the DOS window,
-        making q_tot non-finite there, while the physical Fermi level sits at a
-        finite interior root. brentq brackets inward to that root, so the solve
-        succeeds rather than failing on the overflow."""
+    def test_get_sc_fermi_with_extreme_formation_energy_remains_finite(self):
+        """Site-exclusion statistics bound every charge state's concentration
+        by its group's `nsites`, so q_tot can no longer overflow even for a
+        very low formation energy at the edge of the DOS window -- brentq
+        brackets directly to the finite interior root."""
         dos = DOS(
             dos=np.ones(101),
             edos=np.linspace(-10.0, 10.0, 101),
@@ -222,9 +222,7 @@ class TestDefectSystem(unittest.TestCase):
             defect_species=[defect_species],
         )
 
-        # q_tot overflows to +inf at the top of the DOS window...
-        self.assertFalse(np.isfinite(defect_system.q_tot(dos.emax())))
-        # ...yet the solve returns the finite interior root.
+        self.assertTrue(np.isfinite(defect_system.q_tot(dos.emax())))
         e_fermi, residual = defect_system.get_sc_fermi()
         self.assertTrue(np.isfinite(e_fermi))
         self.assertLess(residual, 1e-10)
@@ -256,6 +254,10 @@ class TestDefectSystem(unittest.TestCase):
         )
         self.defect_system.defect_species[0].charge_states = [cs_v_O]
         self.defect_system.defect_species[1].charge_states = [cs_O_i]
+        self.defect_system.defect_species[0].fixed_concentration = None
+        self.defect_system.defect_species[1].fixed_concentration = None
+        self.defect_system.defect_species[0].nsites = 1
+        self.defect_system.defect_species[1].nsites = 1
         self.defect_system.defect_species[0].name = "v_O"
         self.defect_system.defect_species[1].name = "O_i"
         self.defect_system.volume = 100
@@ -306,7 +308,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
         )
         self.species_a = DefectSpecies(
             "A",
-            nsites=1,
+            nsites=5,
             charge_states=[
                 DefectChargeState(charge=0, energy=1.0, degeneracy=1),
                 DefectChargeState(charge=1, energy=1.2, degeneracy=2),
@@ -321,7 +323,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             ],
         )
 
-    def test_no_pools_matches_dilute_limit(self):
+    def test_no_pools_matches_dilute_limit_for_small_weights(self):
         system = DefectSystem(
             defect_species=[self.species_a, self.species_b],
             dos=self.dos,
@@ -329,13 +331,30 @@ class TestDefectSystemSitePools(unittest.TestCase):
             temperature=300,
         )
         e_fermi = 1.0
-        pooled_total = sum(system._global_defect_concs(e_fermi).values())
+        exclusion_total = sum(system._global_defect_concs(e_fermi).values())
         dilute_total = sum(
             conc
             for sp in (self.species_a, self.species_b)
             for _, conc in sp.charge_state_concentrations(e_fermi, 300)
         )
-        self.assertAlmostEqual(pooled_total, dilute_total, places=8)
+        self.assertAlmostEqual(exclusion_total, dilute_total, places=8)
+
+    def test_unpooled_species_saturates_at_own_nsites(self):
+        species = DefectSpecies(
+            "C",
+            nsites=3,
+            charge_states=[DefectChargeState(charge=0, energy=-2.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        concs = system._global_defect_concs(1.0)
+        total = sum(concs[cs] for cs in species.charge_states)
+        self.assertLessEqual(total, species.nsites)
+        self.assertGreater(total, 0.99 * species.nsites)
 
     def test_pooled_species_share_sites_within_pool_capacity(self):
         n_pool = 10.0
@@ -435,7 +454,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
         )
         self.species = DefectSpecies(
             "Mg_Zn",
-            nsites=1,
+            nsites=10,
             charge_states=[
                 DefectChargeState(charge=0, energy=1.0, degeneracy=1),
                 DefectChargeState(charge=1, energy=1.3, degeneracy=2),
@@ -499,11 +518,11 @@ class TestDefectSystemElementPools(unittest.TestCase):
     def test_element_pool_honours_species_level_fixed_concentration(self):
         fixed_value = 3.0
         species_a = DefectSpecies(
-            "A", nsites=1, fixed_concentration=fixed_value,
+            "A", nsites=10, fixed_concentration=fixed_value,
             charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
         )
         species_b = DefectSpecies(
-            "B", nsites=1,
+            "B", nsites=10,
             charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
         )
         target = 10.0
@@ -524,11 +543,11 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self,
     ):
         species_a = DefectSpecies(
-            "A", nsites=1, fixed_concentration=3.0,
+            "A", nsites=10, fixed_concentration=3.0,
             charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
         )
         species_b = DefectSpecies(
-            "B", nsites=1,
+            "B", nsites=10,
             charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
         )
         system = DefectSystem(
@@ -541,14 +560,14 @@ class TestDefectSystemElementPools(unittest.TestCase):
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
 
-    def test_element_pool_preserves_mass_action_ratio_across_targets(self):
+    def test_element_pool_preserves_activity_ratio_across_targets(self):
         species_a = DefectSpecies(
-            "A", nsites=1,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+            "A", nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
         )
         species_b = DefectSpecies(
-            "B", nsites=1,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+            "B", nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
         )
         ratios = []
         for target in (6.0, 20.0):
@@ -563,8 +582,53 @@ class TestDefectSystemElementPools(unittest.TestCase):
             c_a = concs[species_a.charge_states[0]]
             c_b = concs[species_b.charge_states[0]]
             self.assertAlmostEqual(1.0 * c_a + 2.0 * c_b, target, places=6)
-            ratios.append(c_b / c_a**2)
-        self.assertAlmostEqual(ratios[0], ratios[1], places=6)
+            # c_i / (N_i_free - c_i) = w_i * lambda**s_i exactly, so this
+            # combination of activities is independent of the target.
+            activity_a = c_a / (species_a.nsites - c_a)
+            activity_b = c_b / (species_b.nsites - c_b)
+            ratios.append(activity_b / activity_a**2)
+        self.assertAlmostEqual(ratios[0] / ratios[1], 1.0, places=6)
+
+    def test_two_coupled_element_pools_hit_both_targets(self):
+        cs_mgo = DefectChargeState(charge=0, energy=0.0, degeneracy=1)
+        cs_mgi = DefectChargeState(charge=0, energy=0.0, degeneracy=1)
+        cs_oi = DefectChargeState(charge=0, energy=0.0, degeneracy=1)
+        sp_mgo = DefectSpecies("Mg_O", nsites=20, charge_states=[cs_mgo])
+        sp_mgi = DefectSpecies("Mg_i", nsites=20, charge_states=[cs_mgi])
+        sp_oi = DefectSpecies("O_i", nsites=20, charge_states=[cs_oi])
+        system = DefectSystem(
+            defect_species=[sp_mgo, sp_mgi, sp_oi],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "Mg": (8.0, [(sp_mgo, 1.0), (sp_mgi, 1.0)]),
+                "O": (5.0, [(sp_mgo, 1.0), (sp_oi, 1.0)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        total_mg = concs[cs_mgo] + concs[cs_mgi]
+        total_o = concs[cs_mgo] + concs[cs_oi]
+        # scipy's iterative solve converges the joint targets to within
+        # a small numerical tolerance, not bit-for-bit exactness.
+        self.assertAlmostEqual(total_mg, 8.0, places=3)
+        self.assertAlmostEqual(total_o, 5.0, places=3)
+
+    def test_element_pool_raises_when_target_exceeds_site_capacity(self):
+        species = DefectSpecies(
+            "Mg_Zn", nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": (5.0, [(species, 1.0)])},
+        )
+        with self.assertRaises(ValueError) as ctx:
+            system._global_defect_concs(1.0)
+        self.assertIn("Mg", str(ctx.exception))
 
 
 class TestDefectSystemBandEdgeCorrections(unittest.TestCase):

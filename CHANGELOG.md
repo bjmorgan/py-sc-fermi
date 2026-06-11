@@ -39,9 +39,20 @@
   kinks returned by `tl_profile`); at `temperature>0` it gives the smooth
   curve `-kT * ln(c_total/nsites)` implied by the species' total
   concentration.
-- Added site pools and element pools (`DefectSystem(site_pools=..., element_pools=...)`)
-  to model site competition between `DefectSpecies` sharing a finite number of
-  lattice sites, or competition for a fixed total amount of a dopant element.
+- Site-exclusion (Langmuir) statistics, `c_i = N_free * w_i / (1 + sum_j w_j)`,
+  are now the default for every `DefectSpecies`, so every charge state's
+  concentration is capped by its species' `nsites` (the dilute Boltzmann
+  formula is recovered automatically when `sum_j w_j << 1`). Added site pools
+  and element pools (`DefectSystem(site_pools=..., element_pools=...)`):
+  `site_pools` merges several `DefectSpecies` into one shared budget of sites
+  (`N_free` becomes the pool size rather than each species' own `nsites`), and
+  `element_pools` constrains the total content of a dopant element across one
+  or more species to a fixed target, by solving for the element's chemical
+  potential. Multiple `element_pools` are solved jointly via
+  `scipy.optimize.minimize`, so targets that couple through a shared species
+  are satisfied simultaneously. Note: within a shared `site_pools` group, only
+  each charge state's `degeneracy` (not its species' `nsites`) sets its
+  relative weight.
 - Added temperature-dependent band-edge corrections
   (`vbm_shift_fn`, `cbm_shift_fn`, `formation_energy_corrections`, `rigid_shift`)
   to `DefectSystem`, allowing formation energies and the band gap to be
