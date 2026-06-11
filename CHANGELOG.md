@@ -67,6 +67,13 @@
   corrections are applied once at construction to copies of `defect_species`,
   the caller's objects are never modified, and `report()`/`as_dict()`/
   `from_dict()` always agree.
+- Added `DefectSystemFactory`, for building `DefectSystem` snapshots at a
+  series of temperatures from temperature-dependent `vbm_shift_fn`,
+  `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
+  temperature, the latter keyed by `DefectChargeState`). `factory.at(T,
+  **overrides)` evaluates these functions at `T` and returns an independent
+  `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
+  temperatures}`.
 
 ## V2.2.2
 

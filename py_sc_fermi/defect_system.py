@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -767,3 +768,108 @@ class DefectSystem:
         if self.convergence_tolerance is not None:
             defect_system_dict["convergence_tolerance"] = self.convergence_tolerance
         return defect_system_dict
+
+
+class DefectSystemFactory:
+    """Builds `DefectSystem` snapshots at different temperatures from
+    temperature-dependent band-edge shift and formation-energy correction
+    functions.
+
+    `DefectSystem` itself takes pre-evaluated `vbm_shift`/`cbm_shift`/
+    `formation_energy_corrections` for a single temperature. This factory
+    stores the temperature-dependent functions instead, and `at(temperature)`
+    evaluates them and constructs a fresh, independent `DefectSystem` for
+    that temperature.
+
+    Args:
+        defect_species (list[DefectSpecies]): List of ``DefectSpecies`` objects
+          which are present in the ``DefectSystem``.
+        dos (DOS): the ``DOS`` object associated with the unit cell.
+        volume (float): volume of the unit cell in Angstroms cubed.
+        convergence_tolerance (float, optional): Tolerance for the Fermi energy
+          convergence in eV, passed to every `DefectSystem` built by `at()`.
+        site_pools (dict[str, tuple[float, list[DefectSpecies]]] | None, optional):
+          passed to every `DefectSystem` built by `at()`.
+        element_pools (dict[str, tuple[float, list[tuple[Any, float]]]] | None, optional):
+          passed to every `DefectSystem` built by `at()`.
+        vbm_shift_fn (Callable[[float], float] | None, optional): a function
+          of temperature returning the valence-band-maximum shift (in eV) at
+          that temperature. Defaults to None (no shift).
+        cbm_shift_fn (Callable[[float], float] | None, optional): a function
+          of temperature returning the conduction-band-minimum shift (in eV)
+          at that temperature. Defaults to None (no shift).
+        formation_energy_correction_fns (dict[DefectChargeState, Callable[[float], float]] | None, optional):
+          per-charge-state functions of temperature returning a
+          formation-energy correction (in eV) at that temperature. Keys must
+          be `DefectChargeState`s in `defect_species`. Defaults to None.
+        rigid_shift (bool, optional): passed to every `DefectSystem` built by
+          `at()`. Defaults to True.
+    """
+
+    def __init__(
+        self,
+        defect_species: list[DefectSpecies],
+        dos: DOS,
+        volume: float,
+        convergence_tolerance: float | None = None,
+        site_pools: dict[str, tuple[float, list[DefectSpecies]]] | None = None,
+        element_pools: dict[str, tuple[float, list[tuple[Any, float]]]] | None = None,
+        vbm_shift_fn: Callable[[float], float] | None = None,
+        cbm_shift_fn: Callable[[float], float] | None = None,
+        formation_energy_correction_fns: dict[DefectChargeState, Callable[[float], float]] | None = None,
+        rigid_shift: bool = True,
+    ):
+        self.defect_species = defect_species
+        self.dos = dos
+        self.volume = volume
+        self.convergence_tolerance = convergence_tolerance
+        self.site_pools = site_pools
+        self.element_pools = element_pools
+        self.vbm_shift_fn = vbm_shift_fn
+        self.cbm_shift_fn = cbm_shift_fn
+        self.formation_energy_correction_fns = formation_energy_correction_fns or {}
+        self.rigid_shift = rigid_shift
+
+    def at(self, temperature: float, **overrides: Any) -> DefectSystem:
+        """Build a `DefectSystem` snapshot at `temperature`.
+
+        Evaluates `vbm_shift_fn`, `cbm_shift_fn`, and
+        `formation_energy_correction_fns` at `temperature`, then constructs a
+        `DefectSystem` from those values together with this factory's other
+        attributes. Each call deep-copies `defect_species` independently (via
+        `DefectSystem.__init__`), so repeated calls (e.g. for an
+        anneal-and-quench sequence) do not affect one another.
+
+        Args:
+            temperature (float): temperature (in K) at which to evaluate the
+              shift/correction functions and solve the resulting
+              `DefectSystem`.
+            **overrides: keyword arguments forwarded to `DefectSystem.__init__`,
+              overriding any of this factory's corresponding attributes (e.g.
+              `fixed_concentrations` on individual `DefectSpecies`, or
+              `temperature` itself).
+
+        Returns:
+            DefectSystem: a new, independent `DefectSystem` for `temperature`.
+        """
+        vbm_shift = self.vbm_shift_fn(temperature) if self.vbm_shift_fn else 0.0
+        cbm_shift = self.cbm_shift_fn(temperature) if self.cbm_shift_fn else 0.0
+        formation_energy_corrections = {
+            cs: fn(temperature)
+            for cs, fn in self.formation_energy_correction_fns.items()
+        }
+        kwargs: dict[str, Any] = dict(
+            defect_species=self.defect_species,
+            dos=self.dos,
+            volume=self.volume,
+            temperature=temperature,
+            convergence_tolerance=self.convergence_tolerance,
+            site_pools=self.site_pools,
+            element_pools=self.element_pools,
+            vbm_shift=vbm_shift,
+            cbm_shift=cbm_shift,
+            formation_energy_corrections=formation_energy_corrections,
+            rigid_shift=self.rigid_shift,
+        )
+        kwargs.update(overrides)
+        return DefectSystem(**kwargs)

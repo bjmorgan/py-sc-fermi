@@ -7,7 +7,7 @@ import numpy as np
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.defect_system import DefectSystem
+from py_sc_fermi.defect_system import DefectSystem, DefectSystemFactory
 from py_sc_fermi.dos import DOS
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
@@ -714,6 +714,80 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         unknown_cs = DefectChargeState(charge=2, energy=3.0, degeneracy=1)
         with self.assertRaises(ValueError):
             self._make_system(formation_energy_corrections={unknown_cs: 0.1})
+
+
+class TestDefectSystemFactory(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+        self.cs0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
+        self.cs1 = DefectChargeState(charge=1, energy=1.5, degeneracy=2)
+        self.species = DefectSpecies("V_O", nsites=1, charge_states=[self.cs0, self.cs1])
+
+    def test_at_evaluates_shift_functions_at_given_temperature(self):
+        factory = DefectSystemFactory(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            vbm_shift_fn=lambda T: 0.001 * T,
+            rigid_shift=False,
+        )
+        system = factory.at(300)
+        self.assertAlmostEqual(system.vbm_shift, 0.3)
+        self.assertAlmostEqual(
+            system.defect_species[0].charge_states[1].energy,
+            1.5 - self.cs1.charge * 0.3,
+        )
+
+    def test_at_sets_temperature(self):
+        factory = DefectSystemFactory(defect_species=[self.species], dos=self.dos, volume=100)
+        system = factory.at(300)
+        self.assertEqual(system.temperature, 300)
+
+    def test_at_supports_per_call_overrides(self):
+        factory = DefectSystemFactory(defect_species=[self.species], dos=self.dos, volume=100)
+        system = factory.at(300, convergence_tolerance=1e-12)
+        self.assertEqual(system.convergence_tolerance, 1e-12)
+
+    def test_at_with_formation_energy_correction_fns_per_charge_state(self):
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        species = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
+        factory = DefectSystemFactory(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            formation_energy_correction_fns={
+                cs_a: lambda T: 0.001 * T,
+                cs_b: lambda T: -0.0005 * T,
+            },
+        )
+        system = factory.at(300)
+        self.assertAlmostEqual(system.defect_species[0].charge_states[0].energy, 0.5 + 0.3)
+        self.assertAlmostEqual(system.defect_species[0].charge_states[1].energy, 0.9 - 0.15)
+
+    def test_repeated_at_calls_are_independent(self):
+        factory = DefectSystemFactory(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            vbm_shift_fn=lambda T: 0.001 * T,
+            rigid_shift=False,
+        )
+        low = factory.at(200)
+        high = factory.at(400)
+        self.assertIsNot(
+            low.defect_species[0].charge_states[1],
+            high.defect_species[0].charge_states[1],
+        )
+        self.assertNotAlmostEqual(
+            low.defect_species[0].charge_states[1].energy,
+            high.defect_species[0].charge_states[1].energy,
+        )
 
 
 class TestDefectSystemReport(unittest.TestCase):
