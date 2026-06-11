@@ -10,10 +10,10 @@ per-state stoichiometry vectors over the constrained elements (shape
 
 The target equations are the stationarity condition of the convex grand
 potential ``F(mu) = sum_g n_free_g * log(Z_g(mu)) - mu . target``, whose
-gradient is the element-content vector and whose Hessian is, group by
-group, ``n_free`` times the per-site covariance of the stoichiometry
-vectors -- positive semi-definite, so `F` has a single minimum whenever
-the targets are jointly achievable. The solve runs in stages, each
+gradient is the element content minus the target and whose Hessian is,
+group by group, ``n_free`` times the per-site covariance of the
+stoichiometry vectors -- positive semi-definite, so `F` has a single
+minimum whenever the targets are jointly achievable. The solve runs in stages, each
 engaged only when the previous stage's independently measured deviation
 misses tolerance, and every result is verified against the targets before
 it is returned.
@@ -146,19 +146,19 @@ def bracketed_coordinate_solve(
     group_data: GroupData, remaining_vec: np.ndarray
 ) -> np.ndarray:
     """Scale-free fallback solve: cyclic exact line solves of the
-    convex grand potential, one along each element's own chemical
-    potential and one along the collective all-ones direction -- the
-    dominant slow mode when a shared species carries most of several
-    pools' content, where plain coordinate descent ping-pongs.
-    Each sweep also line-solves along the regularised Newton direction
-    ``(H + eps I)^-1 (target - content)``: the fixed directions cannot
-    span every geometry's slow mode, while the Newton line adapts to
-    it and contracts quadratically wherever `H` is informative.
-    Convergent for jointly feasible targets. Starts from mu = 0 (the
-    unconstrained populations) rather than from a failed Newton
-    stage's iterate, whose location is unbounded. Returns the best
-    `mu` found; the caller verifies the targets and raises if they
-    are unmet."""
+    convex grand potential along each element's own chemical potential
+    and along the collective all-ones direction, plus, each sweep, the
+    regularised Newton direction ``(H + eps I)^-1 (target - content)``.
+    No fixed set of directions spans every geometry's slow mode --
+    plain coordinate descent ping-pongs when a shared species
+    dominates several pools -- so the Newton line, which adapts to
+    the local geometry and contracts quadratically wherever `H` is
+    informative, carries the hard cases. Convergent for jointly
+    feasible targets. Starts from mu = 0 (the unconstrained
+    populations) rather than from a failed Newton stage's iterate,
+    whose location is unbounded. Returns the iterate with the smallest
+    deviation; the caller verifies the targets and raises if they are
+    unmet."""
     K = len(remaining_vec)
     mu = np.zeros(K)
     fixed_directions: list[tuple[np.ndarray, float]] = [
@@ -167,6 +167,7 @@ def bracketed_coordinate_solve(
     if K > 1:
         fixed_directions.append((np.ones(K), float(remaining_vec.sum())))
     best = np.inf
+    best_mu = mu.copy()
     stalled = 0
     for _ in range(500):
         for direction, target in fixed_directions:
@@ -186,16 +187,17 @@ def bracketed_coordinate_solve(
                 group_data, mu, direction, float(direction @ remaining_vec)
             )
         deviation = scaled_deviation(group_data, mu, remaining_vec).max()
-        if deviation <= 1e-10:
-            break
         if deviation >= 0.97 * best:
             stalled += 1
             if stalled >= 10:
                 break
         else:
             stalled = 0
-        best = min(best, deviation)
-    return mu
+        if deviation < best:
+            best, best_mu = deviation, mu.copy()
+        if deviation <= 1e-10:
+            break
+    return best_mu
 
 
 def solve_chemical_potentials(
@@ -212,20 +214,23 @@ def solve_chemical_potentials(
 
     The stationarity condition is solved as the per-element-scaled root
     problem ``content_X(mu) / remaining[X] - 1 = 0``, with the scaled
-    Hessian as its analytic Jacobian, falling back to a log-residual
-    Newton stage and then to sign-based bracketing; the result of
-    whichever stage produced it is verified against the targets.
+    Hessian as its analytic Jacobian (scipy's ``hybr``, Powell's hybrid
+    method -- a damped Newton iteration), falling back to a log-residual
+    stage of the same method and then to sign-based bracketing; the
+    result of whichever stage produced it is verified against the
+    targets.
     """
     K = len(elements)
 
-    # feasibility: the most of element X any group can supply is
-    # n_free * (largest stoichiometry among its variable states).
+    # feasibility: the most (least) of element X any group can supply is
+    # n_free times the largest (most negative) stoichiometry among its
+    # variable states.
     for k, elem in enumerate(elements):
+        committed = full_targets[k] - remaining_vec[k]
         max_content = sum(
             n_free * max(0.0, s[:, k].max()) for n_free, _, s in group_data
         )
         if remaining_vec[k] > max_content:
-            committed = full_targets[k] - remaining_vec[k]
             raise ElementPoolError(
                 f"Element pool '{elem}': target {full_targets[k]:.3e} exceeds "
                 f"the maximum achievable content "
@@ -233,17 +238,30 @@ def solve_chemical_potentials(
                 f"{committed:.3e} plus up to {max_content:.3e} from "
                 "variable states)."
             )
+        min_content = sum(
+            n_free * min(0.0, s[:, k].min()) for n_free, _, s in group_data
+        )
+        if remaining_vec[k] < min_content:
+            raise ElementPoolError(
+                f"Element pool '{elem}': target {full_targets[k]:.3e} is "
+                f"below the minimum achievable content "
+                f"{committed + min_content:.3e} (committed {committed:.3e} "
+                f"plus as little as {min_content:.3e} from variable "
+                "states)."
+            )
 
     def residual_and_jacobian(mu: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         content, hessian = content_and_hessian(group_data, mu)
         return content / remaining_vec - 1.0, hessian / remaining_vec[:, None]
 
-    # Defect concentrations natively span ~1e-30..1 per cell, while
-    # scipy's convergence criteria assume O(1) problems: an absolute
-    # threshold on a residual measured in defects per cell is already
-    # met at mu = 0 for any dilute target. Scaling each equation by
-    # its own target keeps every residual O(1), however dilute the
-    # targets and however many orders of magnitude separate them.
+    # Residuals measured in defects per cell span ~1e-30..1, and every
+    # joint norm or step test a general-purpose solver applies to them
+    # is dominated by the largest element, leaving dilute elements
+    # unconverged at reported success (with trust-exact's absolute
+    # gradient threshold this reached its extreme: doing nothing at all
+    # counted as converged). Scaling each equation by its own target
+    # keeps every residual O(1), however dilute the targets and however
+    # many orders of magnitude separate them.
     #
     # The initial guess is one diagonal Newton step of the log-content
     # system ``log(content_X(mu)) = log(remaining[X])`` from mu = 0,
@@ -252,9 +270,10 @@ def solve_chemical_potentials(
     # ``sbar_X = H_XX / content_X``. Started from mu = 0 itself, the
     # solver can sit on an underflow plateau where the Jacobian
     # vanishes.
-    if (remaining_vec == 0.0).any():
-        # A zero net-content target cannot scale its own residual; the
-        # sign-based fallback needs no scaling, so solve there directly.
+    if (remaining_vec <= 0.0).any():
+        # A zero net-content target cannot scale its own residual, and a
+        # negative one has no log-space seed; the sign-based fallback
+        # needs neither, so solve there directly.
         mu = bracketed_coordinate_solve(group_data, remaining_vec)
     else:
         c0, h0 = content_and_hessian(group_data, np.zeros(K))
@@ -273,13 +292,15 @@ def solve_chemical_potentials(
         deviation = scaled_deviation(group_data, mu, remaining_vec)
 
         if not (deviation.max() <= _element_pool_tolerance):
-            # Second Newton stage, on log residuals: ln(content) is
+            # Second root-find stage, on log residuals: ln(content) is
             # nearly linear in mu throughout the dilute regime, and the
             # full Jacobian captures shared-species coupling that
             # defeats both the diagonal seed and coordinate sweeps (one
-            # species carrying almost all of two pools' content). Kept
-            # secondary because ln(content) flattens at saturation,
-            # where the scaled-residual stage is stronger.
+            # species carrying almost all of two pools' content). Run
+            # second because the seeded scaled stage settles the common
+            # regimes; ln(content) flattens at saturation, where neither
+            # root stage is reliable and the bracketing sweep takes
+            # over.
             def log_residual_and_jacobian(
                 m: np.ndarray,
             ) -> tuple[np.ndarray, np.ndarray]:

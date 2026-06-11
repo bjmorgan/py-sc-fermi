@@ -386,13 +386,13 @@ class DefectSystem:
                         if cs.fixed_concentration is not None
                     )
             rem = target - committed
-            if rem < 0:
-                raise ElementPoolError(
-                    f"Element pool '{elem}': fixed-concentration states "
-                    f"already contribute {committed:.3e} which exceeds the "
-                    f"target {target:.3e}. Your constraints are mutually "
-                    "inconsistent."
-                )
+            # Float summation of fixed contributions does not land exactly
+            # on a target they are meant to meet (0.1 + 0.2 != 0.3): treat
+            # a remainder within rounding distance of the committed total
+            # as exactly zero. Genuinely negative remainders are validated
+            # by the caller, which knows whether the pool can shed content.
+            if abs(rem) <= 1e-12 * committed:
+                rem = 0.0
             remaining[elem] = rem
         return remaining
 
@@ -460,25 +460,39 @@ class DefectSystem:
         mu = np.array([])
         if elements:
             remaining = self._remaining_element_targets(pools)
-            # An element whose target is already fully committed by fixed
-            # concentrations admits no further variable content. Provided
-            # every variable state in its pool has positive stoichiometry,
-            # this is the lambda_X = exp(mu_X) -> 0 limit: those states
-            # get concentration 0 and X drops out of the
-            # chemical-potential solve. With a negative-stoichiometry
-            # variable state present, a zero target is instead a balance
-            # condition at finite lambda_X, so X stays in the solve.
+            # A pool with a negative-stoichiometry variable state can shed
+            # content, so zero and negative remaining targets are balance
+            # conditions at finite lambda_X = exp(mu_X) and the element
+            # stays in the solve. Without one, variable states can only
+            # add content: a negative remainder is inconsistent with the
+            # fixed concentrations, and a zero remainder is the
+            # lambda_X -> 0 limit, in which every variable state with
+            # positive stoichiometry in X has concentration 0 and X drops
+            # out of the chemical-potential solve.
             variable_species = {
                 sp for group in groups for _, sp, _ in group.variable_states
             }
+            balance_capable = {
+                e
+                for e in elements
+                if any(
+                    s_by_elem.get(e, 0.0) < 0.0 and sp in variable_species
+                    for sp, s_by_elem in stoich.items()
+                )
+            }
+            for e in elements:
+                if remaining[e] < 0.0 and e not in balance_capable:
+                    target, _ = pools[e]
+                    raise ElementPoolError(
+                        f"Element pool '{e}': fixed-concentration states "
+                        f"already contribute {target - remaining[e]:.3e} "
+                        f"which exceeds the target {target:.3e}. Your "
+                        "constraints are mutually inconsistent."
+                    )
             exhausted = {
                 e
                 for e in elements
-                if remaining[e] == 0.0
-                and all(
-                    s_by_elem.get(e, 0.0) >= 0.0 or sp not in variable_species
-                    for sp, s_by_elem in stoich.items()
-                )
+                if remaining[e] == 0.0 and e not in balance_capable
             }
             solve_groups = groups
             if exhausted:

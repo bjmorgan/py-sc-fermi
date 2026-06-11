@@ -12,6 +12,7 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_system import DefectSystem, DefectSystemFactory
 from py_sc_fermi.dos import DOS
+from py_sc_fermi.element_pools import ElementPoolError
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 input_string_spin = (
@@ -662,7 +663,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
                 "Y": (1.0, [("S", 1.0)]),
             },
         )
-        with self.assertRaises(ValueError) as ctx:
+        with self.assertRaises(ElementPoolError) as ctx:
             system._global_defect_concs(1.0)
         self.assertIn("X", str(ctx.exception))
         self.assertIn("Y", str(ctx.exception))
@@ -903,7 +904,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             temperature=300,
             element_pools={"X": (5.0, [("S", 1.0)])},
         )
-        with self.assertRaises(ValueError) as ctx:
+        with self.assertRaises(ElementPoolError) as ctx:
             system.get_sc_fermi()
         self.assertIn("Element pool", str(ctx.exception))
         self.assertNotIn("No solution found", str(ctx.exception))
@@ -1139,7 +1140,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
         self.assertEqual(content["B"], 0.0)
-        self.assertGreater(content["C"], 0.0)
+        w = np.exp(-1.0 / (kboltz * 300.0))
+        self.assertAlmostEqual(content["C"] / (10 * w / (1 + w)), 1.0, delta=1e-10)
 
     def test_exhausted_element_starving_another_pool_raises(self):
         """A species zeroed by an exhausted element cannot supply another
@@ -1166,6 +1168,118 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             system._global_defect_concs(1.0)
         self.assertIn("Y", str(ctx.exception))
+
+    def test_exhausted_pool_tolerates_float_rounding_in_committed_total(self):
+        """A pool target met exactly by fixed concentrations must be
+        treated as exhausted even when float summation of the
+        contributions does not land on the target exactly
+        (0.1 + 0.2 != 0.3)."""
+        sp_a = DefectSpecies(
+            "A", nsites=10, fixed_concentration=0.1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_b = DefectSpecies(
+            "B", nsites=10, fixed_concentration=0.2,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_c = DefectSpecies(
+            "C", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_a, sp_b, sp_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (0.3, [("A", 1.0), ("B", 1.0), ("C", 1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertEqual(content["C"], 0.0)
+
+    def test_negative_net_content_target_balances_species(self):
+        """A negative net-content target over mixed-sign stoichiometries
+        (oxygen deficiency in an off-stoichiometry scan) is a balance
+        tipped towards the negative-stoichiometry species."""
+        target = -1e-7
+        sp_oi = DefectSpecies(
+            "O_i", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        sp_vo = DefectSpecies(
+            "V_O", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_oi, sp_vo],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": (target, [("O_i", 1.0), ("V_O", -1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertGreater(content["O_i"], 0.0)
+        self.assertAlmostEqual(
+            (content["O_i"] - content["V_O"]) / target, 1.0, delta=1e-8
+        )
+
+    def test_negative_target_below_negative_capacity_raises(self):
+        """A negative net-content target deeper than the
+        negative-stoichiometry species can supply must raise the
+        feasibility error, not a constraint-inconsistency error."""
+        sp_oi = DefectSpecies(
+            "O_i", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        sp_vo = DefectSpecies(
+            "V_O", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_oi, sp_vo],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": (-20.0, [("O_i", 1.0), ("V_O", -1.0)])},
+        )
+        with self.assertRaises(ElementPoolError) as ctx:
+            system._global_defect_concs(1.0)
+        self.assertIn("minimum", str(ctx.exception))
+
+    def test_mixed_zero_and_dilute_targets_in_one_solve(self):
+        """A zero-target balance pool whose positive species also supplies
+        a dilute dopant pool: both constraints must hold in one solve."""
+        target_y = 1e-9
+        sp_oi = DefectSpecies(
+            "O_i", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        sp_vo = DefectSpecies(
+            "V_O", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        sp_m = DefectSpecies(
+            "M", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_oi, sp_vo, sp_m],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "dO": (0.0, [("O_i", 1.0), ("V_O", -1.0)]),
+                "Y": (target_y, [("O_i", 1.0), ("M", 1.0)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        gross = content["O_i"] + content["V_O"]
+        self.assertLessEqual(abs(content["O_i"] - content["V_O"]), 1e-6 * gross)
+        self.assertAlmostEqual(
+            (content["O_i"] + content["M"]) / target_y, 1.0, delta=1e-8
+        )
 
     def test_zero_target_with_negative_stoichiometry_balances_species(self):
         """A pool with target zero over species of opposite stoichiometry
