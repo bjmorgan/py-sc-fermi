@@ -876,6 +876,26 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         content = self.species_content(system, concs)
         self.assertAlmostEqual(content["Mg"] / target, 1.0, delta=1e-8)
 
+    def test_get_sc_fermi_propagates_element_pool_diagnostics(self):
+        """An infeasible pool fails identically at every probed Fermi
+        level; get_sc_fermi must surface the pool diagnostic rather than
+        reporting that no solution exists in the energy window."""
+        sp = DefectSpecies(
+            "S", nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (5.0, [("S", 1.0)])},
+        )
+        with self.assertRaises(ValueError) as ctx:
+            system.get_sc_fermi()
+        self.assertIn("Element pool", str(ctx.exception))
+        self.assertNotIn("No solution found", str(ctx.exception))
+
     def test_underflowed_boltzmann_weights_reach_dilute_target(self):
         """E/kT large enough that the unconstrained populations underflow
         to exactly zero (2 eV at 30 K): the solve must still bridge to the

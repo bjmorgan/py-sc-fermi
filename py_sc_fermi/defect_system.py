@@ -22,6 +22,12 @@ _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
 _element_pool_tolerance = 1e-6
 
 
+class ElementPoolError(ValueError):
+    """Raised when element-pool constraints cannot be satisfied: targets
+    inconsistent with fixed concentrations, infeasible against site
+    capacities, or unmet by the chemical-potential solve."""
+
+
 @dataclass
 class _ExclusionGroup:
     """A set of charge states competing for a shared budget of `n_free`
@@ -391,7 +397,7 @@ class DefectSystem:
                     )
             rem = target - committed
             if rem < 0:
-                raise ValueError(
+                raise ElementPoolError(
                     f"Element pool '{elem}': fixed-concentration states "
                     f"already contribute {committed:.3e} which exceeds the "
                     f"target {target:.3e}. Your constraints are mutually "
@@ -593,7 +599,7 @@ class DefectSystem:
             if remaining_vec[k] > max_content:
                 target, _ = pools[elem]
                 committed = target - remaining_vec[k]
-                raise ValueError(
+                raise ElementPoolError(
                     f"Element pool '{elem}': target {target:.3e} exceeds "
                     f"the maximum achievable content "
                     f"{committed + max_content:.3e} (committed "
@@ -662,7 +668,7 @@ class DefectSystem:
             target, _ = pools[elem]
             committed = target - remaining_vec[worst]
             targets = ", ".join(f"{e}={remaining[e]:.3e}" for e in elements)
-            raise ValueError(
+            raise ElementPoolError(
                 f"Element pool targets ({targets}) could not be satisfied: "
                 f"element '{elem}' achieved {committed + achieved[worst]:.6e} "
                 f"against target {target:.6e}. The targets may be jointly "
@@ -807,10 +813,12 @@ class DefectSystem:
         
         Raises:
             RuntimeError: If no solution is found within the DOS energy range.
+            ElementPoolError: If element-pool constraints cannot be satisfied
+              at a probed Fermi level.
         """
         emin = self.dos.emin()
         emax = self.dos.emax()
-        
+
         try:
             kwargs = {}
             if self.convergence_tolerance is not None:
@@ -822,6 +830,10 @@ class DefectSystem:
                 emax,
                 **kwargs,
             )  # type: ignore[call-overload]
+        except ElementPoolError:
+            # An element-pool failure diagnoses the constraints, not the
+            # energy window; surface it undisguised.
+            raise
         except ValueError as err:
             raise RuntimeError(
                 f"No solution found between {emin} and {emax}: {err}"
