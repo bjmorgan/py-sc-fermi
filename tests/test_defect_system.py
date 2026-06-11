@@ -548,7 +548,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         c_a = concs[system.defect_species[0].charge_states[0]]
         c_b = concs[system.defect_species[1].charge_states[0]]
-        self.assertAlmostEqual(c_a, fixed_value, places=8)
+        self.assertEqual(c_a, fixed_value)
         self.assertAlmostEqual(1.0 * c_a + 2.0 * c_b, target, places=6)
 
     def test_element_pool_raises_when_species_level_fixed_concentration_exceeds_target(
@@ -599,7 +599,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             activity_a = c_a / (species_a.nsites - c_a)
             activity_b = c_b / (species_b.nsites - c_b)
             ratios.append(activity_b / activity_a**2)
-        self.assertAlmostEqual(ratios[0] / ratios[1], 1.0, places=6)
+        self.assertAlmostEqual(ratios[0] / ratios[1], 1.0, delta=1e-12)
 
     def test_two_coupled_element_pools_hit_both_targets(self):
         cs_mgo = DefectChargeState(charge=0, energy=0.0, degeneracy=1)
@@ -642,6 +642,29 @@ class TestDefectSystemElementPools(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             system._global_defect_concs(1.0)
         self.assertIn("Mg", str(ctx.exception))
+
+    def test_element_pool_raises_when_coupled_targets_jointly_infeasible(self):
+        """Two pools supplied only by the same species cannot demand
+        different contents: each target is achievable on its own, but the
+        joint solve has no solution and must raise, naming both pools."""
+        species = DefectSpecies(
+            "S", nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (5.0, [("S", 1.0)]),
+                "Y": (1.0, [("S", 1.0)]),
+            },
+        )
+        with self.assertRaises(ValueError) as ctx:
+            system._global_defect_concs(1.0)
+        self.assertIn("X", str(ctx.exception))
+        self.assertIn("Y", str(ctx.exception))
 
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):
