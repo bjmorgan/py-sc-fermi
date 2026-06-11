@@ -402,17 +402,17 @@ class DefectSystem:
 
     @staticmethod
     def _group_term_arrays(
-        group: _ExclusionGroup,
+        variable_states: list[tuple[DefectChargeState, DefectSpecies, float]],
         elements: list[str],
         stoich: dict[DefectSpecies, dict[str, float]],
     ) -> tuple[np.ndarray, np.ndarray]:
         """Per-state log Boltzmann weights and stoichiometry vectors for a
         group's variable states, as arrays of shape (n,) and (n, len(elements))."""
-        log_w = np.array([lw for _, _, lw in group.variable_states])
+        log_w = np.array([lw for _, _, lw in variable_states])
         s = np.array(
             [
                 [stoich.get(sp, {}).get(elem, 0.0) for elem in elements]
-                for _, sp, _ in group.variable_states
+                for _, sp, _ in variable_states
             ]
         )
         return log_w, s
@@ -454,7 +454,7 @@ class DefectSystem:
         remaining_vec = np.array([remaining[e] for e in elements])
 
         group_data = [
-            (group.n_free, *self._group_term_arrays(group, elements, stoich))
+            (group.n_free, *self._group_term_arrays(group.variable_states, elements, stoich))
             for group in groups
             if group.n_free > 0 and group.variable_states
         ]
@@ -557,11 +557,40 @@ class DefectSystem:
         elements = list(pools.keys())
         stoich = self._stoichiometry_lookup(pools)
 
+        forced_zero: set[DefectSpecies] = set()
+        mu = np.array([])
         if elements:
             remaining = self._remaining_element_targets(pools)
-            mu = self._solve_chemical_potentials(groups, elements, stoich, remaining, pools)
-        else:
-            mu = np.array([])
+            # An element whose target is already fully committed by fixed
+            # concentrations admits no further variable content. In the
+            # lambda_X -> 0 limit, every variable state of a species with
+            # positive stoichiometry in X has concentration 0, and X drops
+            # out of the chemical-potential solve.
+            exhausted = {e for e in elements if remaining[e] == 0.0}
+            solve_groups = groups
+            if exhausted:
+                forced_zero = {
+                    sp
+                    for sp, s_by_elem in stoich.items()
+                    if any(s_by_elem.get(e, 0.0) > 0.0 for e in exhausted)
+                }
+                elements = [e for e in elements if e not in exhausted]
+                remaining = {e: remaining[e] for e in elements}
+                solve_groups = [
+                    _ExclusionGroup(
+                        group.n_free,
+                        [
+                            state
+                            for state in group.variable_states
+                            if state[1] not in forced_zero
+                        ],
+                    )
+                    for group in groups
+                ]
+            if elements:
+                mu = self._solve_chemical_potentials(
+                    solve_groups, elements, stoich, remaining, pools
+                )
 
         for group in groups:
             if not group.variable_states:
@@ -570,9 +599,17 @@ class DefectSystem:
                 for cs, _, _ in group.variable_states:
                     all_concs[cs] = 0.0
                 continue
-            log_w, s = self._group_term_arrays(group, elements, stoich)
+            kept = []
+            for state in group.variable_states:
+                if state[1] in forced_zero:
+                    all_concs[state[0]] = 0.0
+                else:
+                    kept.append(state)
+            if not kept:
+                continue
+            log_w, s = self._group_term_arrays(kept, elements, stoich)
             for (cs, _, _), c_i in zip(
-                group.variable_states,
+                kept,
                 self._group_concs(group.n_free, log_w, s, mu),
                 strict=True,
             ):

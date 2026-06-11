@@ -759,6 +759,40 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         self.assertAlmostEqual((content["A"] + content["B"]) / 8.0, 1.0, delta=1e-8)
         self.assertAlmostEqual((content["A"] + content["C"]) / 5.0, 1.0, delta=1e-8)
 
+    def test_zero_remaining_target_zeroes_variable_states_and_solves_rest(self):
+        """An element whose target is fully committed by fixed
+        concentrations admits no further variable content: variable states
+        of species with positive stoichiometry in that element get
+        concentration 0, and the other elements solve without them."""
+        target_y = 1e-9
+        sp_a = DefectSpecies(
+            "A", nsites=10, fixed_concentration=3.0,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_b = DefectSpecies(
+            "B", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_c = DefectSpecies(
+            "C", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_a, sp_b, sp_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (3.0, [("A", 1.0), ("B", 1.0)]),
+                "Y": (target_y, [("B", 1.0), ("C", 1.0)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertEqual(content["B"], 0.0)
+        self.assertEqual(content["A"], 3.0)
+        self.assertAlmostEqual(content["C"] / target_y, 1.0, delta=1e-8)
+
     def test_mixed_scale_pools_hit_both_targets(self):
         target_x, target_y = 1e-6, 1e-18
         sp_p = DefectSpecies(
