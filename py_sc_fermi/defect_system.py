@@ -452,6 +452,90 @@ class DefectSystem:
             hessian += max(n_free - c.sum(), 0.0) * np.outer(mean_s, mean_s)
         return content, hessian
 
+    @staticmethod
+    def _scaled_deviation(
+        group_data: list[tuple[float, np.ndarray, np.ndarray]],
+        mu: np.ndarray,
+        remaining_vec: np.ndarray,
+    ) -> np.ndarray:
+        """Per-element relative deviation |content / target - 1| at `mu`."""
+        content, _ = DefectSystem._content_and_hessian(group_data, mu)
+        return np.abs(content / remaining_vec - 1.0)
+
+    @staticmethod
+    def _solve_coordinate(
+        group_data: list[tuple[float, np.ndarray, np.ndarray]],
+        mu: np.ndarray,
+        k: int,
+        target_k: float,
+    ) -> float:
+        """Solve ``content_k(mu) = target_k`` for component `k` of `mu`
+        with the other components held fixed, by sign-based bracket
+        expansion and brentq -- scale-free in the concentration. If the
+        equation has no root within the expanded bracket (the other
+        components must move first), returns the bracket edge, which is
+        the feasible best for this coordinate."""
+
+        def excess(m: float) -> float:
+            trial = mu.copy()
+            trial[k] = m
+            content, _ = DefectSystem._content_and_hessian(group_data, trial)
+            return float(content[k] - target_k)
+
+        f0 = excess(mu[k])
+        if f0 == 0.0:
+            return float(mu[k])
+        step = 1.0
+        if f0 > 0:
+            hi = float(mu[k])
+            lo = hi - step
+            while excess(lo) > 0:
+                if lo < -1e7:
+                    return lo
+                step *= 2
+                lo -= step
+        else:
+            lo = float(mu[k])
+            hi = lo + step
+            while excess(hi) < 0:
+                if hi > 1e7:
+                    return hi
+                step *= 2
+                hi += step
+        return float(brentq(excess, lo, hi))
+
+    def _bracketed_coordinate_solve(
+        self,
+        group_data: list[tuple[float, np.ndarray, np.ndarray]],
+        remaining_vec: np.ndarray,
+        mu0: np.ndarray,
+    ) -> np.ndarray:
+        """Scale-free fallback solve: sweep the elements cyclically,
+        solving each element's content equation in its own chemical
+        potential with the others held fixed -- coordinate descent on the
+        convex grand potential, convergent for jointly feasible targets at
+        a linear rate. Returns the best `mu` found; the caller verifies
+        the targets and raises if they are unmet."""
+        mu = mu0.copy()
+        best = np.inf
+        stalled = 0
+        for _ in range(500):
+            for k in range(len(mu)):
+                mu[k] = self._solve_coordinate(
+                    group_data, mu, k, float(remaining_vec[k])
+                )
+            deviation = self._scaled_deviation(group_data, mu, remaining_vec).max()
+            if deviation <= 1e-10:
+                break
+            if deviation >= 0.97 * best:
+                stalled += 1
+                if stalled >= 10:
+                    break
+            else:
+                stalled = 0
+            best = min(best, deviation)
+        return mu
+
     def _solve_chemical_potentials(
         self,
         groups: list[_ExclusionGroup],
@@ -526,31 +610,38 @@ class DefectSystem:
             np.nan_to_num(x0, nan=700.0, posinf=700.0, neginf=-700.0), -700.0, 700.0
         )
         result = root(residual_and_jacobian, x0=x0, jac=True, method="hybr")
-        if not result.success:
-            targets = ", ".join(f"{elem}={remaining[elem]:.3e}" for elem in elements)
-            raise ValueError(
-                f"Element pool targets ({targets}) could not be satisfied: "
-                f"the chemical-potential solve did not converge "
-                f"({result.message}). The targets may be jointly infeasible."
-            )
+        mu = np.nan_to_num(
+            np.asarray(result.x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
+        )
 
-        # Re-check the solution independently of the solver's own verdict:
-        # an optimiser returning success without moving from its starting
-        # point is exactly the failure mode that motivated the
-        # dimensionless formulation, and any recurrence must be loud.
-        achieved, _ = self._content_and_hessian(group_data, result.x)
-        rel_err = np.abs(achieved / remaining_vec - 1.0)
-        worst = int(np.argmax(rel_err))
-        if rel_err[worst] > _element_pool_tolerance:
+        deviation = self._scaled_deviation(group_data, mu, remaining_vec)
+        if not result.success or not (deviation.max() <= _element_pool_tolerance):
+            # hybr converges quadratically from the seed, but can stall on
+            # plateaux where the Jacobian underflows (saturated states,
+            # extreme dilution). The coordinate sweep needs no derivative
+            # -- each element is solved by sign-based bracketing -- so it
+            # is immune to plateaux, and converges whenever the targets
+            # are jointly feasible.
+            mu = self._bracketed_coordinate_solve(group_data, remaining_vec, mu)
+            deviation = self._scaled_deviation(group_data, mu, remaining_vec)
+
+        # The targets are verified independently of any solver's own
+        # verdict; concentrations that silently miss a constraint must
+        # never be returned. The comparison fails closed on NaN.
+        if not (deviation.max() <= _element_pool_tolerance):
+            worst = int(np.argmax(np.nan_to_num(deviation, nan=np.inf)))
+            achieved, _ = self._content_and_hessian(group_data, mu)
             elem = elements[worst]
             target, _ = pools[elem]
             committed = target - remaining_vec[worst]
+            targets = ", ".join(f"{e}={remaining[e]:.3e}" for e in elements)
             raise ValueError(
-                f"Element pool '{elem}': the chemical-potential solve "
-                f"reported success but the target was not met (target "
-                f"{target:.6e}, achieved {committed + achieved[worst]:.6e})."
+                f"Element pool targets ({targets}) could not be satisfied: "
+                f"element '{elem}' achieved {committed + achieved[worst]:.6e} "
+                f"against target {target:.6e}. The targets may be jointly "
+                "infeasible."
             )
-        return result.x
+        return mu
 
     def _global_defect_concs(self, e_fermi: float) -> dict[DefectChargeState, float]:
         """

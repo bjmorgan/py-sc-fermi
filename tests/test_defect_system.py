@@ -777,19 +777,27 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         np.testing.assert_allclose(jacobian, fd, rtol=1e-6)
 
     def test_post_solve_guard_raises_when_solver_misreports_convergence(self):
-        """A solver that returns success without converging (the failure
-        mode of an absolute-tolerance criterion on dilute targets) must
-        raise rather than silently return unconstrained concentrations."""
+        """The targets are re-checked independently of any solver's own
+        verdict: if both the root-find and the fallback return without
+        converging, a ValueError names the unmet element rather than
+        silently returning unconstrained concentrations."""
         system, _, _ = self.coupled_system(energy=1.0)
         do_nothing_solve = Mock(
             side_effect=lambda fun, x0, **kwargs: OptimizeResult(
                 x=np.zeros_like(x0), success=True, message="mocked"
             )
         )
-        with patch("py_sc_fermi.defect_system.root", do_nothing_solve):
+        with (
+            patch("py_sc_fermi.defect_system.root", do_nothing_solve),
+            patch.object(
+                DefectSystem,
+                "_bracketed_coordinate_solve",
+                lambda self, group_data, remaining_vec, mu0: mu0,
+            ),
+        ):
             with self.assertRaises(ValueError) as ctx:
                 system._global_defect_concs(1.0)
-        self.assertIn("Element pool 'X'", str(ctx.exception))
+        self.assertIn("'X'", str(ctx.exception))
         self.assertIn("target", str(ctx.exception))
 
     def test_coupled_dilute_weights_reach_order_one_targets(self):
@@ -823,6 +831,107 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         content = self.species_content(system, concs)
         self.assertAlmostEqual((content["A"] + content["B"]) / 8.0, 1.0, delta=1e-8)
         self.assertAlmostEqual((content["A"] + content["C"]) / 5.0, 1.0, delta=1e-8)
+
+    def test_saturated_species_reaches_target_below_saturation(self):
+        """A species with strongly negative formation energy saturates its
+        sites at mu = 0; the solve must still reach a feasible target on
+        the far side of the saturation plateau."""
+        sp = DefectSpecies(
+            "S", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=-2.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (0.5, [("S", 1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(content["S"] / 0.5, 1.0, delta=1e-8)
+
+    def test_get_sc_fermi_with_charged_states_and_element_pool(self):
+        """get_sc_fermi probes Fermi levels across the whole window, where
+        charged states' Boltzmann weights swing through saturation; the
+        pool solve must converge at every probe."""
+        sp = DefectSpecies(
+            "Mg", nsites=10,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=1.3, degeneracy=1),
+            ],
+        )
+        target = 1e-8
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": (target, [("Mg", 1.0)])},
+        )
+        e_fermi, _ = system.get_sc_fermi()
+        self.assertTrue(np.isfinite(e_fermi))
+        concs = system._global_defect_concs(e_fermi)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(content["Mg"] / target, 1.0, delta=1e-8)
+
+    def test_underflowed_boltzmann_weights_reach_dilute_target(self):
+        """E/kT large enough that the unconstrained populations underflow
+        to exactly zero (2 eV at 30 K): the solve must still bridge to the
+        target."""
+        sp = DefectSpecies(
+            "S", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=2.0, degeneracy=1)],
+        )
+        target = 1e-10
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=30,
+            element_pools={"X": (target, [("S", 1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(content["S"] / target, 1.0, delta=1e-8)
+
+    def test_coupled_shared_species_across_formation_energies_and_targets(self):
+        """Coupled pools sharing a species, with 1.5-2.2 eV formation
+        energies and targets from O(10) down to O(0.01): every combination
+        is feasible and must be solved."""
+        for energy in (1.5, 1.8, 2.2):
+            for target_x, target_y in (
+                (8.0, 5.0), (2.0, 0.5), (15.0, 1.0), (0.1, 0.05), (5.0, 5.0)
+            ):
+                with self.subTest(energy=energy, targets=(target_x, target_y)):
+                    sp = {
+                        name: DefectSpecies(
+                            name, nsites=20,
+                            charge_states=[
+                                DefectChargeState(charge=0, energy=energy, degeneracy=1)
+                            ],
+                        )
+                        for name in ("A", "B", "C")
+                    }
+                    system = DefectSystem(
+                        defect_species=list(sp.values()),
+                        dos=self.dos,
+                        volume=100,
+                        temperature=300,
+                        element_pools={
+                            "X": (target_x, [("A", 1.0), ("B", 1.0)]),
+                            "Y": (target_y, [("A", 1.0), ("C", 1.0)]),
+                        },
+                    )
+                    concs = system._global_defect_concs(1.0)
+                    content = self.species_content(system, concs)
+                    self.assertAlmostEqual(
+                        (content["A"] + content["B"]) / target_x, 1.0, delta=1e-8
+                    )
+                    self.assertAlmostEqual(
+                        (content["A"] + content["C"]) / target_y, 1.0, delta=1e-8
+                    )
 
     def test_zero_remaining_target_zeroes_variable_states_and_solves_rest(self):
         """An element whose target is fully committed by fixed
