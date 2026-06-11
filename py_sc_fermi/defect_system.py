@@ -150,7 +150,7 @@ class DefectSystem:
                 "not part of `defect_species`."
             )
 
-        for original_cs, copied_cs in zip(original_states, copied_states):
+        for original_cs, copied_cs in zip(original_states, copied_states, strict=True):
             if copied_cs._energy is None:
                 continue
             if original_cs in formation_energy_corrections:
@@ -559,7 +559,9 @@ class DefectSystem:
                 continue
             log_w, s = self._group_term_arrays(group, elements, stoich)
             for (cs, _, _), c_i in zip(
-                group.variable_states, self._group_concs(group.n_free, log_w, s, mu)
+                group.variable_states,
+                self._group_concs(group.n_free, log_w, s, mu),
+                strict=True,
             ):
                 all_concs[cs] = c_i
 
@@ -805,7 +807,7 @@ class DefectSystemFactory:
         cbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the conduction-band-minimum shift (in eV)
           at that temperature. Defaults to None (no shift).
-        formation_energy_correction_fns (dict[DefectChargeState, Callable[[float], float]] | None, optional):
+        formation_energy_correction_fns (dict[DefectChargeState, Callable] | None, optional):
           per-charge-state functions of temperature returning a
           formation-energy correction (in eV) at that temperature. Keys must
           be `DefectChargeState`s in `defect_species`. Defaults to None.
@@ -823,7 +825,9 @@ class DefectSystemFactory:
         element_pools: dict[str, tuple[float, list[tuple[Any, float]]]] | None = None,
         vbm_shift_fn: Callable[[float], float] | None = None,
         cbm_shift_fn: Callable[[float], float] | None = None,
-        formation_energy_correction_fns: dict[DefectChargeState, Callable[[float], float]] | None = None,
+        formation_energy_correction_fns: (
+            dict[DefectChargeState, Callable[[float], float]] | None
+        ) = None,
         rigid_shift: bool = True,
     ):
         self.defect_species = defect_species
