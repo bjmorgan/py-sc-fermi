@@ -219,6 +219,60 @@ class TestDefectSpecies(unittest.TestCase):
             defect.min_energy_charge_state(e_fermi=0.0)
         self.assertIn("V_O", str(cm.exception))
 
+    def test_effective_formation_energy_at_zero_temperature_matches_min_energy_state(
+        self,
+    ):
+        defect = DefectSpecies(
+            "V_O",
+            nsites=1,
+            charge_states=[
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=1),
+                DefectChargeState(charge=0, energy=2.0, degeneracy=1),
+            ],
+        )
+        e_fermi = 0.3
+        expected = defect.min_energy_charge_state(e_fermi).get_formation_energy(
+            e_fermi
+        )
+        self.assertAlmostEqual(
+            defect.effective_formation_energy(e_fermi), expected, places=10
+        )
+
+    def test_effective_formation_energy_at_finite_temperature(self):
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        cs_b = DefectChargeState(charge=0, energy=0.6, degeneracy=2)
+        defect = DefectSpecies("V_O", nsites=1, charge_states=[cs_a, cs_b])
+
+        e_fermi = 0.3
+        temperature = 300.0
+        kT = kboltz * temperature
+        expected = -kT * logsumexp(
+            [
+                np.log(cs_a.degeneracy) - cs_a.get_formation_energy(e_fermi) / kT,
+                np.log(cs_b.degeneracy) - cs_b.get_formation_energy(e_fermi) / kT,
+            ]
+        )
+
+        result = defect.effective_formation_energy(e_fermi, temperature=temperature)
+        self.assertAlmostEqual(result, expected, places=10)
+        # the Boltzmann sum over multiple states is below the lowest
+        # individual formation energy
+        self.assertLess(
+            result,
+            min(
+                cs_a.get_formation_energy(e_fermi), cs_b.get_formation_energy(e_fermi)
+            ),
+        )
+
+    def test_effective_formation_energy_raises_with_no_variable_charge_states(self):
+        cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
+        cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
+        defect = DefectSpecies(name="V_O", nsites=1, charge_states={0: cs_0, 1: cs_1})
+        with self.assertRaises(ValueError) as cm:
+            defect.effective_formation_energy(e_fermi=0.0)
+        self.assertIn("V_O", str(cm.exception))
+
     def test_get_concentrations(self):
         with patch(
             "py_sc_fermi.defect_species.DefectSpecies.fixed_concentration",

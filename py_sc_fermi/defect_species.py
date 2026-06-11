@@ -222,6 +222,48 @@ class DefectSpecies:
             )
         return charge_states[0]
 
+    def effective_formation_energy(
+        self, e_fermi: float, temperature: float = 0.0
+    ) -> float:
+        """Effective formation energy of this ``DefectSpecies``, summed over
+        all of its variable-concentration charge states and metastable forms,
+        at a given Fermi energy and temperature.
+
+        Unlike ``get_formation_energies``, which groups charge states by
+        formal charge, this combines *every* variable-concentration charge
+        state into a single value:
+        ``F_d(E_F) = -kT * ln(sum_i g_i * exp(-E_i(E_F) / kT))``.
+
+        At ``temperature=0`` (the default), this is the minimum formation
+        energy over all charge states at ``e_fermi`` -- i.e. the standard
+        "lower envelope" formation-energy-vs-Fermi-energy curve, evaluable at
+        any ``e_fermi`` rather than only at the kinks returned by
+        ``tl_profile``. At ``temperature>0``, this is the smooth curve
+        ``F_d = -kT * ln(c_total / nsites)`` implied by the total
+        concentration of this species.
+
+        Args:
+            e_fermi (float): Fermi energy at which to evaluate the effective
+                formation energy.
+            temperature (float, optional): temperature for the
+                Boltzmann-weighted sum. Defaults to 0.
+
+        Returns:
+            float: the effective formation energy of this ``DefectSpecies``
+            at ``e_fermi``.
+
+        Raises:
+            ValueError: if this ``DefectSpecies`` has no variable-concentration
+                charge states, so an effective formation energy is undefined.
+        """
+        states = self.variable_conc_charge_states()
+        if not states:
+            raise ValueError(
+                f"DefectSpecies '{self.name}' has no variable-concentration "
+                "charge states, so an effective formation energy is undefined."
+            )
+        return self._effective_energy(states, e_fermi, temperature)
+
     def _effective_energy(
         self, states: list[DefectChargeState], e_fermi: float, temperature: float
     ) -> float:

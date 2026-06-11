@@ -31,6 +31,14 @@
   `temperature` argument; when set, charges with multiple forms instead use
   the Boltzmann-weighted effective formation energy
   `-kT * ln(sum_i g_i * exp(-E_i / kT))` across those forms.
+- Added `DefectSpecies.effective_formation_energy`, the Boltzmann-weighted
+  formation energy summed over *all* of a species' charge states and
+  metastable forms, `-kT * ln(sum_i g_i * exp(-(E_i + q_i*E_F)/kT))`. At
+  `temperature=0` this reproduces the standard "lower envelope"
+  formation-energy-vs-Fermi-energy curve at any Fermi energy (not just the
+  kinks returned by `tl_profile`); at `temperature>0` it gives the smooth
+  curve `-kT * ln(c_total/nsites)` implied by the species' total
+  concentration.
 - Added site pools and element pools (`DefectSystem(site_pools=..., element_pools=...)`)
   to model site competition between `DefectSpecies` sharing a finite number of
   lattice sites, or competition for a fixed total amount of a dopant element.
