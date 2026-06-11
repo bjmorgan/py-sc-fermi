@@ -16,6 +16,11 @@ from py_sc_fermi.dos import DOS
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
 
+# Maximum acceptable relative deviation |content / target - 1| for a
+# successful element-pool solve; anything looser is raised as an error
+# rather than returned as silently unconstrained concentrations.
+_element_pool_tolerance = 1e-6
+
 
 @dataclass
 class _ExclusionGroup:
@@ -514,6 +519,23 @@ class DefectSystem:
                 f"Element pool targets ({targets}) could not be satisfied: "
                 f"the chemical-potential solve did not converge "
                 f"({result.message}). The targets may be jointly infeasible."
+            )
+
+        # Re-check the solution independently of the solver's own verdict:
+        # an optimiser returning success without moving from its starting
+        # point is exactly the failure mode that motivated the
+        # dimensionless formulation, and any recurrence must be loud.
+        achieved, _ = content_and_hessian(result.x)
+        rel_err = np.abs(achieved / remaining_vec - 1.0)
+        worst = int(np.argmax(rel_err))
+        if rel_err[worst] > _element_pool_tolerance:
+            elem = elements[worst]
+            target, _ = pools[elem]
+            committed = target - remaining_vec[worst]
+            raise ValueError(
+                f"Element pool '{elem}': the chemical-potential solve "
+                f"reported success but the target was not met (target "
+                f"{target:.6e}, achieved {committed + achieved[worst]:.6e})."
             )
         return result.x
 

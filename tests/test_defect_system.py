@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 from scipy.constants import physical_constants
+from scipy.optimize import OptimizeResult
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
@@ -709,6 +710,22 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
                     (content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
                 )
                 self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
+
+    def test_post_solve_guard_raises_when_solver_misreports_convergence(self):
+        """A solver that returns success without converging (the failure
+        mode of an absolute-tolerance criterion on dilute targets) must
+        raise rather than silently return unconstrained concentrations."""
+        system, _, _ = self.coupled_system(energy=1.0)
+        do_nothing_solve = Mock(
+            side_effect=lambda fun, x0, **kwargs: OptimizeResult(
+                x=np.zeros_like(x0), success=True, message="mocked"
+            )
+        )
+        with patch("py_sc_fermi.defect_system.root", do_nothing_solve):
+            with self.assertRaises(ValueError) as ctx:
+                system._global_defect_concs(1.0)
+        self.assertIn("Element pool 'X'", str(ctx.exception))
+        self.assertIn("target", str(ctx.exception))
 
     def test_coupled_dilute_weights_reach_order_one_targets(self):
         """O(1) targets with deeply dilute unconstrained populations
