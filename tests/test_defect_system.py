@@ -668,9 +668,10 @@ class TestDefectSystemElementPools(unittest.TestCase):
 
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):
-    """Convergence of the coupled element-pool chemical-potential solve
-    across physically realistic concentration scales (~1e-2 to ~1e-18
-    defects per unit cell)."""
+    """Convergence of the element-pool chemical-potential solve across
+    concentration regimes: from saturated sites and O(1) occupancies down
+    to ~1e-18 defects per unit cell, including underflowed Boltzmann
+    weights and zero net-content targets."""
 
     def setUp(self):
         self.dos = DOS(
@@ -714,14 +715,25 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             for sp in system.defect_species
         }
 
-    def test_coupled_dilute_pools_hit_targets_exactly(self):
-        system, target_x, target_y = self.coupled_system(energy=1.0)
+    def test_single_element_pool_hits_dilute_target(self):
+        """One pool, one element, dilute target (~1e-17 per cell): the
+        modal calling pattern."""
+        u = np.exp(-1.0 / (kboltz * 300.0))
+        target = 2 * u
+        sp = DefectSpecies(
+            "P", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (target, [("P", 1.0)])},
+        )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
-        self.assertAlmostEqual(
-            (content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
-        )
-        self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
+        self.assertAlmostEqual(content["P"] / target, 1.0, delta=1e-8)
 
     def test_coupled_pools_hit_targets_across_scales(self):
         for energy in (0.1, 0.5, 1.0):
@@ -986,6 +998,60 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         self.assertEqual(content["B"], 0.0)
         self.assertEqual(content["A"], 3.0)
         self.assertAlmostEqual(content["C"] / target_y, 1.0, delta=1e-8)
+
+    def test_all_pools_exhausted_zeroes_pooled_and_frees_unpooled_species(self):
+        """With every element fully committed by fixed concentrations there
+        is nothing left to solve: pooled variable states get concentration
+        0 and species outside any pool keep their Boltzmann populations."""
+        sp_a = DefectSpecies(
+            "A", nsites=10, fixed_concentration=3.0,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_b = DefectSpecies(
+            "B", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_c = DefectSpecies(
+            "C", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_a, sp_b, sp_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (3.0, [("A", 1.0), ("B", 1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertEqual(content["B"], 0.0)
+        self.assertGreater(content["C"], 0.0)
+
+    def test_exhausted_element_starving_another_pool_raises(self):
+        """A species zeroed by an exhausted element cannot supply another
+        pool: if it was that pool's only variable supplier, the now
+        unreachable target must raise, naming the starved element."""
+        sp_a = DefectSpecies(
+            "A", nsites=10, fixed_concentration=3.0,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_b = DefectSpecies(
+            "B", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_a, sp_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (3.0, [("A", 1.0), ("B", 1.0)]),
+                "Y": (1.0, [("B", 1.0)]),
+            },
+        )
+        with self.assertRaises(ValueError) as ctx:
+            system._global_defect_concs(1.0)
+        self.assertIn("Y", str(ctx.exception))
 
     def test_zero_target_with_negative_stoichiometry_balances_species(self):
         """A pool with target zero over species of opposite stoichiometry

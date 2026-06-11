@@ -16,9 +16,10 @@ from py_sc_fermi.dos import DOS
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
 
-# Maximum acceptable relative deviation |content / target - 1| for a
-# successful element-pool solve; anything looser is raised as an error
-# rather than returned as silently unconstrained concentrations.
+# Maximum acceptable relative deviation of each element's variable-state
+# content from its remaining target (the pool target less fixed
+# contributions); a solve outside this is raised as an error rather than
+# returned as silently unconstrained concentrations.
 _element_pool_tolerance = 1e-6
 
 
@@ -611,13 +612,12 @@ class DefectSystem:
             content, hessian = self._content_and_hessian(group_data, mu)
             return content / remaining_vec - 1.0, hessian / remaining_vec[:, None]
 
-        # Defect concentrations natively span ~1e-30..1 per cell, and
-        # scipy's default convergence criteria assume O(1) problems:
-        # bracketing methods are scale-free, but gradient-norm and
-        # absolute-residual thresholds are not, and would accept mu = 0
-        # unchanged for any dilute target. Scaling each equation by its own
-        # target keeps every residual O(1), however dilute the targets and
-        # however many orders of magnitude separate them.
+        # Defect concentrations natively span ~1e-30..1 per cell, while
+        # scipy's convergence criteria assume O(1) problems: an absolute
+        # threshold on a residual measured in defects per cell is already
+        # met at mu = 0 for any dilute target. Scaling each equation by
+        # its own target keeps every residual O(1), however dilute the
+        # targets and however many orders of magnitude separate them.
         #
         # The initial guess is one diagonal Newton step of the log-content
         # system ``log(content_X(mu)) = log(remaining[X])`` from mu = 0,
@@ -636,6 +636,7 @@ class DefectSystem:
             c0, h0 = self._content_and_hessian(group_data, np.zeros(K))
             with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
                 x0 = np.log(remaining_vec / c0) * c0 / np.diag(h0)
+            # 700 < log(largest double), so exp(x0) stays finite.
             x0 = np.clip(
                 np.nan_to_num(x0, nan=700.0, posinf=700.0, neginf=-700.0),
                 -700.0,
@@ -701,11 +702,11 @@ class DefectSystem:
             # An element whose target is already fully committed by fixed
             # concentrations admits no further variable content. Provided
             # every variable state in its pool has positive stoichiometry,
-            # this is the lambda_X -> 0 limit: those states get
-            # concentration 0 and X drops out of the chemical-potential
-            # solve. With a negative-stoichiometry variable state present a
-            # zero target is a balance condition at finite lambda_X
-            # instead, so X stays in the solve.
+            # this is the lambda_X = exp(mu_X) -> 0 limit: those states
+            # get concentration 0 and X drops out of the
+            # chemical-potential solve. With a negative-stoichiometry
+            # variable state present, a zero target is instead a balance
+            # condition at finite lambda_X, so X stays in the solve.
             variable_species = {
                 sp for group in groups for _, sp, _ in group.variable_states
             }
