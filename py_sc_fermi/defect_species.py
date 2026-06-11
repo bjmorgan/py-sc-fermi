@@ -340,7 +340,7 @@ class DefectSpecies:
                 f"DefectSpecies '{self.name}' has no variable-concentration "
                 "charge states, so a transition-level profile is undefined."
             )
-        q1 = min(form_eners, key=form_eners.get)
+        q1 = min(form_eners, key=form_eners.__getitem__)
         points = [(efermi_min, form_eners[q1])]
         while q1 != min(self.charges):
             qlist = [q for q in self.charges if q < q1]
@@ -362,7 +362,7 @@ class DefectSpecies:
             else:
                 break
         form_eners_max = self.get_formation_energies(efermi_max, temperature=temperature)
-        q_end = min(form_eners_max, key=form_eners_max.get)
+        q_end = min(form_eners_max, key=form_eners_max.__getitem__)
         points.append((efermi_max, form_eners_max[q_end]))
         return np.array(points)
 
