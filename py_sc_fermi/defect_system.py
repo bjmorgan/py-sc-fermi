@@ -458,9 +458,26 @@ class DefectSystem:
         mu: np.ndarray,
         remaining_vec: np.ndarray,
     ) -> np.ndarray:
-        """Per-element relative deviation |content / target - 1| at `mu`."""
-        content, _ = DefectSystem._content_and_hessian(group_data, mu)
-        return np.abs(content / remaining_vec - 1.0)
+        """Per-element relative deviation of the content from its target at
+        `mu`: ``|content / target - 1|`` for non-zero targets; for a zero
+        target (a net-content balance over mixed-sign stoichiometries),
+        ``|content|`` relative to the gross content ``sum_i |s_ie| c_i``,
+        the natural scale of the balance."""
+        K = len(remaining_vec)
+        content = np.zeros(K)
+        gross = np.zeros(K)
+        for n_free, log_w, s in group_data:
+            c = DefectSystem._group_concs(n_free, log_w, s, mu)
+            content += s.T @ c
+            gross += np.abs(s).T @ c
+        deviation = np.empty(K)
+        nonzero = remaining_vec != 0.0
+        deviation[nonzero] = np.abs(content[nonzero] / remaining_vec[nonzero] - 1.0)
+        zero = ~nonzero
+        with np.errstate(invalid="ignore"):
+            deviation[zero] = np.abs(content[zero]) / gross[zero]
+        deviation[zero & (gross == 0.0)] = 0.0
+        return deviation
 
     @staticmethod
     def _solve_coordinate(
@@ -603,27 +620,37 @@ class DefectSystem:
         # ``sbar_X = H_XX / content_X``. Started from mu = 0 itself, the
         # solver can sit on an underflow plateau where the Jacobian
         # vanishes.
-        c0, h0 = self._content_and_hessian(group_data, np.zeros(K))
-        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
-            x0 = np.log(remaining_vec / c0) * c0 / np.diag(h0)
-        x0 = np.clip(
-            np.nan_to_num(x0, nan=700.0, posinf=700.0, neginf=-700.0), -700.0, 700.0
-        )
-        result = root(residual_and_jacobian, x0=x0, jac=True, method="hybr")
-        mu = np.nan_to_num(
-            np.asarray(result.x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
-        )
+        if (remaining_vec == 0.0).any():
+            # A zero net-content target cannot scale its own residual; the
+            # sign-based fallback needs no scaling, so solve there directly.
+            mu = self._bracketed_coordinate_solve(
+                group_data, remaining_vec, np.zeros(K)
+            )
+        else:
+            c0, h0 = self._content_and_hessian(group_data, np.zeros(K))
+            with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+                x0 = np.log(remaining_vec / c0) * c0 / np.diag(h0)
+            x0 = np.clip(
+                np.nan_to_num(x0, nan=700.0, posinf=700.0, neginf=-700.0),
+                -700.0,
+                700.0,
+            )
+            result = root(residual_and_jacobian, x0=x0, jac=True, method="hybr")
+            mu = np.nan_to_num(
+                np.asarray(result.x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
+            )
+
+            deviation = self._scaled_deviation(group_data, mu, remaining_vec)
+            if not result.success or not (deviation.max() <= _element_pool_tolerance):
+                # hybr converges quadratically from the seed, but can stall
+                # on plateaux where the Jacobian underflows (saturated
+                # states, extreme dilution). The coordinate sweep needs no
+                # derivative -- each element is solved by sign-based
+                # bracketing -- so it is immune to plateaux, and converges
+                # whenever the targets are jointly feasible.
+                mu = self._bracketed_coordinate_solve(group_data, remaining_vec, mu)
 
         deviation = self._scaled_deviation(group_data, mu, remaining_vec)
-        if not result.success or not (deviation.max() <= _element_pool_tolerance):
-            # hybr converges quadratically from the seed, but can stall on
-            # plateaux where the Jacobian underflows (saturated states,
-            # extreme dilution). The coordinate sweep needs no derivative
-            # -- each element is solved by sign-based bracketing -- so it
-            # is immune to plateaux, and converges whenever the targets
-            # are jointly feasible.
-            mu = self._bracketed_coordinate_solve(group_data, remaining_vec, mu)
-            deviation = self._scaled_deviation(group_data, mu, remaining_vec)
 
         # The targets are verified independently of any solver's own
         # verdict; concentrations that silently miss a constraint must
@@ -666,11 +693,25 @@ class DefectSystem:
         if elements:
             remaining = self._remaining_element_targets(pools)
             # An element whose target is already fully committed by fixed
-            # concentrations admits no further variable content. In the
-            # lambda_X -> 0 limit, every variable state of a species with
-            # positive stoichiometry in X has concentration 0, and X drops
-            # out of the chemical-potential solve.
-            exhausted = {e for e in elements if remaining[e] == 0.0}
+            # concentrations admits no further variable content. Provided
+            # every variable state in its pool has positive stoichiometry,
+            # this is the lambda_X -> 0 limit: those states get
+            # concentration 0 and X drops out of the chemical-potential
+            # solve. With a negative-stoichiometry variable state present a
+            # zero target is a balance condition at finite lambda_X
+            # instead, so X stays in the solve.
+            variable_species = {
+                sp for group in groups for _, sp, _ in group.variable_states
+            }
+            exhausted = {
+                e
+                for e in elements
+                if remaining[e] == 0.0
+                and all(
+                    s_by_elem.get(e, 0.0) >= 0.0 or sp not in variable_species
+                    for sp, s_by_elem in stoich.items()
+                )
+            }
             solve_groups = groups
             if exhausted:
                 forced_zero = {

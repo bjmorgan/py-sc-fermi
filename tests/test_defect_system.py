@@ -967,6 +967,31 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         self.assertEqual(content["A"], 3.0)
         self.assertAlmostEqual(content["C"] / target_y, 1.0, delta=1e-8)
 
+    def test_zero_target_with_negative_stoichiometry_balances_species(self):
+        """A pool with target zero over species of opposite stoichiometry
+        (the natural encoding of exact stoichiometry in an off-stoichiometry
+        scan) must balance the species against each other, not zero one and
+        leave the other unconstrained."""
+        sp_oi = DefectSpecies(
+            "O_i", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.5, degeneracy=1)],
+        )
+        sp_vo = DefectSpecies(
+            "V_O", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.7, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_oi, sp_vo],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": (0.0, [("O_i", 1.0), ("V_O", -1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertGreater(content["O_i"], 0.0)
+        self.assertAlmostEqual(content["O_i"] / content["V_O"], 1.0, delta=1e-8)
+
     def test_mixed_scale_pools_hit_both_targets(self):
         target_x, target_y = 1e-6, 1e-18
         sp_p = DefectSpecies(
