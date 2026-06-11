@@ -19,7 +19,20 @@ Usage notes
   which are defective, but will report in cm :superscript:`-3`. The documentation should always specify what kind of concentration
   is expected by a particular function, if it does not, this is a bug! Please report it. 
  
-- Although in principle the code could be patched to account for temperature-dependent defect formation energy data
-  (if this is something you would be interested in, please let us know!), as this is a rare practice in the field, 
-  we currently only calculate defect concentrations with respect to the "0K" formation energies, following the model 
-  of `Zhang and Northrup`_https://doi.org/10.1103/PhysRevLett.67.2339
+- :py:mod:`py-sc-fermi` calculates defect concentrations from the formation energies it is given, following
+  the model of `Zhang and Northrup`_https://doi.org/10.1103/PhysRevLett.67.2339. Two independent mechanisms are
+  available for bringing temperature-dependence into those formation energies:
+
+  - :py:class:`~py_sc_fermi.defect_system.DefectSystem` accepts ``vbm_shift``, ``cbm_shift``,
+    ``formation_energy_corrections`` and ``rigid_shift`` arguments, for applying temperature-dependent
+    band-edge or per-charge-state formation-energy corrections (e.g. from a phonon-renormalisation
+    calculation) at a given temperature. :py:class:`~py_sc_fermi.defect_system.DefectSystemFactory` builds a
+    series of such ``DefectSystem`` snapshots from temperature-dependent correction functions, for running
+    a temperature sweep. See the tutorial for worked examples.
+
+  - :py:meth:`~py_sc_fermi.defect_species.DefectSpecies.effective_formation_energy`,
+    :py:meth:`~py_sc_fermi.defect_species.DefectSpecies.get_formation_energies`,
+    :py:meth:`~py_sc_fermi.defect_species.DefectSpecies.tl_profile` and
+    :py:meth:`~py_sc_fermi.defect_species.DefectSpecies.get_transition_level_and_energy` all accept an optional
+    ``temperature`` argument, which Boltzmann-averages over any metastable
+    :py:class:`~py_sc_fermi.defect_charge_state.DefectChargeState`\\ s that share a formal charge.
