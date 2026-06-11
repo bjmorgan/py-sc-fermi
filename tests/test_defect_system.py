@@ -4,6 +4,7 @@ from io import StringIO
 from unittest.mock import Mock, patch
 
 import numpy as np
+from scipy.constants import physical_constants
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
@@ -24,6 +25,8 @@ test_exception_yaml_filename = os.path.join(
 test_vasprun_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml"
 )
+
+kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
 
@@ -620,10 +623,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
         copied_cs_oi = system.defect_species[2].charge_states[0]
         total_mg = concs[copied_cs_mgo] + concs[copied_cs_mgi]
         total_o = concs[copied_cs_mgo] + concs[copied_cs_oi]
-        # scipy's iterative solve converges the joint targets to within
-        # a small numerical tolerance, not bit-for-bit exactness.
-        self.assertAlmostEqual(total_mg, 8.0, places=3)
-        self.assertAlmostEqual(total_o, 5.0, places=3)
+        self.assertAlmostEqual(total_mg / 8.0, 1.0, delta=1e-8)
+        self.assertAlmostEqual(total_o / 5.0, 1.0, delta=1e-8)
 
     def test_element_pool_raises_when_target_exceeds_site_capacity(self):
         species = DefectSpecies(
@@ -640,6 +641,133 @@ class TestDefectSystemElementPools(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             system._global_defect_concs(1.0)
         self.assertIn("Mg", str(ctx.exception))
+
+
+class TestDefectSystemElementPoolConvergence(unittest.TestCase):
+    """Convergence of the coupled element-pool chemical-potential solve
+    across physically realistic concentration scales (~1e-2 to ~1e-18
+    defects per unit cell)."""
+
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+
+    def coupled_system(self, energy):
+        """Two coupled element pools over species P and Q, each with a
+        single neutral charge state at `energy`. With targets X = 4u and
+        Y = 2u for u = exp(-energy / kT), the exact solution is
+        c_P = c_Q = 2u."""
+        u = np.exp(-energy / (kboltz * 300.0))
+        sp_p = DefectSpecies(
+            "P", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=energy, degeneracy=1)],
+        )
+        sp_q = DefectSpecies(
+            "Q", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=energy, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_p, sp_q],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (4 * u, [("P", 1.0), ("Q", 1.0)]),
+                "Y": (2 * u, [("Q", 1.0)]),
+            },
+        )
+        return system, 4 * u, 2 * u
+
+    @staticmethod
+    def species_content(system, concs):
+        """Total concentration per species, keyed by species name."""
+        return {
+            sp.name: sum(concs[cs] for cs in sp.charge_states)
+            for sp in system.defect_species
+        }
+
+    def test_coupled_dilute_pools_hit_targets_exactly(self):
+        system, target_x, target_y = self.coupled_system(energy=1.0)
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(
+            (content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
+        )
+        self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
+
+    def test_coupled_pools_hit_targets_across_scales(self):
+        for energy in (0.1, 0.5, 1.0):
+            with self.subTest(energy=energy):
+                system, target_x, target_y = self.coupled_system(energy=energy)
+                concs = system._global_defect_concs(1.0)
+                content = self.species_content(system, concs)
+                self.assertAlmostEqual(
+                    (content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
+                )
+                self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
+
+    def test_coupled_dilute_weights_reach_order_one_targets(self):
+        """O(1) targets with deeply dilute unconstrained populations
+        (formation energies ~1 eV at 300 K): the solve must bridge ~16
+        orders of magnitude between the Boltzmann populations and the
+        targets."""
+        sp_a = DefectSpecies(
+            "A", nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_b = DefectSpecies(
+            "B", nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_c = DefectSpecies(
+            "C", nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_a, sp_b, sp_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "Mg": (8.0, [("A", 1.0), ("B", 1.0)]),
+                "O": (5.0, [("A", 1.0), ("C", 1.0)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual((content["A"] + content["B"]) / 8.0, 1.0, delta=1e-8)
+        self.assertAlmostEqual((content["A"] + content["C"]) / 5.0, 1.0, delta=1e-8)
+
+    def test_mixed_scale_pools_hit_both_targets(self):
+        target_x, target_y = 1e-6, 1e-18
+        sp_p = DefectSpecies(
+            "P", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.5, degeneracy=1)],
+        )
+        sp_q = DefectSpecies(
+            "Q", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.5, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_p, sp_q],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (target_x, [("P", 1.0), ("Q", 1.0)]),
+                "Y": (target_y, [("Q", 1.0)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(
+            (content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
+        )
+        self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
 
 
 class TestDefectSystemBandEdgeCorrections(unittest.TestCase):

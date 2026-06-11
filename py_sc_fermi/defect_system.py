@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
-from scipy.optimize import brentq, minimize  # type: ignore[call-overload]
+from scipy.optimize import brentq, root
 from scipy.special import logsumexp
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
@@ -440,7 +440,10 @@ class DefectSystem:
         gradient is the element-content vector and whose Hessian is, group
         by group, the covariance matrix of the states' stoichiometry vectors
         weighted by their occupancy -- symmetric positive semi-definite, so
-        `F` has a single minimum whenever `remaining` is achievable.
+        `F` has a single minimum whenever `remaining` is achievable. The
+        stationarity condition is solved as the per-element-scaled root
+        problem ``content_X(mu) / remaining[X] - 1 = 0``, with the scaled
+        Hessian as its analytic Jacobian.
         """
         K = len(elements)
         remaining_vec = np.array([remaining[e] for e in elements])
@@ -468,61 +471,49 @@ class DefectSystem:
                     "variable states)."
                 )
 
-        def total_content(mu: np.ndarray) -> np.ndarray:
-            total = np.zeros(K)
+        def content_and_hessian(mu: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            content = np.zeros(K)
+            hessian = np.zeros((K, K))
             for n_free, log_w, s in group_data:
                 c = self._group_concs(n_free, log_w, s, mu)
-                total += s.T @ c
-            return total
-
-        if K == 1:
-            target = remaining_vec[0]
-
-            def excess(mu0: float) -> float:
-                return total_content(np.array([mu0]))[0] - target
-
-            lo, hi = -1.0, 1.0
-            while excess(lo) > 0:
-                lo *= 2
-            while excess(hi) < 0:
-                hi *= 2
-            try:
-                mu0 = brentq(excess, lo, hi)
-            except ValueError as err:
-                raise ValueError(
-                    f"Element pool '{elements[0]}': target {target:.3e} "
-                    "could not be reached."
-                ) from err
-            return np.array([mu0])
-
-        def fun_and_grad(mu: np.ndarray) -> tuple[float, np.ndarray]:
-            f = -mu @ remaining_vec
-            grad = -remaining_vec.copy()
-            for n_free, log_w, s in group_data:
-                exponents = log_w + s @ mu
-                log_z = logsumexp(np.concatenate(([0.0], exponents)))
-                f += n_free * log_z
-                c = n_free * np.exp(exponents - log_z)
-                grad += s.T @ c
-            return f, grad
-
-        def hess(mu: np.ndarray) -> np.ndarray:
-            h = np.zeros((K, K))
-            for n_free, log_w, s in group_data:
-                c = self._group_concs(n_free, log_w, s, mu)
+                content += s.T @ c
                 mean_s = (s * c[:, None]).sum(axis=0) / n_free
                 ds = s - mean_s
-                h += (ds * c[:, None]).T @ ds
-            return h
+                hessian += (ds * c[:, None]).T @ ds
+            return content, hessian
 
-        result = minimize(
-            fun_and_grad, x0=np.zeros(K), jac=True, hess=hess, method="trust-exact"
+        def residual_and_jacobian(mu: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            content, hessian = content_and_hessian(mu)
+            return content / remaining_vec - 1.0, hessian / remaining_vec[:, None]
+
+        # Defect concentrations natively span ~1e-30..1 per cell, and
+        # scipy's default convergence criteria assume O(1) problems:
+        # bracketing methods are scale-free, but gradient-norm and
+        # absolute-residual thresholds are not, and would accept mu = 0
+        # unchanged for any dilute target. Scaling each equation by its own
+        # target keeps every residual O(1), however dilute the targets and
+        # however many orders of magnitude separate them.
+        #
+        # The initial guess is one diagonal Newton step of the log-content
+        # system ``log(content_X(mu)) = log(remaining[X])`` from mu = 0,
+        # which inverts the dilute limit ``content_X ~ content_X(0) *
+        # exp(sbar_X * mu_X)`` with characteristic stoichiometry
+        # ``sbar_X = H_XX / content_X``. Started from mu = 0 itself, the
+        # solver can sit on an underflow plateau where the Jacobian
+        # vanishes.
+        c0, h0 = content_and_hessian(np.zeros(K))
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            x0 = np.log(remaining_vec / c0) * c0 / np.diag(h0)
+        x0 = np.clip(
+            np.nan_to_num(x0, nan=700.0, posinf=700.0, neginf=-700.0), -700.0, 700.0
         )
+        result = root(residual_and_jacobian, x0=x0, jac=True, method="hybr")
         if not result.success:
             targets = ", ".join(f"{elem}={remaining[elem]:.3e}" for elem in elements)
             raise ValueError(
-                f"Element pool targets ({targets}) are jointly infeasible: "
-                "no chemical potentials satisfy all constraints simultaneously."
+                f"Element pool targets ({targets}) could not be satisfied: "
+                f"the chemical-potential solve did not converge "
+                f"({result.message}). The targets may be jointly infeasible."
             )
         return result.x
 
