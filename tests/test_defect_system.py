@@ -7,6 +7,7 @@ import numpy as np
 from scipy.constants import physical_constants
 from scipy.optimize import OptimizeResult
 
+from py_sc_fermi import element_pools
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_system import DefectSystem, DefectSystemFactory
@@ -777,14 +778,14 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             if g.n_free > 0 and g.variable_states
         ]
         mu = np.array([-0.7, -1.6])
-        _, jacobian = DefectSystem._content_and_hessian(group_data, mu)
+        _, jacobian = element_pools.content_and_hessian(group_data, mu)
         eps = 1e-6
         fd = np.zeros((2, 2))
         for k in range(2):
             d = np.zeros(2)
             d[k] = eps
-            up, _ = DefectSystem._content_and_hessian(group_data, mu + d)
-            down, _ = DefectSystem._content_and_hessian(group_data, mu - d)
+            up, _ = element_pools.content_and_hessian(group_data, mu + d)
+            down, _ = element_pools.content_and_hessian(group_data, mu - d)
             fd[:, k] = (up - down) / (2 * eps)
         np.testing.assert_allclose(jacobian, fd, rtol=1e-6)
 
@@ -800,11 +801,10 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             )
         )
         with (
-            patch("py_sc_fermi.defect_system.root", do_nothing_solve),
-            patch.object(
-                DefectSystem,
-                "_bracketed_coordinate_solve",
-                lambda self, group_data, remaining_vec: np.zeros(len(remaining_vec)),
+            patch("py_sc_fermi.element_pools.root", do_nothing_solve),
+            patch(
+                "py_sc_fermi.element_pools.bracketed_coordinate_solve",
+                lambda group_data, remaining_vec: np.zeros(len(remaining_vec)),
             ),
         ):
             with self.assertRaises(ValueError) as ctx:

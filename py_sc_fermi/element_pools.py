@@ -1,0 +1,336 @@
+"""Scale-aware numerical solve of element-pool chemical potentials.
+
+Given site-exclusion groups of variable charge states, this module solves
+for one chemical potential per constrained element such that each
+element's total content matches its target. The working representation is
+`GroupData`: one ``(n_free, log_w, s)`` tuple per group, holding the free
+site count, the per-state log Boltzmann weights (shape ``(n,)``), and the
+per-state stoichiometry vectors over the constrained elements (shape
+``(n, K)``).
+
+The target equations are the stationarity condition of the convex grand
+potential ``F(mu) = sum_g n_free_g * log(Z_g(mu)) - mu . target``, whose
+gradient is the element-content vector and whose Hessian is, group by
+group, ``n_free`` times the per-site covariance of the stoichiometry
+vectors -- positive semi-definite, so `F` has a single minimum whenever
+the targets are jointly achievable. The solve runs in stages, each
+engaged only when the previous stage's independently measured deviation
+misses tolerance, and every result is verified against the targets before
+it is returned.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from scipy.optimize import bisect, root
+from scipy.special import logsumexp
+
+GroupData = list[tuple[float, np.ndarray, np.ndarray]]
+
+# Maximum acceptable relative deviation of each element's variable-state
+# content from its remaining target (the pool target less fixed
+# contributions); a solve outside this is raised as an error rather than
+# returned as silently unconstrained concentrations.
+_element_pool_tolerance = 1e-6
+
+
+class ElementPoolError(ValueError):
+    """Raised when element-pool constraints cannot be satisfied: targets
+    inconsistent with fixed concentrations, infeasible against site
+    capacities, or unmet by the chemical-potential solve."""
+
+
+def group_concs(
+    n_free: float, log_w: np.ndarray, s: np.ndarray, mu: np.ndarray
+) -> np.ndarray:
+    """c_i = n_free * w_i * exp(s_i . mu) / (1 + sum_j w_j * exp(s_j . mu))
+    for every variable state in a group, given the element chemical
+    potentials `mu`."""
+    exponents = log_w + s @ mu
+    log_z = logsumexp(np.concatenate(([0.0], exponents)))
+    return n_free * np.exp(exponents - log_z)
+
+
+def content_and_hessian(
+    group_data: GroupData, mu: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Total element content and its Jacobian d(content)/d(mu), summed
+    over all groups, at element chemical potentials `mu`.
+
+    Per group, the Jacobian is `n_free` times the per-site covariance
+    of the stoichiometry vectors over the full state ensemble,
+    including the empty state (stoichiometry zero, occupancy
+    ``n_free - sum_i c_i``)."""
+    K = len(mu)
+    content = np.zeros(K)
+    hessian = np.zeros((K, K))
+    for n_free, log_w, s in group_data:
+        c = group_concs(n_free, log_w, s, mu)
+        content += s.T @ c
+        mean_s = (s * c[:, None]).sum(axis=0) / n_free
+        ds = s - mean_s
+        hessian += (ds * c[:, None]).T @ ds
+        hessian += max(n_free - c.sum(), 0.0) * np.outer(mean_s, mean_s)
+    return content, hessian
+
+
+def scaled_deviation(
+    group_data: GroupData, mu: np.ndarray, remaining_vec: np.ndarray
+) -> np.ndarray:
+    """Per-element relative deviation of the content from its target at
+    `mu`: ``|content / target - 1|`` for non-zero targets; for a zero
+    target (a net-content balance over mixed-sign stoichiometries),
+    ``|content|`` relative to the gross content ``sum_i |s_ie| c_i``,
+    the natural scale of the balance."""
+    K = len(remaining_vec)
+    content = np.zeros(K)
+    gross = np.zeros(K)
+    for n_free, log_w, s in group_data:
+        c = group_concs(n_free, log_w, s, mu)
+        content += s.T @ c
+        gross += np.abs(s).T @ c
+    deviation = np.empty(K)
+    nonzero = remaining_vec != 0.0
+    deviation[nonzero] = np.abs(content[nonzero] / remaining_vec[nonzero] - 1.0)
+    zero = ~nonzero
+    with np.errstate(invalid="ignore"):
+        deviation[zero] = np.abs(content[zero]) / gross[zero]
+    deviation[zero & (gross == 0.0)] = 0.0
+    return deviation
+
+
+def solve_along_direction(
+    group_data: GroupData, mu: np.ndarray, direction: np.ndarray, target: float
+) -> np.ndarray:
+    """Solve ``direction @ content(mu + delta * direction) = target``
+    for the scalar `delta` and return the updated `mu`. The projected
+    content is non-decreasing in `delta` (its derivative is
+    ``direction @ H @ direction >= 0`` with `H` positive
+    semi-definite), so a sign change brackets a root. Bisection uses
+    only signs and converges in a number of iterations fixed by the
+    bracket width, so the near-step profiles of saturating states
+    cannot defeat it. If no sign change exists within the expansion
+    cap, the bracket edge is returned: the other directions must move
+    first."""
+
+    def excess(delta: float) -> float:
+        content, _ = content_and_hessian(group_data, mu + delta * direction)
+        return float(direction @ content - target)
+
+    f0 = excess(0.0)
+    if f0 == 0.0:
+        return mu
+    # Each failed probe becomes the near edge of the bracket, keeping
+    # its width to the final step rather than the accumulated span.
+    step = 1.0
+    if f0 > 0:
+        hi, lo = 0.0, -1.0
+        while excess(lo) > 0:
+            if lo < -1e7:
+                return mu + lo * direction
+            hi = lo
+            step *= 2
+            lo -= step
+    else:
+        lo, hi = 0.0, 1.0
+        while excess(hi) < 0:
+            if hi > 1e7:
+                return mu + hi * direction
+            lo = hi
+            step *= 2
+            hi += step
+    return mu + float(bisect(excess, lo, hi, maxiter=200)) * direction
+
+
+def bracketed_coordinate_solve(
+    group_data: GroupData, remaining_vec: np.ndarray
+) -> np.ndarray:
+    """Scale-free fallback solve: cyclic exact line solves of the
+    convex grand potential, one along each element's own chemical
+    potential and one along the collective all-ones direction -- the
+    dominant slow mode when a shared species carries most of several
+    pools' content, where plain coordinate descent ping-pongs.
+    Each sweep also line-solves along the regularised Newton direction
+    ``(H + eps I)^-1 (target - content)``: the fixed directions cannot
+    span every geometry's slow mode, while the Newton line adapts to
+    it and contracts quadratically wherever `H` is informative.
+    Convergent for jointly feasible targets. Starts from mu = 0 (the
+    unconstrained populations) rather than from a failed Newton
+    stage's iterate, whose location is unbounded. Returns the best
+    `mu` found; the caller verifies the targets and raises if they
+    are unmet."""
+    K = len(remaining_vec)
+    mu = np.zeros(K)
+    fixed_directions: list[tuple[np.ndarray, float]] = [
+        (np.eye(K)[k], float(remaining_vec[k])) for k in range(K)
+    ]
+    if K > 1:
+        fixed_directions.append((np.ones(K), float(remaining_vec.sum())))
+    best = np.inf
+    stalled = 0
+    for _ in range(500):
+        for direction, target in fixed_directions:
+            mu = solve_along_direction(group_data, mu, direction, target)
+        content, hessian = content_and_hessian(group_data, mu)
+        h_scale = float(np.trace(hessian)) / K
+        if h_scale > 0:
+            newton = np.linalg.solve(
+                hessian + 1e-12 * h_scale * np.eye(K), remaining_vec - content
+            )
+        else:
+            newton = remaining_vec - content
+        norm = np.abs(newton).max()
+        if norm > 0 and np.isfinite(norm):
+            direction = newton / norm
+            mu = solve_along_direction(
+                group_data, mu, direction, float(direction @ remaining_vec)
+            )
+        deviation = scaled_deviation(group_data, mu, remaining_vec).max()
+        if deviation <= 1e-10:
+            break
+        if deviation >= 0.97 * best:
+            stalled += 1
+            if stalled >= 10:
+                break
+        else:
+            stalled = 0
+        best = min(best, deviation)
+    return mu
+
+
+def solve_chemical_potentials(
+    group_data: GroupData,
+    elements: list[str],
+    remaining_vec: np.ndarray,
+    full_targets: list[float],
+) -> np.ndarray:
+    """Solve for one chemical potential per element such that the total
+    content of element `elements[k]`, summed over `group_data`, equals
+    ``remaining_vec[k]``. `full_targets` holds each element's full pool
+    target (before subtracting fixed contributions), used only for
+    diagnostics.
+
+    The stationarity condition is solved as the per-element-scaled root
+    problem ``content_X(mu) / remaining[X] - 1 = 0``, with the scaled
+    Hessian as its analytic Jacobian, falling back to a log-residual
+    Newton stage and then to sign-based bracketing; the result of
+    whichever stage produced it is verified against the targets.
+    """
+    K = len(elements)
+
+    # feasibility: the most of element X any group can supply is
+    # n_free * (largest stoichiometry among its variable states).
+    for k, elem in enumerate(elements):
+        max_content = sum(
+            n_free * max(0.0, s[:, k].max()) for n_free, _, s in group_data
+        )
+        if remaining_vec[k] > max_content:
+            committed = full_targets[k] - remaining_vec[k]
+            raise ElementPoolError(
+                f"Element pool '{elem}': target {full_targets[k]:.3e} exceeds "
+                f"the maximum achievable content "
+                f"{committed + max_content:.3e} (committed "
+                f"{committed:.3e} plus up to {max_content:.3e} from "
+                "variable states)."
+            )
+
+    def residual_and_jacobian(mu: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        content, hessian = content_and_hessian(group_data, mu)
+        return content / remaining_vec - 1.0, hessian / remaining_vec[:, None]
+
+    # Defect concentrations natively span ~1e-30..1 per cell, while
+    # scipy's convergence criteria assume O(1) problems: an absolute
+    # threshold on a residual measured in defects per cell is already
+    # met at mu = 0 for any dilute target. Scaling each equation by
+    # its own target keeps every residual O(1), however dilute the
+    # targets and however many orders of magnitude separate them.
+    #
+    # The initial guess is one diagonal Newton step of the log-content
+    # system ``log(content_X(mu)) = log(remaining[X])`` from mu = 0,
+    # which inverts the dilute limit ``content_X ~ content_X(0) *
+    # exp(sbar_X * mu_X)`` with characteristic stoichiometry
+    # ``sbar_X = H_XX / content_X``. Started from mu = 0 itself, the
+    # solver can sit on an underflow plateau where the Jacobian
+    # vanishes.
+    if (remaining_vec == 0.0).any():
+        # A zero net-content target cannot scale its own residual; the
+        # sign-based fallback needs no scaling, so solve there directly.
+        mu = bracketed_coordinate_solve(group_data, remaining_vec)
+    else:
+        c0, h0 = content_and_hessian(group_data, np.zeros(K))
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            x0 = np.log(remaining_vec / c0) * c0 / np.diag(h0)
+        # 700 < log(largest double), so exp(x0) stays finite.
+        x0 = np.clip(
+            np.nan_to_num(x0, nan=700.0, posinf=700.0, neginf=-700.0),
+            -700.0,
+            700.0,
+        )
+        result = root(residual_and_jacobian, x0=x0, jac=True, method="hybr")
+        mu = np.nan_to_num(
+            np.asarray(result.x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
+        )
+        deviation = scaled_deviation(group_data, mu, remaining_vec)
+
+        if not (deviation.max() <= _element_pool_tolerance):
+            # Second Newton stage, on log residuals: ln(content) is
+            # nearly linear in mu throughout the dilute regime, and the
+            # full Jacobian captures shared-species coupling that
+            # defeats both the diagonal seed and coordinate sweeps (one
+            # species carrying almost all of two pools' content). Kept
+            # secondary because ln(content) flattens at saturation,
+            # where the scaled-residual stage is stronger.
+            def log_residual_and_jacobian(
+                m: np.ndarray,
+            ) -> tuple[np.ndarray, np.ndarray]:
+                content, hessian = content_and_hessian(group_data, m)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    g = np.log(content / remaining_vec)
+                    jacobian = hessian / content[:, None]
+                return (
+                    np.nan_to_num(g, nan=-700.0, posinf=700.0, neginf=-700.0),
+                    np.nan_to_num(jacobian, nan=0.0, posinf=0.0, neginf=0.0),
+                )
+
+            log_result = root(
+                log_residual_and_jacobian, x0=np.zeros(K), jac=True, method="hybr"
+            )
+            candidate = np.nan_to_num(
+                np.asarray(log_result.x, dtype=float),
+                nan=0.0,
+                posinf=700.0,
+                neginf=-700.0,
+            )
+            candidate_deviation = scaled_deviation(
+                group_data, candidate, remaining_vec
+            )
+            if candidate_deviation.max() < deviation.max():
+                mu, deviation = candidate, candidate_deviation
+
+        if not (deviation.max() <= _element_pool_tolerance):
+            # The coordinate sweep needs no derivative -- each element
+            # is solved by sign-based bracketing -- so plateaux where
+            # the Jacobian underflows (saturated states, extreme
+            # dilution) cannot stall it.
+            mu = bracketed_coordinate_solve(group_data, remaining_vec)
+
+    deviation = scaled_deviation(group_data, mu, remaining_vec)
+
+    # The targets are verified independently of any solver's own
+    # verdict; concentrations that silently miss a constraint must
+    # never be returned. The comparison fails closed on NaN.
+    if not (deviation.max() <= _element_pool_tolerance):
+        worst = int(np.argmax(np.nan_to_num(deviation, nan=np.inf)))
+        achieved, _ = content_and_hessian(group_data, mu)
+        committed = full_targets[worst] - remaining_vec[worst]
+        targets = ", ".join(
+            f"{e}={r:.3e}" for e, r in zip(elements, remaining_vec, strict=True)
+        )
+        raise ElementPoolError(
+            f"Element pool targets ({targets}) could not be satisfied: "
+            f"element '{elements[worst]}' achieved "
+            f"{committed + achieved[worst]:.6e} against target "
+            f"{full_targets[worst]:.6e}. The targets may be jointly "
+            "infeasible."
+        )
+    return mu
