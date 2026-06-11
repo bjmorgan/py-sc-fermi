@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
-from scipy.optimize import brentq, root
+from scipy.optimize import bisect, brentq, root
 from scipy.special import logsumexp
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
@@ -487,66 +487,97 @@ class DefectSystem:
         return deviation
 
     @staticmethod
-    def _solve_coordinate(
+    def _solve_along_direction(
         group_data: list[tuple[float, np.ndarray, np.ndarray]],
         mu: np.ndarray,
-        k: int,
-        target_k: float,
-    ) -> float:
-        """Solve ``content_k(mu) = target_k`` for component `k` of `mu`
-        with the other components held fixed, by sign-based bracket
-        expansion and brentq -- scale-free in the concentration. If the
-        equation has no root within the expanded bracket (the other
-        components must move first), returns the bracket edge, which is
-        the feasible best for this coordinate."""
+        direction: np.ndarray,
+        target: float,
+    ) -> np.ndarray:
+        """Solve ``direction @ content(mu + delta * direction) = target``
+        for the scalar `delta` and return the updated `mu`. The projected
+        content is non-decreasing in `delta` (its derivative is
+        ``direction @ H @ direction >= 0`` with `H` positive
+        semi-definite), so a sign change brackets a root. Bisection uses
+        only signs and converges in a number of iterations fixed by the
+        bracket width, so the near-step profiles of saturating states
+        cannot defeat it. If no sign change exists within the expansion
+        cap, the bracket edge is returned: the other directions must move
+        first."""
 
-        def excess(m: float) -> float:
-            trial = mu.copy()
-            trial[k] = m
-            content, _ = DefectSystem._content_and_hessian(group_data, trial)
-            return float(content[k] - target_k)
+        def excess(delta: float) -> float:
+            content, _ = DefectSystem._content_and_hessian(
+                group_data, mu + delta * direction
+            )
+            return float(direction @ content - target)
 
-        f0 = excess(mu[k])
+        f0 = excess(0.0)
         if f0 == 0.0:
-            return float(mu[k])
+            return mu
+        # Each failed probe becomes the near edge of the bracket, keeping
+        # its width to the final step rather than the accumulated span.
         step = 1.0
         if f0 > 0:
-            hi = float(mu[k])
-            lo = hi - step
+            hi, lo = 0.0, -1.0
             while excess(lo) > 0:
                 if lo < -1e7:
-                    return lo
+                    return mu + lo * direction
+                hi = lo
                 step *= 2
                 lo -= step
         else:
-            lo = float(mu[k])
-            hi = lo + step
+            lo, hi = 0.0, 1.0
             while excess(hi) < 0:
                 if hi > 1e7:
-                    return hi
+                    return mu + hi * direction
+                lo = hi
                 step *= 2
                 hi += step
-        return float(brentq(excess, lo, hi))
+        return mu + float(bisect(excess, lo, hi, maxiter=200)) * direction
 
     def _bracketed_coordinate_solve(
         self,
         group_data: list[tuple[float, np.ndarray, np.ndarray]],
         remaining_vec: np.ndarray,
-        mu0: np.ndarray,
     ) -> np.ndarray:
-        """Scale-free fallback solve: sweep the elements cyclically,
-        solving each element's content equation in its own chemical
-        potential with the others held fixed -- coordinate descent on the
-        convex grand potential, convergent for jointly feasible targets at
-        a linear rate. Returns the best `mu` found; the caller verifies
-        the targets and raises if they are unmet."""
-        mu = mu0.copy()
+        """Scale-free fallback solve: cyclic exact line solves of the
+        convex grand potential, one along each element's own chemical
+        potential and one along the collective all-ones direction -- the
+        dominant slow mode when a shared species carries most of several
+        pools' content, where plain coordinate descent ping-pongs.
+        Each sweep also line-solves along the regularised Newton direction
+        ``(H + eps I)^-1 (target - content)``: the fixed directions cannot
+        span every geometry's slow mode, while the Newton line adapts to
+        it and contracts quadratically wherever `H` is informative.
+        Convergent for jointly feasible targets. Starts from mu = 0 (the
+        unconstrained populations) rather than from a failed Newton
+        stage's iterate, whose location is unbounded. Returns the best
+        `mu` found; the caller verifies the targets and raises if they
+        are unmet."""
+        K = len(remaining_vec)
+        mu = np.zeros(K)
+        fixed_directions: list[tuple[np.ndarray, float]] = [
+            (np.eye(K)[k], float(remaining_vec[k])) for k in range(K)
+        ]
+        if K > 1:
+            fixed_directions.append((np.ones(K), float(remaining_vec.sum())))
         best = np.inf
         stalled = 0
         for _ in range(500):
-            for k in range(len(mu)):
-                mu[k] = self._solve_coordinate(
-                    group_data, mu, k, float(remaining_vec[k])
+            for direction, target in fixed_directions:
+                mu = self._solve_along_direction(group_data, mu, direction, target)
+            content, hessian = self._content_and_hessian(group_data, mu)
+            h_scale = float(np.trace(hessian)) / K
+            if h_scale > 0:
+                newton = np.linalg.solve(
+                    hessian + 1e-12 * h_scale * np.eye(K), remaining_vec - content
+                )
+            else:
+                newton = remaining_vec - content
+            norm = np.abs(newton).max()
+            if norm > 0 and np.isfinite(norm):
+                direction = newton / norm
+                mu = self._solve_along_direction(
+                    group_data, mu, direction, float(direction @ remaining_vec)
                 )
             deviation = self._scaled_deviation(group_data, mu, remaining_vec).max()
             if deviation <= 1e-10:
@@ -629,9 +660,7 @@ class DefectSystem:
         if (remaining_vec == 0.0).any():
             # A zero net-content target cannot scale its own residual; the
             # sign-based fallback needs no scaling, so solve there directly.
-            mu = self._bracketed_coordinate_solve(
-                group_data, remaining_vec, np.zeros(K)
-            )
+            mu = self._bracketed_coordinate_solve(group_data, remaining_vec)
         else:
             c0, h0 = self._content_and_hessian(group_data, np.zeros(K))
             with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
@@ -646,16 +675,49 @@ class DefectSystem:
             mu = np.nan_to_num(
                 np.asarray(result.x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
             )
-
             deviation = self._scaled_deviation(group_data, mu, remaining_vec)
-            if not result.success or not (deviation.max() <= _element_pool_tolerance):
-                # hybr converges quadratically from the seed, but can stall
-                # on plateaux where the Jacobian underflows (saturated
-                # states, extreme dilution). The coordinate sweep needs no
-                # derivative -- each element is solved by sign-based
-                # bracketing -- so it is immune to plateaux, and converges
-                # whenever the targets are jointly feasible.
-                mu = self._bracketed_coordinate_solve(group_data, remaining_vec, mu)
+
+            if not (deviation.max() <= _element_pool_tolerance):
+                # Second Newton stage, on log residuals: ln(content) is
+                # nearly linear in mu throughout the dilute regime, and the
+                # full Jacobian captures shared-species coupling that
+                # defeats both the diagonal seed and coordinate sweeps (one
+                # species carrying almost all of two pools' content). Kept
+                # secondary because ln(content) flattens at saturation,
+                # where the scaled-residual stage is stronger.
+                def log_residual_and_jacobian(
+                    m: np.ndarray,
+                ) -> tuple[np.ndarray, np.ndarray]:
+                    content, hessian = self._content_and_hessian(group_data, m)
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        g = np.log(content / remaining_vec)
+                        jacobian = hessian / content[:, None]
+                    return (
+                        np.nan_to_num(g, nan=-700.0, posinf=700.0, neginf=-700.0),
+                        np.nan_to_num(jacobian, nan=0.0, posinf=0.0, neginf=0.0),
+                    )
+
+                log_result = root(
+                    log_residual_and_jacobian, x0=np.zeros(K), jac=True, method="hybr"
+                )
+                candidate = np.nan_to_num(
+                    np.asarray(log_result.x, dtype=float),
+                    nan=0.0,
+                    posinf=700.0,
+                    neginf=-700.0,
+                )
+                candidate_deviation = self._scaled_deviation(
+                    group_data, candidate, remaining_vec
+                )
+                if candidate_deviation.max() < deviation.max():
+                    mu, deviation = candidate, candidate_deviation
+
+            if not (deviation.max() <= _element_pool_tolerance):
+                # The coordinate sweep needs no derivative -- each element
+                # is solved by sign-based bracketing -- so plateaux where
+                # the Jacobian underflows (saturated states, extreme
+                # dilution) cannot stall it.
+                mu = self._bracketed_coordinate_solve(group_data, remaining_vec)
 
         deviation = self._scaled_deviation(group_data, mu, remaining_vec)
 

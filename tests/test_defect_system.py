@@ -804,7 +804,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             patch.object(
                 DefectSystem,
                 "_bracketed_coordinate_solve",
-                lambda self, group_data, remaining_vec, mu0: mu0,
+                lambda self, group_data, remaining_vec: np.zeros(len(remaining_vec)),
             ),
         ):
             with self.assertRaises(ValueError) as ctx:
@@ -998,6 +998,120 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         self.assertEqual(content["B"], 0.0)
         self.assertEqual(content["A"], 3.0)
         self.assertAlmostEqual(content["C"] / target_y, 1.0, delta=1e-8)
+
+    def test_three_coupled_pools_with_chained_sharing(self):
+        """Three elements coupled in a chain (A supplies X and Y, C
+        supplies Y and Z) at dilute scales."""
+        u = np.exp(-1.0 / (kboltz * 300.0))
+        targets = {"X": 3 * u, "Y": 4 * u, "Z": 2 * u}
+        sp = {
+            name: DefectSpecies(
+                name, nsites=1,
+                charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+            )
+            for name in ("A", "B", "C", "D")
+        }
+        system = DefectSystem(
+            defect_species=list(sp.values()),
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (targets["X"], [("A", 1.0), ("B", 1.0)]),
+                "Y": (targets["Y"], [("A", 1.0), ("C", 1.0)]),
+                "Z": (targets["Z"], [("C", 1.0), ("D", 1.0)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(
+            (content["A"] + content["B"]) / targets["X"], 1.0, delta=1e-8
+        )
+        self.assertAlmostEqual(
+            (content["A"] + content["C"]) / targets["Y"], 1.0, delta=1e-8
+        )
+        self.assertAlmostEqual(
+            (content["C"] + content["D"]) / targets["Z"], 1.0, delta=1e-8
+        )
+
+    def test_dilute_targets_with_mixed_stoichiometries(self):
+        """Stoichiometric coefficients of different magnitude (2.0 and
+        0.5) set different characteristic scales per element."""
+        u = np.exp(-1.0 / (kboltz * 300.0))
+        target_x, target_y = 3 * u, 0.5 * u
+        sp_p = DefectSpecies(
+            "P", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        sp_q = DefectSpecies(
+            "Q", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_p, sp_q],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "X": (target_x, [("P", 2.0), ("Q", 1.0)]),
+                "Y": (target_y, [("Q", 0.5)]),
+            },
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertAlmostEqual(
+            (2.0 * content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
+        )
+        self.assertAlmostEqual(0.5 * content["Q"] / target_y, 1.0, delta=1e-8)
+
+    def test_feasible_grid_across_energies_stoichiometries_and_depths(self):
+        """Systematic sweep of the axes that set solver difficulty --
+        Boltzmann weight scale (formation energy), stoichiometry magnitude,
+        and target depth as a fraction of capacity -- asserting the solve
+        contract on every combination. All systems are jointly feasible by
+        construction: each element can be supplied by its dedicated
+        species alone."""
+        for energy in (-1.0, 0.0, 1.0, 2.0):
+            for stoich_b in (0.5, 1.0, 2.0):
+                for fraction in (1e-12, 1e-4, 0.3, 0.9):
+                    with self.subTest(
+                        energy=energy, stoich=stoich_b, fraction=fraction
+                    ):
+                        sp = {
+                            name: DefectSpecies(
+                                name, nsites=20,
+                                charge_states=[
+                                    DefectChargeState(
+                                        charge=0, energy=energy, degeneracy=1
+                                    )
+                                ],
+                            )
+                            for name in ("A", "B", "C")
+                        }
+                        target_x = fraction * 20 * stoich_b
+                        target_y = fraction * 20
+                        system = DefectSystem(
+                            defect_species=list(sp.values()),
+                            dos=self.dos,
+                            volume=100,
+                            temperature=300,
+                            element_pools={
+                                "X": (target_x, [("A", 1.0), ("B", stoich_b)]),
+                                "Y": (target_y, [("A", 1.0), ("C", 1.0)]),
+                            },
+                        )
+                        concs = system._global_defect_concs(1.0)
+                        content = self.species_content(system, concs)
+                        self.assertAlmostEqual(
+                            (content["A"] + stoich_b * content["B"]) / target_x,
+                            1.0,
+                            delta=1e-6,
+                        )
+                        self.assertAlmostEqual(
+                            (content["A"] + content["C"]) / target_y,
+                            1.0,
+                            delta=1e-6,
+                        )
 
     def test_all_pools_exhausted_zeroes_pooled_and_frees_unpooled_species(self):
         """With every element fully committed by fixed concentrations there
