@@ -48,9 +48,12 @@ class DefectSystem:
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV. If not specified, uses scipy's default.
         site_pools (dict[str, tuple[float, list[DefectSpecies]]] | None, optional):
-                Mapping of pool name → (total sites in that pool, list of
-                DefectSpecies sharing those sites). If None, no site competition
-                is applied and each species is treated independently.
+          Mapping of pool name -> (total sites in that pool, list of
+          DefectSpecies sharing those sites). By default (None), every
+          DefectSpecies gets its own implicit exclusion group of `nsites`
+          sites, so its charge states already compete with each other via
+          Langmuir statistics; `site_pools` is only needed when several
+          species must share one physical site budget.
         vbm_shift (float, optional): a temperature-dependent shift of the
           valence-band maximum, in eV, evaluated by the caller for this
           system's `temperature`. Used (with `cbm_shift`) to compute the
@@ -71,11 +74,14 @@ class DefectSystem:
           metastable `DefectChargeState`s that share a formal charge. Every
           key must be one of the `DefectChargeState`s in `defect_species`.
           Defaults to None (no per-state corrections).
-        rigid_shift (bool, optional): if True (the default), every
-          variable-concentration charge state not covered by
-          `formation_energy_corrections` has its formation energy shifted by
-          `-charge * vbm_shift`. If False, such charge states are left
-          unchanged.
+        rigid_shift (bool, optional): if True (the default), the band
+          structure and defect levels are assumed to move together as a
+          rigid body, so `vbm_shift`/`cbm_shift` only affect the displayed
+          band gap and every variable-concentration charge state not covered
+          by `formation_energy_corrections` is left unchanged. If False, the
+          defect levels are fixed in absolute energy while the band edges
+          move, so such charge states have their formation energy shifted by
+          `-charge * vbm_shift`.
 
     Note:
         `DefectSystem` is an immutable, fixed-temperature snapshot:
@@ -110,16 +116,17 @@ class DefectSystem:
         self.cbm_shift = cbm_shift
         self.rigid_shift = rigid_shift
 
-        if formation_energy_corrections or not rigid_shift:
-            self.defect_species = copy.deepcopy(defect_species)
-            self._apply_formation_energy_corrections(
-                defect_species, formation_energy_corrections or {}
-            )
-        else:
-            self.defect_species = defect_species
+        memo: dict[int, Any] = {}
+        self.defect_species = copy.deepcopy(defect_species, memo)
+        self._apply_formation_energy_corrections(
+            defect_species, formation_energy_corrections or {}
+        )
 
-        self.site_pools = site_pools or {}
-        self.element_pools = element_pools or {}
+        # share `memo` so any DefectSpecies objects referenced by both
+        # `defect_species` and `site_pools`/`element_pools` resolve to the
+        # same copies as `self.defect_species`.
+        self.site_pools = copy.deepcopy(site_pools, memo) if site_pools else {}
+        self.element_pools = copy.deepcopy(element_pools, memo) if element_pools else {}
 
     def _apply_formation_energy_corrections(
         self,

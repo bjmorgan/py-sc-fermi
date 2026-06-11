@@ -31,6 +31,10 @@ class TestDefectSystemInit(unittest.TestCase):
     def test_defect_system_is_initialised(self):
         volume = 100
         mock_defect_species = [Mock(spec=DefectSpecies), Mock(spec=DefectSpecies)]
+        mock_defect_species[0].name = "v_O"
+        mock_defect_species[1].name = "O_i"
+        mock_defect_species[0].charge_states = []
+        mock_defect_species[1].charge_states = []
         dos = Mock(spec=DOS)
         temperature = 298
         defect_system = DefectSystem(
@@ -43,8 +47,10 @@ class TestDefectSystemInit(unittest.TestCase):
         self.assertEqual(defect_system.volume, volume)
         self.assertEqual(defect_system.dos, dos)
         self.assertEqual(defect_system.temperature, temperature)
-        self.assertEqual(defect_system.defect_species[0], mock_defect_species[0])
-        self.assertEqual(defect_system.defect_species[1], mock_defect_species[1])
+        # `defect_species` is deep-copied, so these are independent copies,
+        # not the same objects as `mock_defect_species`.
+        self.assertEqual(defect_system.defect_species[0].name, "v_O")
+        self.assertEqual(defect_system.defect_species[1].name, "O_i")
 
 
 class TestDefectSystem(unittest.TestCase):
@@ -53,6 +59,8 @@ class TestDefectSystem(unittest.TestCase):
         mock_defect_species = [Mock(spec=DefectSpecies), Mock(spec=DefectSpecies)]
         mock_defect_species[0].name = "v_O"
         mock_defect_species[1].name = "O_i"
+        mock_defect_species[0].charge_states = []
+        mock_defect_species[1].charge_states = []
         dos = Mock(spec=DOS)
         dos.spin_polarised = True
         dos._nelect = 12
@@ -182,7 +190,7 @@ class TestDefectSystem(unittest.TestCase):
         defect_species = DefectSpecies(
             name="test_defect",
             nsites=1,
-            charge_states={1: charge_state},
+            charge_states=[charge_state],
         )
         defect_system = DefectSystem(
             dos=dos,
@@ -213,7 +221,7 @@ class TestDefectSystem(unittest.TestCase):
         defect_species = DefectSpecies(
             name="deep_acceptor",
             nsites=1,
-            charge_states={-2: charge_state},
+            charge_states=[charge_state],
         )
         defect_system = DefectSystem(
             dos=dos,
@@ -352,7 +360,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             temperature=300,
         )
         concs = system._global_defect_concs(1.0)
-        total = sum(concs[cs] for cs in species.charge_states)
+        total = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertLessEqual(total, species.nsites)
         self.assertGreater(total, 0.99 * species.nsites)
 
@@ -368,7 +376,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         total_occupied = sum(
             concs[cs]
-            for sp in (self.species_a, self.species_b)
+            for sp in system.defect_species
             for cs in sp.charge_states
         )
         self.assertGreater(total_occupied, 0.0)
@@ -386,7 +394,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         total_occupied = sum(
             concs[cs]
-            for sp in (self.species_a, self.species_b)
+            for sp in system.defect_species
             for cs in sp.charge_states
         )
         self.assertLessEqual(total_occupied, n_pool)
@@ -420,11 +428,11 @@ class TestDefectSystemSitePools(unittest.TestCase):
         )
         no_pool_total = sum(
             no_pool_system._global_defect_concs(1.0)[cs]
-            for cs in self.species_a.charge_states
+            for cs in no_pool_system.defect_species[0].charge_states
         )
         pooled_total = sum(
             pooled_system._global_defect_concs(1.0)[cs]
-            for cs in self.species_a.charge_states
+            for cs in pooled_system.defect_species[0].charge_states
         )
         self.assertAlmostEqual(no_pool_total, 3.0, places=8)
         self.assertAlmostEqual(pooled_total, 3.0, places=8)
@@ -471,7 +479,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             element_pools={"Mg": (target, [(self.species, 1.0)])},
         )
         concs = system._global_defect_concs(1.0)
-        total_mg = sum(concs[cs] for cs in self.species.charge_states)
+        total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
 
     def test_element_pool_can_reference_species_by_name(self):
@@ -484,7 +492,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             element_pools={"Mg": (target, [("Mg_Zn", 1.0)])},
         )
         concs = system._global_defect_concs(1.0)
-        total_mg = sum(concs[cs] for cs in self.species.charge_states)
+        total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
 
     def test_element_pool_leaves_fixed_charge_states_unscaled(self):
@@ -499,8 +507,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
             element_pools={"Mg": (target, [(self.species, 1.0)])},
         )
         concs = system._global_defect_concs(1.0)
-        self.assertEqual(concs[self.species.charge_states[0]], fixed_value)
-        total_mg = sum(concs[cs] for cs in self.species.charge_states)
+        self.assertEqual(concs[system.defect_species[0].charge_states[0]], fixed_value)
+        total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
 
     def test_element_pool_raises_when_fixed_states_exceed_target(self):
@@ -534,8 +542,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
             element_pools={"X": (target, [(species_a, 1.0), (species_b, 2.0)])},
         )
         concs = system._global_defect_concs(1.0)
-        c_a = concs[species_a.charge_states[0]]
-        c_b = concs[species_b.charge_states[0]]
+        c_a = concs[system.defect_species[0].charge_states[0]]
+        c_b = concs[system.defect_species[1].charge_states[0]]
         self.assertAlmostEqual(c_a, fixed_value, places=8)
         self.assertAlmostEqual(1.0 * c_a + 2.0 * c_b, target, places=6)
 
@@ -579,8 +587,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
                 element_pools={"X": (target, [(species_a, 1.0), (species_b, 2.0)])},
             )
             concs = system._global_defect_concs(1.0)
-            c_a = concs[species_a.charge_states[0]]
-            c_b = concs[species_b.charge_states[0]]
+            c_a = concs[system.defect_species[0].charge_states[0]]
+            c_b = concs[system.defect_species[1].charge_states[0]]
             self.assertAlmostEqual(1.0 * c_a + 2.0 * c_b, target, places=6)
             # c_i / (N_i_free - c_i) = w_i * lambda**s_i exactly, so this
             # combination of activities is independent of the target.
@@ -607,8 +615,11 @@ class TestDefectSystemElementPools(unittest.TestCase):
             },
         )
         concs = system._global_defect_concs(1.0)
-        total_mg = concs[cs_mgo] + concs[cs_mgi]
-        total_o = concs[cs_mgo] + concs[cs_oi]
+        copied_cs_mgo = system.defect_species[0].charge_states[0]
+        copied_cs_mgi = system.defect_species[1].charge_states[0]
+        copied_cs_oi = system.defect_species[2].charge_states[0]
+        total_mg = concs[copied_cs_mgo] + concs[copied_cs_mgi]
+        total_o = concs[copied_cs_mgo] + concs[copied_cs_oi]
         # scipy's iterative solve converges the joint targets to within
         # a small numerical tolerance, not bit-for-bit exactness.
         self.assertAlmostEqual(total_mg, 8.0, places=3)

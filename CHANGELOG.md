@@ -60,10 +60,12 @@
   is a `dict[DefectChargeState, float]` of per-charge-state formation-energy
   corrections, keyed by the `DefectChargeState` objects themselves so that
   metastable states sharing a formal charge can be corrected independently. If
-  `rigid_shift` is True (the default), any variable-concentration charge state
-  not covered by `formation_energy_corrections` has its formation energy
-  shifted by `-charge * vbm_shift`; if False, such charge states are
-  unchanged. `DefectSystem` is an immutable, fixed-temperature snapshot:
+  `rigid_shift` is True (the default), the band structure and defect levels
+  are assumed to move together as a rigid body, so `vbm_shift`/`cbm_shift`
+  only affect the displayed band gap and any variable-concentration charge
+  state not covered by `formation_energy_corrections` is unchanged; if False,
+  such charge states have their formation energy shifted by
+  `-charge * vbm_shift`. `DefectSystem` is an immutable, fixed-temperature snapshot:
   corrections are applied once at construction to copies of `defect_species`,
   the caller's objects are never modified, and `report()`/`as_dict()`/
   `from_dict()` always agree.
