@@ -466,6 +466,49 @@ class TestDefectSystemSitePools(unittest.TestCase):
             system._global_defect_concs(1.0)
 
 
+class TestDefectSystemPoolValidation(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+        self.species_a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        self.species_b = DefectSpecies(
+            "B",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.8, degeneracy=1)],
+        )
+
+    def _system(self, **kwargs):
+        return DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            **kwargs,
+        )
+
+    def test_duplicate_roster_names_raise(self):
+        twin = DefectSpecies(
+            "A",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.5, degeneracy=1)],
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate names: A"):
+            DefectSystem(
+                defect_species=[self.species_a, twin],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
+
+
 class TestDefectSystemElementPools(unittest.TestCase):
     def setUp(self):
         self.dos = DOS(

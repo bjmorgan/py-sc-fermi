@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, NamedTuple
@@ -193,6 +194,8 @@ class DefectSystem:
             _normalise_element_pools(element_pools)
         )
 
+        self._validate_pools()
+
     def _apply_formation_energy_corrections(
         self,
         original_defect_species: list[DefectSpecies],
@@ -225,6 +228,20 @@ class DefectSystem:
             else:
                 delta = 0.0
             copied_cs._energy += delta
+
+    def _validate_pools(self) -> None:
+        """Validate the species roster and pool references.
+
+        Raises:
+            ValueError: if two roster species share a name.
+        """
+        name_counts = Counter(ds.name for ds in self.defect_species)
+        duplicates = sorted(name for name, count in name_counts.items() if count > 1)
+        if duplicates:
+            raise ValueError(
+                f"defect_species contains duplicate names: {', '.join(duplicates)}. "
+                "Species names must be unique."
+            )
 
     def __repr__(self) -> str:
         bandgap = self.dos.bandgap + (self.cbm_shift - self.vbm_shift)
