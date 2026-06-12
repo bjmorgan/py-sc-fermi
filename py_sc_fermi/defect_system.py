@@ -526,7 +526,6 @@ class DefectSystem:
                     if any(s_by_elem.get(e, 0.0) > 0.0 for e in exhausted)
                 }
                 elements = [e for e in elements if e not in exhausted]
-                remaining = {e: remaining[e] for e in elements}
                 solve_groups = [
                     _ExclusionGroup(
                         group.n_free,
@@ -552,8 +551,9 @@ class DefectSystem:
                 continue
             kept = []
             for state in group.variable_states:
-                if state[1] in forced_zero:
-                    all_concs[state[0]] = 0.0
+                cs, sp, _ = state
+                if sp in forced_zero:
+                    all_concs[cs] = 0.0
                 else:
                     kept.append(state)
             if not kept:

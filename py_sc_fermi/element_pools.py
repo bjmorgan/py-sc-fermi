@@ -71,6 +71,15 @@ class ElementPoolError(ValueError):
     capacities, or unmet by the chemical-potential solve."""
 
 
+def _sanitised_mu(result_x: np.ndarray) -> np.ndarray:
+    """A root-find's returned `mu`, with non-finite components mapped back
+    into the representable range (NaN to 0, infinities to +/-700, where
+    700 < log(largest double) keeps exp(mu) finite)."""
+    return np.nan_to_num(
+        np.asarray(result_x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
+    )
+
+
 def group_concs(
     n_free: float, log_w: np.ndarray, s: np.ndarray, mu: np.ndarray
 ) -> np.ndarray:
@@ -338,9 +347,7 @@ def solve_chemical_potentials(
             700.0,
         )
         result = root(residual_and_jacobian, x0=x0, jac=True, method="hybr")
-        mu = np.nan_to_num(
-            np.asarray(result.x, dtype=float), nan=0.0, posinf=700.0, neginf=-700.0
-        )
+        mu = _sanitised_mu(result.x)
         deviation = scaled_deviation(group_data, mu, remaining_vec)
 
         if not (deviation.max() <= _element_pool_tolerance):
@@ -368,12 +375,7 @@ def solve_chemical_potentials(
             log_result = root(
                 log_residual_and_jacobian, x0=np.zeros(K), jac=True, method="hybr"
             )
-            candidate = np.nan_to_num(
-                np.asarray(log_result.x, dtype=float),
-                nan=0.0,
-                posinf=700.0,
-                neginf=-700.0,
-            )
+            candidate = _sanitised_mu(log_result.x)
             candidate_deviation = scaled_deviation(
                 group_data, candidate, remaining_vec
             )
