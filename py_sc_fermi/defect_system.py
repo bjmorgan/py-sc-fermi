@@ -258,13 +258,21 @@ class DefectSystem:
         """Check one pool's species references against the roster names.
 
         Raises:
-            ValueError: if a member name is not in `roster`.
+            ValueError: if a member name is not in `roster`, or a member
+                appears more than once.
         """
         unknown = sorted(set(members) - roster)
         if unknown:
             raise ValueError(
                 f"{kind} '{pool_name}' references species not in "
                 f"defect_species: {', '.join(unknown)}"
+            )
+        member_counts = Counter(members)
+        repeated = sorted(name for name, count in member_counts.items() if count > 1)
+        if repeated:
+            raise ValueError(
+                f"{kind} '{pool_name}' lists species more than once: "
+                f"{', '.join(repeated)}"
             )
 
     def __repr__(self) -> str:

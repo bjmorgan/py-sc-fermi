@@ -520,6 +520,18 @@ class TestDefectSystemPoolValidation(unittest.TestCase):
         ):
             self._system(element_pools={"X": (1.0, [("C", 1.0)])})
 
+    def test_site_pool_listing_a_species_twice_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "site pool 'shared' lists species more than once: A"
+        ):
+            self._system(site_pools={"shared": (10.0, [self.species_a, "A"])})
+
+    def test_element_pool_listing_a_species_twice_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "element pool 'X' lists species more than once: A"
+        ):
+            self._system(element_pools={"X": (1.0, [("A", 1.0), ("A", -1.0)])})
+
 
 class TestDefectSystemElementPools(unittest.TestCase):
     def setUp(self):
