@@ -90,14 +90,18 @@ class DefectSystem:
           will be solved for.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV. If not specified, uses scipy's default.
-        site_pools (dict[str, tuple[float, list[DefectSpecies]]] | None, optional):
-          Mapping of pool name -> (total sites in that pool, list of
-          DefectSpecies sharing those sites). By default (None), every
-          DefectSpecies gets its own implicit exclusion group of `nsites`
-          sites, so its charge states already compete with each other via
-          Langmuir statistics; `site_pools` is only needed when several
-          species must share one physical site budget.
-        element_pools (dict[str, tuple[float, list[tuple[Any, float]]]] | None, optional):
+        site_pools (dict[str, tuple[float, list[DefectSpecies | str]]] | None, optional):
+          Mapping of pool name -> (total sites in that pool, list of the
+          DefectSpecies sharing those sites, each given as an object or by
+          name). References are reduced to species names at construction,
+          so `site_pools` on the constructed system contains names only.
+          By default (None), every DefectSpecies gets its own implicit
+          exclusion group of `nsites` sites, so its charge states already
+          compete with each other via Langmuir statistics; `site_pools` is
+          only needed when several species must share one physical site
+          budget.
+        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
+          | None, optional):
           Mapping of element name -> (target content, list of
           (species, stoichiometry) pairs). Constrains the total amount of
           an element supplied by the listed species: the chemical
@@ -107,6 +111,7 @@ class DefectSystem:
           constraint, as distinct from a fixed thermodynamic chemical
           potential). Each species may be given as a `DefectSpecies`
           object or by name, and one species may appear in several pools.
+          References are reduced to species names at construction.
           The target is a content per unit cell on the same scale as the
           concentrations: fixed-concentration states count against it, and
           the remainder is distributed across the variable states. Mixed
@@ -146,6 +151,12 @@ class DefectSystem:
           defect levels are fixed in absolute energy while the band edges
           move, so such charge states have their formation energy shifted by
           `-charge * vbm_shift`.
+
+    Raises:
+        ValueError: if two entries in `defect_species` share a name, a pool
+          references a species not in `defect_species`, a pool lists a
+          species more than once, or a species appears in more than one
+          site pool.
 
     Note:
         `DefectSystem` is an immutable, fixed-temperature snapshot:
@@ -932,9 +943,10 @@ class DefectSystemFactory:
         volume (float): volume of the unit cell in Angstroms cubed.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV, passed to every `DefectSystem` built by `at()`.
-        site_pools (dict[str, tuple[float, list[DefectSpecies]]] | None, optional):
+        site_pools (dict[str, tuple[float, list[DefectSpecies | str]]] | None, optional):
           passed to every `DefectSystem` built by `at()`.
-        element_pools (dict[str, tuple[float, list[tuple[Any, float]]]] | None, optional):
+        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
+          | None, optional):
           passed to every `DefectSystem` built by `at()`.
         vbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the valence-band-maximum shift (in eV) at
