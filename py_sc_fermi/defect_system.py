@@ -389,9 +389,11 @@ class DefectSystem:
             # Float summation of fixed contributions does not land exactly
             # on a target they are meant to meet (0.1 + 0.2 != 0.3): treat
             # a remainder within rounding distance of the committed total
-            # as exactly zero. Genuinely negative remainders are validated
-            # by the caller, which knows whether the pool can shed content.
-            if abs(rem) <= 1e-12 * committed:
+            # as exactly zero. The committed total may be negative (fixed
+            # negative-stoichiometry states), so scale by its magnitude.
+            # Genuinely non-zero remainders are validated by the caller,
+            # which knows whether the pool can shed content.
+            if abs(rem) <= 1e-12 * abs(committed):
                 rem = 0.0
             remaining[elem] = rem
         return remaining
@@ -485,8 +487,9 @@ class DefectSystem:
                     target, _ = pools[e]
                     raise ElementPoolError(
                         f"Element pool '{e}': fixed-concentration states "
-                        f"already contribute {target - remaining[e]:.3e} "
-                        f"which exceeds the target {target:.3e}. Your "
+                        f"contribute {target - remaining[e]:.3e}, exceeding "
+                        f"the target {target:.3e} by {-remaining[e]:.3e}, and "
+                        "no variable state can remove content. Your "
                         "constraints are mutually inconsistent."
                     )
             exhausted = {

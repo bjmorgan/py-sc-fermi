@@ -1197,6 +1197,62 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
         content = self.species_content(system, concs)
         self.assertEqual(content["C"], 0.0)
 
+    def test_exhausted_pool_tolerates_rounding_with_negative_committed(self):
+        """The rounding clamp must hold when the committed total is
+        negative (fixed negative-stoichiometry states): a one-ulp negative
+        remainder against an exactly-met negative target is exhaustion, not
+        a constraint inconsistency."""
+        sp_oi = DefectSpecies(
+            "O_i", nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        sp_vo = DefectSpecies(
+            "V_O", nsites=10, fixed_concentration=0.3,
+            charge_states=[DefectChargeState(charge=0, energy=0.9, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_oi, sp_vo],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": (-(0.1 + 0.2), [("O_i", 1.0), ("V_O", -1.0)])},
+        )
+        concs = system._global_defect_concs(1.0)
+        content = self.species_content(system, concs)
+        self.assertEqual(content["O_i"], 0.0)
+
+    def test_small_net_target_at_half_saturation_converges(self):
+        """A small net target over species near half-saturation needs the
+        content resolved far finer than the line search's step floor; the
+        solve must still reach the guard tolerance rather than stalling
+        above it and reporting spurious infeasibility."""
+        for target in (-1e-6, -1e-7, -1e-9):
+            with self.subTest(target=target):
+                sp_oi = DefectSpecies(
+                    "O_i", nsites=10,
+                    charge_states=[
+                        DefectChargeState(charge=0, energy=0.0, degeneracy=1)
+                    ],
+                )
+                sp_vo = DefectSpecies(
+                    "V_O", nsites=10,
+                    charge_states=[
+                        DefectChargeState(charge=0, energy=0.0, degeneracy=1)
+                    ],
+                )
+                system = DefectSystem(
+                    defect_species=[sp_oi, sp_vo],
+                    dos=self.dos,
+                    volume=100,
+                    temperature=300,
+                    element_pools={"dO": (target, [("O_i", 1.0), ("V_O", -1.0)])},
+                )
+                concs = system._global_defect_concs(1.0)
+                content = self.species_content(system, concs)
+                self.assertAlmostEqual(
+                    (content["O_i"] - content["V_O"]) / target, 1.0, delta=1e-6
+                )
+
     def test_negative_net_content_target_balances_species(self):
         """A negative net-content target over mixed-sign stoichiometries
         (oxygen deficiency in an off-stoichiometry scan) is a balance

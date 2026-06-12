@@ -107,17 +107,19 @@ def solve_along_direction(
     content is non-decreasing in `delta` (its derivative is
     ``direction @ H @ direction >= 0`` with `H` positive
     semi-definite), so a sign change brackets a root. Bisection uses
-    only signs and converges in a number of iterations fixed by the
-    bracket width, so the near-step profiles of saturating states
-    cannot defeat it. If no sign change exists within the expansion
-    cap, the bracket edge is returned: the other directions must move
-    first."""
+    only signs, so the near-step profiles of saturating states cannot
+    defeat it, but resolves `delta` only to an absolute floor; a Newton
+    polish (below) recovers the precision a small net target needs. If no
+    sign change exists within the expansion cap, the bracket edge is
+    returned: the other directions must move first."""
 
-    def excess(delta: float) -> float:
-        content, _ = content_and_hessian(group_data, mu + delta * direction)
-        return float(direction @ content - target)
+    def excess_and_slope(delta: float) -> tuple[float, float]:
+        content, hessian = content_and_hessian(group_data, mu + delta * direction)
+        return float(direction @ content - target), float(
+            direction @ hessian @ direction
+        )
 
-    f0 = excess(0.0)
+    f0, _ = excess_and_slope(0.0)
     if f0 == 0.0:
         return mu
     # Each failed probe becomes the near edge of the bracket, keeping
@@ -125,7 +127,7 @@ def solve_along_direction(
     step = 1.0
     if f0 > 0:
         hi, lo = 0.0, -1.0
-        while excess(lo) > 0:
+        while excess_and_slope(lo)[0] > 0:
             if lo < -1e7:
                 return mu + lo * direction
             hi = lo
@@ -133,13 +135,33 @@ def solve_along_direction(
             lo -= step
     else:
         lo, hi = 0.0, 1.0
-        while excess(hi) < 0:
+        while excess_and_slope(hi)[0] < 0:
             if hi > 1e7:
                 return mu + hi * direction
             lo = hi
             step *= 2
             hi += step
-    return mu + float(bisect(excess, lo, hi, maxiter=200)) * direction
+    delta = float(bisect(lambda d: excess_and_slope(d)[0], lo, hi, maxiter=200))
+
+    # Bisection's absolute step floor (xtol ~ 2e-12) leaves the content
+    # resolved to ~slope * 2e-12, far coarser than a small net target over
+    # near-half-saturated sites needs (the answer is a cancellation of two
+    # O(n_free) populations). One-dimensional Newton on the line --
+    # g'(delta) = direction @ H @ direction, the exact slope -- contracts
+    # quadratically from the bracketed point wherever the slope is
+    # informative, and is simply skipped on the saturation plateaux where
+    # the slope underflows and bisection is already at the float limit.
+    g, slope = excess_and_slope(delta)
+    best_delta, best_excess = delta, abs(g)
+    for _ in range(50):
+        if slope <= 0.0 or g == 0.0:
+            break
+        delta = delta - g / slope
+        g, slope = excess_and_slope(delta)
+        if abs(g) >= best_excess:
+            break
+        best_delta, best_excess = delta, abs(g)
+    return mu + best_delta * direction
 
 
 def bracketed_coordinate_solve(
@@ -351,7 +373,8 @@ def solve_chemical_potentials(
             f"Element pool targets ({targets}) could not be satisfied: "
             f"element '{elements[worst]}' achieved "
             f"{committed + achieved[worst]:.6e} against target "
-            f"{full_targets[worst]:.6e}. The targets may be jointly "
-            "infeasible."
+            f"{full_targets[worst]:.6e} (relative deviation "
+            f"{deviation[worst]:.2e}). The targets may be jointly "
+            "infeasible, or the solve may have failed to converge."
         )
     return mu
