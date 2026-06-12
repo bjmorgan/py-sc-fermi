@@ -100,8 +100,7 @@ class DefectSystem:
           compete with each other via Langmuir statistics; `site_pools` is
           only needed when several species must share one physical site
           budget.
-        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
-          | None, optional):
+        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None):
           Mapping of element name -> (target content, list of
           (species, stoichiometry) pairs). Constrains the total amount of
           an element supplied by the listed species: the chemical
@@ -946,9 +945,8 @@ class DefectSystemFactory:
           convergence in eV, passed to every `DefectSystem` built by `at()`.
         site_pools (dict[str, tuple[float, list[DefectSpecies | str]]] | None, optional):
           passed to every `DefectSystem` built by `at()`.
-        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
-          | None, optional):
-          passed to every `DefectSystem` built by `at()`.
+        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None):
+          passed to every `DefectSystem` built by `at()`. Defaults to None.
         vbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the valence-band-maximum shift (in eV) at
           that temperature. Defaults to None (no shift).
