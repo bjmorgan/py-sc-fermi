@@ -532,6 +532,21 @@ class TestDefectSystemPoolValidation(unittest.TestCase):
         ):
             self._system(element_pools={"X": (1.0, [("A", 1.0), ("A", -1.0)])})
 
+    def test_species_in_two_site_pools_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "species 'A' appears in site pools 'p1' and 'p2'"
+        ):
+            self._system(site_pools={"p1": (5.0, ["A"]), "p2": (5.0, ["A", "B"])})
+
+    def test_species_may_appear_in_multiple_element_pools(self):
+        system = self._system(
+            element_pools={
+                "X": (0.1, [("A", 1.0)]),
+                "Y": (0.1, [("A", 1.0), ("B", 1.0)]),
+            }
+        )
+        self.assertEqual(set(system.element_pools), {"X", "Y"})
+
 
 class TestDefectSystemElementPools(unittest.TestCase):
     def setUp(self):

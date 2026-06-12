@@ -233,8 +233,9 @@ class DefectSystem:
         """Validate the species roster and pool references.
 
         Raises:
-            ValueError: if two roster species share a name, or a pool
-                references a species not in the roster.
+            ValueError: if two roster species share a name, a pool references
+                a species not in the roster, a pool lists a species more than
+                once, or a species appears in more than one site pool.
         """
         name_counts = Counter(ds.name for ds in self.defect_species)
         duplicates = sorted(name for name, count in name_counts.items() if count > 1)
@@ -245,8 +246,17 @@ class DefectSystem:
             )
 
         roster = set(name_counts)
+        site_pool_of: dict[str, str] = {}
         for pool_name, (_, members) in self.site_pools.items():
             self._check_pool_members("site pool", pool_name, members, roster)
+            for name in members:
+                first = site_pool_of.setdefault(name, pool_name)
+                if first != pool_name:
+                    raise ValueError(
+                        f"species '{name}' appears in site pools '{first}' and "
+                        f"'{pool_name}'; a species may belong to at most one "
+                        "site pool"
+                    )
         for element, (_, pool_list) in self.element_pools.items():
             member_names = [name for name, _ in pool_list]
             self._check_pool_members("element pool", element, member_names, roster)
