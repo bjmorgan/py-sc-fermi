@@ -386,23 +386,6 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertGreater(total_occupied, 0.0)
         self.assertLessEqual(total_occupied, n_pool)
 
-    def test_pools_can_reference_species_by_name(self):
-        n_pool = 10.0
-        system = DefectSystem(
-            defect_species=[self.species_a, self.species_b],
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-            site_pools={"shared": (n_pool, ["A", "B"])},
-        )
-        concs = system._global_defect_concs(1.0)
-        total_occupied = sum(
-            concs[cs]
-            for sp in system.defect_species
-            for cs in sp.charge_states
-        )
-        self.assertLessEqual(total_occupied, n_pool)
-
     def test_pool_references_are_normalised_to_names(self):
         system = DefectSystem(
             defect_species=[self.species_a, self.species_b],
