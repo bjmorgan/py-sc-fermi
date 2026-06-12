@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
@@ -18,19 +18,31 @@ from py_sc_fermi.element_pools import ElementPoolError
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
 
 
+class _VariableState(NamedTuple):
+    """A non-fixed-concentration charge state within an exclusion group,
+    paired with its per-site Boltzmann weight.
+
+    ``log_w = log(degeneracy) - Ef / (kB * T)`` is the *per-site* weight
+    (independent of `nsites`/pool size), with `Ef` the charge state's
+    formation energy at the current Fermi level.
+    """
+
+    charge_state: DefectChargeState
+    species: DefectSpecies
+    log_w: float
+
+
 @dataclass
 class _ExclusionGroup:
     """A set of charge states competing for a shared budget of `n_free`
     sites under Langmuir/site-exclusion statistics.
 
-    `variable_states` holds ``(charge_state, species, log_w)`` for every
-    non-fixed-concentration charge state in the group, where
-    ``log_w = log(degeneracy) - Ef / (kB * T)`` is the *per-site* Boltzmann
-    weight (independent of `nsites`/pool size).
+    `variable_states` holds one `_VariableState` per non-fixed-concentration
+    charge state in the group.
     """
 
     n_free: float
-    variable_states: list[tuple[DefectChargeState, DefectSpecies, float]]
+    variable_states: list[_VariableState]
 
 
 class DefectSystem:
@@ -314,7 +326,7 @@ class DefectSystem:
         becomes a variable state of the group.
         """
         fixed_total = 0.0
-        variable_states: list[tuple[DefectChargeState, DefectSpecies, float]] = []
+        variable_states: list[_VariableState] = []
         for sp in species:
             if sp.fixed_concentration is not None:
                 fixed_total += sp.fixed_concentration
@@ -328,7 +340,7 @@ class DefectSystem:
                 else:
                     Ef = cs.get_formation_energy(e_fermi)
                     log_w = np.log(cs.degeneracy) - Ef / (_kboltz * self.temperature)
-                    variable_states.append((cs, sp, log_w))
+                    variable_states.append(_VariableState(cs, sp, log_w))
 
         n_free = n_sites - fixed_total
         if n_free < 0:
@@ -421,17 +433,17 @@ class DefectSystem:
 
     @staticmethod
     def _group_term_arrays(
-        variable_states: list[tuple[DefectChargeState, DefectSpecies, float]],
+        variable_states: list[_VariableState],
         elements: list[str],
         stoich: dict[DefectSpecies, dict[str, float]],
     ) -> tuple[np.ndarray, np.ndarray]:
         """Per-state log Boltzmann weights and stoichiometry vectors for a
         group's variable states, as arrays of shape (n,) and (n, len(elements))."""
-        log_w = np.array([lw for _, _, lw in variable_states])
+        log_w = np.array([state.log_w for state in variable_states])
         s = np.array(
             [
-                [stoich.get(sp, {}).get(elem, 0.0) for elem in elements]
-                for _, sp, _ in variable_states
+                [stoich.get(state.species, {}).get(elem, 0.0) for elem in elements]
+                for state in variable_states
             ]
         )
         return log_w, s
@@ -501,7 +513,7 @@ class DefectSystem:
 
         remaining = self._remaining_element_targets(pools)
         variable_species = {
-            sp for group in groups for _, sp, _ in group.variable_states
+            state.species for group in groups for state in group.variable_states
         }
         balance_capable = {
             e
@@ -538,7 +550,7 @@ class DefectSystem:
                     [
                         state
                         for state in group.variable_states
-                        if state[1] not in forced_zero
+                        if state.species not in forced_zero
                     ],
                 )
                 for group in groups
@@ -581,20 +593,19 @@ class DefectSystem:
                 continue
             kept = []
             for state in group.variable_states:
-                cs, sp, _ = state
-                if sp in forced_zero:
-                    all_concs[cs] = 0.0
+                if state.species in forced_zero:
+                    all_concs[state.charge_state] = 0.0
                 else:
                     kept.append(state)
             if not kept:
                 continue
             log_w, s = self._group_term_arrays(kept, elements, stoich)
-            for (cs, _, _), c_i in zip(
+            for state, c_i in zip(
                 kept,
                 element_pools.group_concs(group.n_free, log_w, s, mu),
                 strict=True,
             ):
-                all_concs[cs] = c_i
+                all_concs[state.charge_state] = c_i
 
         return all_concs
 
