@@ -467,7 +467,7 @@ class DefectSystem:
         pooled_species: set[DefectSpecies] = set()
 
         for pool_name, (n_pool, species_list) in self.site_pools.items():
-            sp_objs = [self._resolve_species(sp) for sp in species_list]
+            sp_objs = [self._resolve_species(name) for name in species_list]
             pooled_species.update(sp_objs)
             groups.append(self._build_group(pool_name, n_pool, sp_objs, e_fermi, fixed_concs))
 
@@ -482,7 +482,7 @@ class DefectSystem:
     ) -> dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]:
         """Resolve string species references in `element_pools` to DefectSpecies."""
         return {
-            elem: (target, [(self._resolve_species(sp), stoich) for sp, stoich in pool_list])
+            elem: (target, [(self._resolve_species(name), stoich) for name, stoich in pool_list])
             for elem, (target, pool_list) in self.element_pools.items()
         }
 
