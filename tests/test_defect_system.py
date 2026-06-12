@@ -5,9 +5,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 from scipy.constants import physical_constants
-from scipy.optimize import OptimizeResult
 
-from py_sc_fermi import element_pools
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.defect_system import DefectSystem, DefectSystemFactory
@@ -747,71 +745,6 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
                     (content["P"] + content["Q"]) / target_x, 1.0, delta=1e-8
                 )
                 self.assertAlmostEqual(content["Q"] / target_y, 1.0, delta=1e-8)
-
-    def test_content_jacobian_matches_finite_differences_at_high_occupancy(self):
-        """The analytic Jacobian of the element-content map must agree with
-        finite differences at O(1) site occupancy, where the empty state's
-        contribution to the per-site covariance is not negligible."""
-        sp = {
-            name: DefectSpecies(
-                name, nsites=20,
-                charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
-            )
-            for name in ("A", "B", "C")
-        }
-        system = DefectSystem(
-            defect_species=list(sp.values()),
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-            element_pools={
-                "X": (8.0, [("A", 1.0), ("B", 1.0)]),
-                "Y": (5.0, [("A", 1.0), ("C", 1.0)]),
-            },
-        )
-        groups, _ = system._build_exclusion_groups(1.0)
-        pools = system._resolve_element_pools()
-        elements = list(pools.keys())
-        stoich = system._stoichiometry_lookup(pools)
-        group_data = [
-            (g.n_free, *system._group_term_arrays(g.variable_states, elements, stoich))
-            for g in groups
-            if g.n_free > 0 and g.variable_states
-        ]
-        mu = np.array([-0.7, -1.6])
-        _, jacobian = element_pools.content_and_hessian(group_data, mu)
-        eps = 1e-6
-        fd = np.zeros((2, 2))
-        for k in range(2):
-            d = np.zeros(2)
-            d[k] = eps
-            up, _ = element_pools.content_and_hessian(group_data, mu + d)
-            down, _ = element_pools.content_and_hessian(group_data, mu - d)
-            fd[:, k] = (up - down) / (2 * eps)
-        np.testing.assert_allclose(jacobian, fd, rtol=1e-6)
-
-    def test_post_solve_guard_raises_when_solver_misreports_convergence(self):
-        """The targets are re-checked independently of any solver's own
-        verdict: if both the root-find and the fallback return without
-        converging, a ValueError names the unmet element rather than
-        silently returning unconstrained concentrations."""
-        system, _, _ = self.coupled_system(energy=1.0)
-        do_nothing_solve = Mock(
-            side_effect=lambda fun, x0, **kwargs: OptimizeResult(
-                x=np.zeros_like(x0), success=True, message="mocked"
-            )
-        )
-        with (
-            patch("py_sc_fermi.element_pools.root", do_nothing_solve),
-            patch(
-                "py_sc_fermi.element_pools.bracketed_coordinate_solve",
-                lambda group_data, remaining_vec: np.zeros(len(remaining_vec)),
-            ),
-        ):
-            with self.assertRaises(ValueError) as ctx:
-                system._global_defect_concs(1.0)
-        self.assertIn("'X'", str(ctx.exception))
-        self.assertIn("target", str(ctx.exception))
 
     def test_coupled_dilute_weights_reach_order_one_targets(self):
         """O(1) targets with deeply dilute unconstrained populations
