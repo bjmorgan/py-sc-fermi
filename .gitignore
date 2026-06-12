@@ -9,3 +9,6 @@ py_sc_fermi.egg-info
 **/.nbgrader.log
 build/
 dist/
+
+# test artefacts
+.coverage
