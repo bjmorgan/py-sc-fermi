@@ -461,6 +461,95 @@ class DefectSystem:
             [pools[e][0] for e in elements],
         )
 
+    def _solve_element_pools(
+        self,
+        groups: list[_ExclusionGroup],
+        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+        elements: list[str],
+        stoich: dict[DefectSpecies, dict[str, float]],
+    ) -> tuple[np.ndarray, list[str], set[DefectSpecies]]:
+        """Dispose of the element pools and solve for their chemical
+        potentials.
+
+        Args:
+            groups: the site-exclusion groups for this Fermi level.
+            pools: resolved element pools (`_resolve_element_pools`).
+            elements: the constrained element names, ``list(pools)``.
+            stoich: per-species ``{element: stoichiometry}`` lookup.
+
+        Returns:
+            ``(mu, elements, forced_zero)``. `mu` holds the chemical
+            potential of each element in the returned `elements`, a copy
+            of the input narrowed to those that remain in the solve (empty
+            when there are no pools or all are exhausted). `forced_zero` is
+            the set of species whose variable states the caller must
+            assign concentration zero.
+
+        A pool with a negative-stoichiometry variable state can shed
+        content, so zero and negative remaining targets are balance
+        conditions at finite ``lambda_X = exp(mu_X)`` and the element stays
+        in the solve. Without one, variable states can only add content: a
+        negative remainder is inconsistent with the fixed concentrations
+        (raising `ElementPoolError`), and a zero remainder is the
+        ``lambda_X -> 0`` limit, in which every variable state with
+        positive stoichiometry in X has concentration 0 (collected into
+        `forced_zero`) and X drops out of the chemical-potential solve.
+        """
+        forced_zero: set[DefectSpecies] = set()
+        if not elements:
+            return np.array([]), elements, forced_zero
+
+        remaining = self._remaining_element_targets(pools)
+        variable_species = {
+            sp for group in groups for _, sp, _ in group.variable_states
+        }
+        balance_capable = {
+            e
+            for e in elements
+            if any(
+                s_by_elem.get(e, 0.0) < 0.0 and sp in variable_species
+                for sp, s_by_elem in stoich.items()
+            )
+        }
+        for e in elements:
+            if remaining[e] < 0.0 and e not in balance_capable:
+                target, _ = pools[e]
+                raise ElementPoolError(
+                    f"Element pool '{e}': fixed-concentration states "
+                    f"contribute {target - remaining[e]:.3e}, exceeding "
+                    f"the target {target:.3e} by {-remaining[e]:.3e}, and "
+                    "no variable state can remove content. Your "
+                    "constraints are mutually inconsistent."
+                )
+        exhausted = {
+            e for e in elements if remaining[e] == 0.0 and e not in balance_capable
+        }
+        solve_groups = groups
+        if exhausted:
+            forced_zero = {
+                sp
+                for sp, s_by_elem in stoich.items()
+                if any(s_by_elem.get(e, 0.0) > 0.0 for e in exhausted)
+            }
+            elements = [e for e in elements if e not in exhausted]
+            solve_groups = [
+                _ExclusionGroup(
+                    group.n_free,
+                    [
+                        state
+                        for state in group.variable_states
+                        if state[1] not in forced_zero
+                    ],
+                )
+                for group in groups
+            ]
+        if not elements:
+            return np.array([]), elements, forced_zero
+        mu = self._solve_chemical_potentials(
+            solve_groups, elements, stoich, remaining, pools
+        )
+        return mu, elements, forced_zero
+
     def _global_defect_concs(self, e_fermi: float) -> dict[DefectChargeState, float]:
         """
         Returns a dict mapping each DefectChargeState -> concentration per cell.
@@ -470,7 +559,7 @@ class DefectSystem:
         and its variable charge states are given Langmuir/site-exclusion
         statistics, ``c_i = n_free * w_i / (1 + sum_j w_j)``. If
         `element_pools` are defined, the element chemical potentials are
-        solved for first (`_solve_chemical_potentials`) and folded into each
+        solved for first (`_solve_element_pools`) and folded into each
         state's weight as ``w_i * exp(s_i . mu)``.
         """
         groups, all_concs = self._build_exclusion_groups(e_fermi)
@@ -479,68 +568,9 @@ class DefectSystem:
         elements = list(pools.keys())
         stoich = self._stoichiometry_lookup(pools)
 
-        forced_zero: set[DefectSpecies] = set()
-        mu = np.array([])
-        if elements:
-            remaining = self._remaining_element_targets(pools)
-            # A pool with a negative-stoichiometry variable state can shed
-            # content, so zero and negative remaining targets are balance
-            # conditions at finite lambda_X = exp(mu_X) and the element
-            # stays in the solve. Without one, variable states can only
-            # add content: a negative remainder is inconsistent with the
-            # fixed concentrations, and a zero remainder is the
-            # lambda_X -> 0 limit, in which every variable state with
-            # positive stoichiometry in X has concentration 0 and X drops
-            # out of the chemical-potential solve.
-            variable_species = {
-                sp for group in groups for _, sp, _ in group.variable_states
-            }
-            balance_capable = {
-                e
-                for e in elements
-                if any(
-                    s_by_elem.get(e, 0.0) < 0.0 and sp in variable_species
-                    for sp, s_by_elem in stoich.items()
-                )
-            }
-            for e in elements:
-                if remaining[e] < 0.0 and e not in balance_capable:
-                    target, _ = pools[e]
-                    raise ElementPoolError(
-                        f"Element pool '{e}': fixed-concentration states "
-                        f"contribute {target - remaining[e]:.3e}, exceeding "
-                        f"the target {target:.3e} by {-remaining[e]:.3e}, and "
-                        "no variable state can remove content. Your "
-                        "constraints are mutually inconsistent."
-                    )
-            exhausted = {
-                e
-                for e in elements
-                if remaining[e] == 0.0 and e not in balance_capable
-            }
-            solve_groups = groups
-            if exhausted:
-                forced_zero = {
-                    sp
-                    for sp, s_by_elem in stoich.items()
-                    if any(s_by_elem.get(e, 0.0) > 0.0 for e in exhausted)
-                }
-                elements = [e for e in elements if e not in exhausted]
-                solve_groups = [
-                    _ExclusionGroup(
-                        group.n_free,
-                        [
-                            state
-                            for state in group.variable_states
-                            if state[1] not in forced_zero
-                        ],
-                    )
-                    for group in groups
-                ]
-            if elements:
-                mu = self._solve_chemical_potentials(
-                    solve_groups, elements, stoich, remaining, pools
-                )
+        mu, elements, forced_zero = self._solve_element_pools(
+            groups, pools, elements, stoich
+        )
 
         for group in groups:
             if not group.variable_states:
