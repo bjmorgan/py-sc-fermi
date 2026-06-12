@@ -155,8 +155,9 @@ class DefectSystem:
     Raises:
         ValueError: if two entries in `defect_species` share a name, a pool
           references a species not in `defect_species`, a pool lists a
-          species more than once, or a species appears in more than one
-          site pool.
+          species more than once, a species appears in more than one site
+          pool, or `formation_energy_corrections` references a
+          `DefectChargeState` that is not part of `defect_species`.
 
     Note:
         `DefectSystem` is an immutable, fixed-temperature snapshot:
