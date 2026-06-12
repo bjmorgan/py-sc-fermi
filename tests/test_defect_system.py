@@ -472,9 +472,12 @@ class TestDefectSystemSitePools(unittest.TestCase):
             volume=100,
             temperature=300,
             site_pools={"shared": (10.0, [self.species_a, "B"])},
+            element_pools={"dE": (1.0, [("A", 2.0)])},
         )
         self.assertIn("shared: 10 sites", repr(system))
         self.assertIn("[A, B]", repr(system))
+        self.assertIn("dE: 1 per cell", repr(system))
+        self.assertIn("A ×2", repr(system))
 
 
 class TestDefectSystemPoolValidation(unittest.TestCase):
