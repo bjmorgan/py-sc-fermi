@@ -55,6 +55,27 @@ class DefectSystem:
           sites, so its charge states already compete with each other via
           Langmuir statistics; `site_pools` is only needed when several
           species must share one physical site budget.
+        element_pools (dict[str, tuple[float, list[tuple[Any, float]]]] | None, optional):
+          Mapping of element name -> (target content, list of
+          (species, stoichiometry) pairs). Constrains the total amount of
+          an element supplied by the listed species: the chemical
+          potentials are solved so that
+          ``sum_i stoichiometry_i * concentration_i`` equals the target
+          for every constrained element (a fixed-budget / closed-system
+          constraint, as distinct from a fixed thermodynamic chemical
+          potential). Each species may be given as a `DefectSpecies`
+          object or by name, and one species may appear in several pools.
+          The target is a content per unit cell on the same scale as the
+          concentrations: fixed-concentration states count against it, and
+          the remainder is distributed across the variable states. Mixed
+          stoichiometry signs make the constraint a net balance, so a
+          target of zero pins exact stoichiometry (e.g.
+          ``{"dO": (0.0, [("O_i", 1.0), ("V_O", -1.0)])}``) and a negative
+          target an off-stoichiometry deficiency; a scan can cross zero
+          continuously. An `ElementPoolError` is raised if a target is
+          unreachable (beyond the achievable content) or inconsistent with
+          the fixed concentrations. Defaults to None (no element
+          constraints). See `py_sc_fermi.element_pools` for the solver.
         vbm_shift (float, optional): a temperature-dependent shift of the
           valence-band maximum, in eV, evaluated by the caller for this
           system's `temperature`. Used (with `cbm_shift`) to compute the

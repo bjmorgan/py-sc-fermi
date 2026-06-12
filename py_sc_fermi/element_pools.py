@@ -13,10 +13,40 @@ potential ``F(mu) = sum_g n_free_g * log(Z_g(mu)) - mu . target``, whose
 gradient is the element content minus the target and whose Hessian is,
 group by group, ``n_free`` times the per-site covariance of the
 stoichiometry vectors -- positive semi-definite, so `F` has a single
-minimum whenever the targets are jointly achievable. The solve runs in stages, each
-engaged only when the previous stage's independently measured deviation
-misses tolerance, and every result is verified against the targets before
-it is returned.
+minimum whenever the targets are jointly achievable.
+
+Solver strategy
+---------------
+A single off-the-shelf root-find does not suffice, because defect
+concentrations span ~1e-30..1 per cell and every general-purpose
+convergence test is absolute or norm-based, so it declares success while
+dilute elements are still unconstrained (this is the bug the module
+fixes: an absolute gradient threshold accepted ``mu = 0``, the
+unconstrained populations, unchanged). The solve therefore runs in up to
+three stages, each engaged only when the previous stage's *independently
+measured* relative deviation misses tolerance:
+
+1. A Newton root-find on the per-element-scaled residual
+   ``content_X(mu) / target_X - 1`` (scipy ``hybr``), seeded out of the
+   underflow plateau at ``mu = 0``. Scaling makes every residual O(1)
+   however dilute the targets; this settles the common case.
+2. A Newton root-find on the log residual ``ln(content_X / target_X)``,
+   whose full Jacobian resolves shared-species coupling (one species
+   carrying most of several pools' content) that the first stage's seed
+   cannot. Second because the log flattens at saturation.
+3. A derivative-free bracketing sweep: cyclic exact line solves of `F`
+   that need only the sign of the residual, so the flat plateaux that
+   stall Newton -- saturated states, extreme dilution, and zero/negative
+   net-content targets, which have no scaled residual or log seed at all
+   -- cannot defeat it. Globally convergent for feasible targets, so it
+   is also the entry point whenever any target is non-positive.
+
+Correctness does not rest on any stage's own verdict: the achieved
+content is recomputed and checked against every target before `mu` is
+returned, fails closed on NaN, and raises `ElementPoolError` otherwise.
+The guarantee is therefore asymmetric -- a solve that meets tolerance is
+correct, and a feasible solve the stages happen to miss raises loudly
+rather than returning a wrong number.
 """
 
 from __future__ import annotations
@@ -176,11 +206,10 @@ def bracketed_coordinate_solve(
     dominates several pools -- so the Newton line, which adapts to
     the local geometry and contracts quadratically wherever `H` is
     informative, carries the hard cases. Convergent for jointly
-    feasible targets. Starts from mu = 0 (the unconstrained
-    populations) rather than from a failed Newton stage's iterate,
-    whose location is unbounded. Returns the iterate with the smallest
-    deviation; the caller verifies the targets and raises if they are
-    unmet."""
+    feasible targets from any finite start; begins at the bounded,
+    physically meaningful mu = 0 (the unconstrained populations).
+    Returns the iterate with the smallest deviation; the caller
+    verifies the targets and raises if they are unmet."""
     K = len(remaining_vec)
     mu = np.zeros(K)
     fixed_directions: list[tuple[np.ndarray, float]] = [
