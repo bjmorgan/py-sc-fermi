@@ -465,6 +465,17 @@ class TestDefectSystemSitePools(unittest.TestCase):
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
 
+    def test_repr_lists_site_pools_by_name(self):
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (10.0, [self.species_a, "B"])},
+        )
+        self.assertIn("shared: 10 sites", repr(system))
+        self.assertIn("[A, B]", repr(system))
+
 
 class TestDefectSystemPoolValidation(unittest.TestCase):
     def setUp(self):

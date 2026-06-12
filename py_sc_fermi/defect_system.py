@@ -315,18 +315,15 @@ class DefectSystem:
                     )
         if self.site_pools:
             lines.append("\n  site pools:")
-            for pool_name, (n, species) in self.site_pools.items():
-                sp_names = ", ".join(
-                    sp.name if isinstance(sp, DefectSpecies) else sp
-                    for sp in species
+            for pool_name, (n, species_names) in self.site_pools.items():
+                lines.append(
+                    f"    {pool_name}: {n:.4g} sites  \u2192  [{', '.join(species_names)}]"
                 )
-                lines.append(f"    {pool_name}: {n:.4g} sites  \u2192  [{sp_names}]")
         if self.element_pools:
             lines.append("\n  element pools:")
             for elem, (n, pool_list) in self.element_pools.items():
                 sp_names = ", ".join(
-                    (sp if isinstance(sp, str) else sp.name) + f" \u00d7{stoich:g}"
-                    for sp, stoich in pool_list
+                    f"{name} \u00d7{stoich:g}" for name, stoich in pool_list
                 )
                 lines.append(f"    {elem}: {n:.4g} per cell  \u2192  [{sp_names}]")
         return "\n".join(lines)
@@ -396,9 +393,9 @@ class DefectSystem:
         print(output)
         return output
 
-    def _resolve_species(self, sp: DefectSpecies | str) -> DefectSpecies:
-        """Resolve a DefectSpecies or its name to a DefectSpecies instance."""
-        return self.defect_species_by_name(sp) if isinstance(sp, str) else sp
+    def _resolve_species(self, name: str) -> DefectSpecies:
+        """Resolve a species name to its entry in the roster."""
+        return self.defect_species_by_name(name)
 
     def _build_group(
         self,
