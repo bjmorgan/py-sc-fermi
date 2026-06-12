@@ -121,7 +121,9 @@ def scaled_deviation(
     `mu`: ``|content / target - 1|`` for non-zero targets; for a zero
     target (a net-content balance over mixed-sign stoichiometries),
     ``|content|`` relative to the gross content ``sum_i |s_ie| c_i``,
-    the natural scale of the balance."""
+    the natural scale of the balance. A zero target with zero gross
+    content has no contributing occupancy at all and reads as exactly
+    met (deviation 0)."""
     K = len(remaining_vec)
     content = np.zeros(K)
     gross = np.zeros(K)

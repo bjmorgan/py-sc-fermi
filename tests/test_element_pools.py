@@ -129,9 +129,8 @@ class TestSolveChemicalPotentials(unittest.TestCase):
         reaching the target, an ElementPoolError names the unmet element
         rather than returning unconstrained concentrations."""
         group_data = [make_group(1.0, [np.log(2e-17)], [[1.0]])]
-        do_nothing = lambda fun, x0, **kwargs: OptimizeResult(  # noqa: E731
-            x=np.zeros_like(x0), success=True, message="mocked"
-        )
+        def do_nothing(fun, x0, **kwargs):
+            return OptimizeResult(x=np.zeros_like(x0), success=True, message="mocked")
         with (
             patch("py_sc_fermi.element_pools.root", do_nothing),
             patch(
@@ -143,7 +142,7 @@ class TestSolveChemicalPotentials(unittest.TestCase):
                 solve_chemical_potentials(
                     group_data, ["X"], np.array([4e-17]), [4e-17]
                 )
-        self.assertIn("X", str(ctx.exception))
+        self.assertIn("'X'", str(ctx.exception))
 
 
 class TestSolveAlongDirection(unittest.TestCase):
