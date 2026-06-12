@@ -236,9 +236,14 @@ def bracketed_coordinate_solve(
         content, hessian = content_and_hessian(group_data, mu)
         h_scale = float(np.trace(hessian)) / K
         if h_scale > 0:
-            newton = np.linalg.solve(
-                hessian + 1e-12 * h_scale * np.eye(K), remaining_vec - content
-            )
+            try:
+                newton = np.linalg.solve(
+                    hessian + 1e-12 * h_scale * np.eye(K), remaining_vec - content
+                )
+            except np.linalg.LinAlgError:
+                # the regulariser underflows to zero against a Hessian at
+                # denormal scale, leaving an exact zero mode unregularised
+                newton = remaining_vec - content
         else:
             newton = remaining_vec - content
         norm = np.abs(newton).max()
