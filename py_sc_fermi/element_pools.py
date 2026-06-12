@@ -20,11 +20,12 @@ Solver strategy
 A single off-the-shelf root-find does not suffice, because defect
 concentrations span ~1e-30..1 per cell and every general-purpose
 convergence test is absolute or norm-based, so it declares success while
-dilute elements are still unconstrained (this is the bug the module
-fixes: an absolute gradient threshold accepted ``mu = 0``, the
-unconstrained populations, unchanged). The solve therefore runs in up to
-three stages, each engaged only when the previous stage's *independently
-measured* relative deviation misses tolerance:
+dilute elements are still far from their targets: at ``mu = 0`` the
+residual of a 1e-18 target is already ~1e-18, below any absolute
+threshold, so the unconstrained populations are accepted as a solution.
+The solve therefore runs in up to three stages, each engaged only when
+the previous stage's *independently measured* relative deviation misses
+tolerance:
 
 1. A Newton root-find on the per-element-scaled residual
    ``content_X(mu) / target_X - 1`` (scipy ``hybr``), seeded out of the
