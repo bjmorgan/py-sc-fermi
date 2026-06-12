@@ -508,6 +508,18 @@ class TestDefectSystemPoolValidation(unittest.TestCase):
                 temperature=300,
             )
 
+    def test_site_pool_referencing_unknown_species_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "site pool 'shared' references species not in defect_species: C"
+        ):
+            self._system(site_pools={"shared": (10.0, ["A", "C"])})
+
+    def test_element_pool_referencing_unknown_species_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "element pool 'X' references species not in defect_species: C"
+        ):
+            self._system(element_pools={"X": (1.0, [("C", 1.0)])})
+
 
 class TestDefectSystemElementPools(unittest.TestCase):
     def setUp(self):
