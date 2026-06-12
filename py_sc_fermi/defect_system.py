@@ -45,6 +45,35 @@ class _ExclusionGroup:
     variable_states: list[_VariableState]
 
 
+def _species_name(species: DefectSpecies | str) -> str:
+    """Reduce a species reference (a ``DefectSpecies`` or its name) to the name."""
+    return species.name if isinstance(species, DefectSpecies) else species
+
+
+def _normalise_site_pools(
+    site_pools: dict[str, tuple[float, list[DefectSpecies | str]]] | None,
+) -> dict[str, tuple[float, list[str]]]:
+    """Reduce every site-pool species reference to a species name."""
+    if not site_pools:
+        return {}
+    return {
+        pool_name: (n_sites, [_species_name(sp) for sp in species_list])
+        for pool_name, (n_sites, species_list) in site_pools.items()
+    }
+
+
+def _normalise_element_pools(
+    element_pools: dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None,
+) -> dict[str, tuple[float, list[tuple[str, float]]]]:
+    """Reduce every element-pool species reference to a species name."""
+    if not element_pools:
+        return {}
+    return {
+        element: (target, [(_species_name(sp), stoich) for sp, stoich in pool_list])
+        for element, (target, pool_list) in element_pools.items()
+    }
+
+
 class DefectSystem:
     """This class is used to calculate the self consistent Fermi energy for
     a defective material, observing the condition of charge neutrality and
@@ -135,8 +164,10 @@ class DefectSystem:
         volume: float,
         temperature: float,
         convergence_tolerance: float | None = None,
-        site_pools: dict[str, tuple[float, list[DefectSpecies]]] | None = None,
-        element_pools: dict[str, tuple[float, list[tuple[Any, float]]]] | None = None,
+        site_pools: dict[str, tuple[float, list[DefectSpecies | str]]] | None = None,
+        element_pools: (
+            dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None
+        ) = None,
         vbm_shift: float = 0.0,
         cbm_shift: float = 0.0,
         formation_energy_corrections: dict[DefectChargeState, float] | None = None,
@@ -150,17 +181,17 @@ class DefectSystem:
         self.cbm_shift = cbm_shift
         self.rigid_shift = rigid_shift
 
-        memo: dict[int, Any] = {}
-        self.defect_species = copy.deepcopy(defect_species, memo)
+        self.defect_species = copy.deepcopy(defect_species)
         self._apply_formation_energy_corrections(
             defect_species, formation_energy_corrections or {}
         )
 
-        # share `memo` so any DefectSpecies objects referenced by both
-        # `defect_species` and `site_pools`/`element_pools` resolve to the
-        # same copies as `self.defect_species`.
-        self.site_pools = copy.deepcopy(site_pools, memo) if site_pools else {}
-        self.element_pools = copy.deepcopy(element_pools, memo) if element_pools else {}
+        self.site_pools: dict[str, tuple[float, list[str]]] = _normalise_site_pools(
+            site_pools
+        )
+        self.element_pools: dict[str, tuple[float, list[tuple[str, float]]]] = (
+            _normalise_element_pools(element_pools)
+        )
 
     def _apply_formation_energy_corrections(
         self,
@@ -869,8 +900,10 @@ class DefectSystemFactory:
         dos: DOS,
         volume: float,
         convergence_tolerance: float | None = None,
-        site_pools: dict[str, tuple[float, list[DefectSpecies]]] | None = None,
-        element_pools: dict[str, tuple[float, list[tuple[Any, float]]]] | None = None,
+        site_pools: dict[str, tuple[float, list[DefectSpecies | str]]] | None = None,
+        element_pools: (
+            dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None
+        ) = None,
         vbm_shift_fn: Callable[[float], float] | None = None,
         cbm_shift_fn: Callable[[float], float] | None = None,
         formation_energy_correction_fns: (

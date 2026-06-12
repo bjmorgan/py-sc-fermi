@@ -403,6 +403,16 @@ class TestDefectSystemSitePools(unittest.TestCase):
         )
         self.assertLessEqual(total_occupied, n_pool)
 
+    def test_pool_references_are_normalised_to_names(self):
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (10.0, [self.species_a, "B"])},
+        )
+        self.assertEqual(system.site_pools, {"shared": (10.0, ["A", "B"])})
+
     def test_pool_raises_when_fixed_concentrations_exceed_site_count(self):
         self.species_a.charge_states[0].fix_concentration(20.0)
         system = DefectSystem(
@@ -498,6 +508,16 @@ class TestDefectSystemElementPools(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
+
+    def test_element_pool_references_are_normalised_to_names(self):
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": (0.5, [(self.species, 1.0)])},
+        )
+        self.assertEqual(system.element_pools, {"Mg": (0.5, [("Mg_Zn", 1.0)])})
 
     def test_element_pool_leaves_fixed_charge_states_unscaled(self):
         fixed_value = 2.0
