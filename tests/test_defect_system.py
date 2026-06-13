@@ -1811,6 +1811,18 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
             reloaded.element_pools, {"dX": (0.0, [("A", 1.0), ("C", -2.0)])}
         )
 
+    def test_numpy_convergence_tolerance_is_yaml_safe(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            convergence_tolerance=np.float64(1e-8),
+        )
+        as_dict = system.as_dict()
+        self.assertIs(type(as_dict["convergence_tolerance"]), float)
+        yaml.safe_dump(as_dict)
+
 
 if __name__ == "__main__":
     unittest.main()

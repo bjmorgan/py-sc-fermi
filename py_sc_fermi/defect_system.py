@@ -988,7 +988,7 @@ class DefectSystem:
         applied at construction (``vbm_shift``, ``cbm_shift``,
         ``formation_energy_corrections``, ``rigid_shift``); those constructor
         parameters are deliberately not round-tripped, since re-applying a
-        non-rigid correction on load would double-count it.
+        baked correction on load would double-count it.
 
         Returns:
             dict: dictionary representation of the ``DefectSystem``.
@@ -1003,7 +1003,7 @@ class DefectSystem:
             dos=self.dos.as_dict(),
         )
         if self.convergence_tolerance is not None:
-            defect_system_dict["convergence_tolerance"] = self.convergence_tolerance
+            defect_system_dict["convergence_tolerance"] = float(self.convergence_tolerance)
         if self.site_pools:
             defect_system_dict["site_pools"] = _site_pools_as_dict(self.site_pools)
         if self.element_pools:
