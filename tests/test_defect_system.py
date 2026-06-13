@@ -595,14 +595,29 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self.assertAlmostEqual(total_mg, target, places=6)
 
     def test_element_pool_references_are_normalised_to_names(self):
+        o_i = DefectSpecies(
+            "O_i",
+            nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        v_o = DefectSpecies(
+            "V_O",
+            nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        # Mixed object/name spelling, two members, asymmetric stoichiometries:
+        # pins that normalisation preserves both order and the name-stoichiometry
+        # pairing (a swap would invert the balance constraint).
         system = DefectSystem(
-            defect_species=[self.species],
+            defect_species=[o_i, v_o],
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (0.5, [(self.species, 1.0)])},
+            element_pools={"dO": (0.0, [(o_i, 2.0), ("V_O", -3.0)])},
         )
-        self.assertEqual(system.element_pools, {"Mg": (0.5, [("Mg_Zn", 1.0)])})
+        self.assertEqual(
+            system.element_pools, {"dO": (0.0, [("O_i", 2.0), ("V_O", -3.0)])}
+        )
 
     def test_element_pool_leaves_fixed_charge_states_unscaled(self):
         fixed_value = 2.0
