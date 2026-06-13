@@ -1792,6 +1792,25 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         for name, total in original.items():
             self.assertAlmostEqual(reloaded_totals[name], total, places=8)
 
+    def test_multi_member_pools_round_trip_faithfully(self):
+        # A multi-member element pool with asymmetric, opposite-sign
+        # stoichiometries, and a species (A) that belongs to both a site pool
+        # and an element pool: pins that reconstruction preserves member order,
+        # the name-stoichiometry pairing, and the sign, with no cross-pool mix-up.
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (6.0, [self.species_a, "C"])},
+            element_pools={"dX": (0.0, [(self.species_a, 1.0), ("C", -2.0)])},
+        )
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
+        self.assertEqual(reloaded.site_pools, {"shared": (6.0, ["A", "C"])})
+        self.assertEqual(
+            reloaded.element_pools, {"dX": (0.0, [("A", 1.0), ("C", -2.0)])}
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
