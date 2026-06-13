@@ -148,19 +148,6 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(defect_system.temperature, 100)
         self.assertEqual(defect_system.convergence_tolerance, 1)
 
-    def test_site_percentages(self):
-        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[0].nsites = 1
-        self.defect_system.defect_species[1].nsites = 1
-        self.defect_system.defect_species[0].name = "v_O"
-        self.defect_system.defect_species[1].name = "O_i"
-        self.assertEqual(
-            self.defect_system.site_percentages(), {"v_O": 100, "O_i": 100}
-        )
-
     def test_get_sc_fermi(self):
         self.defect_system.dos.emin = Mock(return_value=0)
         self.defect_system.dos.emax = Mock(return_value=1)
@@ -614,6 +601,103 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertIn("[A, B]", repr(system))
         self.assertIn("dE: 1 per cell", repr(system))
         self.assertIn("A ×2", repr(system))
+
+
+class TestDefectSystemSitePercentages(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+
+    def test_near_saturation_species_reports_at_most_100_percent(self):
+        # Reproduction: a low-energy single species saturates its sites.
+        # The unbounded dilute formula reported ~2.5e10%; the solved
+        # concentration caps it at nsites, i.e. <= 100%.
+        species = DefectSpecies(
+            "R",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        self.assertLessEqual(system.site_percentages()["R"], 100.0)
+
+    def test_site_percentages_match_global_defect_concs(self):
+        # One source of truth: the reported percentage equals the species'
+        # total in _global_defect_concs over its available sites, at the
+        # solved Fermi level.
+        species = DefectSpecies(
+            "R",
+            nsites=2,
+            charge_states=[
+                DefectChargeState(charge=0, energy=-0.5, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.3, degeneracy=2),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        e_fermi = system.get_sc_fermi()[0]
+        concs = system._global_defect_concs(e_fermi)
+        ds = system.defect_species[0]
+        expected = sum(concs[cs] for cs in ds.charge_states) / ds.nsites * 100
+        self.assertAlmostEqual(system.site_percentages()["R"], expected, places=8)
+
+    def test_pooled_species_percentages_bounded_by_pool(self):
+        # Two species sharing a site pool: each <= 100% and, since the pool
+        # size is the shared denominator, their percentages sum to <= 100%.
+        species_a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+        )
+        species_b = DefectSpecies(
+            "B",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=-0.3, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species_a, species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (4.0, [species_a, species_b])},
+        )
+        pct = system.site_percentages()
+        self.assertLessEqual(pct["A"], 100.0)
+        self.assertLessEqual(pct["B"], 100.0)
+        self.assertLessEqual(pct["A"] + pct["B"], 100.0)
+
+    def test_dilute_regime_matches_old_expression(self):
+        # A high formation energy is firmly in the dilute limit, where site
+        # exclusion (c = n_free * w / (1 + w)) and the old dilute expression
+        # (c = nsites * w) agree. Compared as a ratio because the absolute
+        # percentage is astronomically small at this energy.
+        species = DefectSpecies(
+            "D",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.5, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        e_fermi = system.get_sc_fermi()[0]
+        old_expression = species.get_concentration(e_fermi, 300) / species.nsites * 100
+        new_pct = system.site_percentages()["D"]
+        self.assertAlmostEqual(new_pct / old_expression, 1.0, places=6)
 
 
 class TestDefectSystemPoolValidation(unittest.TestCase):

@@ -1024,26 +1024,41 @@ class DefectSystem:
                 decomp_concs[str(ds.name)] = by_charge
             return {**run_stats, **decomp_concs}
 
-    def site_percentages(
-        self, 
-    ) -> dict[str, float]:
-        """Returns a dictionary of the DefectSpecies in the DefectSystem which
-        giving the percentage of the sites in the structure that will host that 
-        defect.
+    def site_percentages(self) -> dict[str, float]:
+        """Return each ``DefectSpecies``' solved site occupancy as a
+        percentage of the sites available to it.
+
+        The occupancies are taken from the same solved, pool- and
+        exclusion-aware concentrations as ``report`` and
+        ``concentration_dict`` (``_global_defect_concs`` at the
+        self-consistent Fermi level), so the three agree. For a
+        variable-concentration species the occupancy is at most 100%: site
+        exclusion caps a species' total at the sites available to it. The
+        denominator is that available site count -- the species' own
+        ``nsites``, or, for a species in a ``site_pools`` entry, the pool's
+        total site count, so a pool's members occupy at most 100% of it. An
+        explicit ``fixed_concentration`` exceeding the site count is reported
+        faithfully and may exceed 100%.
 
         Returns:
-            dict[str, Any]: dictionary specifying the per-DefectSpecies site
-            concentrations.
+            dict[str, float]: mapping of ``DefectSpecies`` name to its site
+            occupancy as a percentage.
         """
         e_fermi = self.get_sc_fermi()[0]
-
-        sum_concs = {
-                str(ds.name): float(
-                    (ds.get_concentration(e_fermi, self.temperature) / ds.nsites) * 100
-                )
-                for ds in self.defect_species
-            }
-        return sum_concs
+        concs = self._global_defect_concs(e_fermi)
+        pool_sites = {
+            name: n_sites
+            for n_sites, members in self.site_pools.values()
+            for name in members
+        }
+        return {
+            str(ds.name): float(
+                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+                / pool_sites.get(ds.name, ds.nsites)
+                * 100
+            )
+            for ds in self.defect_species
+        }
 
     def as_dict(self) -> dict:
         """Return a dictionary representation of the ``DefectSystem``.

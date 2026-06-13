@@ -105,6 +105,19 @@
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.
 
+### Bug Fixes
+
+- `DefectSystem.site_percentages` is now computed from the solved,
+  site-exclusion- and pool-aware concentrations (`_global_defect_concs` at
+  the self-consistent Fermi level) rather than the unbounded dilute
+  Boltzmann expression. A near-saturation or pooled species previously
+  reported occupancies far above 100%, contradicting the concentrations from
+  `report` and `concentration_dict`; each species' occupancy is now divided
+  by the sites available to it (its own `nsites`, or the shared `site_pools`
+  size for a pooled species), so variable-concentration species are bounded
+  by 100%. An explicit `fixed_concentration` is reported faithfully and may
+  still exceed 100%.
+
 ## V2.2.2
 
 ### Bug Fixes
