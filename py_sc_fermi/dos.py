@@ -209,8 +209,8 @@ class DOS:
         return dict(
             nelect=int(self.nelect),
             bandgap=float(self.bandgap),
-            edos=list(self.edos),
-            dos=list(self.dos),
+            edos=self.edos.tolist(),
+            dos=self.dos.tolist(),
             spin_pol=False,
         )
 

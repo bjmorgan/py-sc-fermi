@@ -1,5 +1,8 @@
 import unittest
 
+import numpy as np
+import yaml
+
 from py_sc_fermi.defect_charge_state import DefectChargeState
 
 
@@ -176,6 +179,20 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
         self.assertEqual(dictionary["energy"], 0.1234)
         self.assertEqual(dictionary["charge"], 1)
         self.assertEqual(dictionary["fixed_concentration"], 1)
+
+    def test_as_dict_emits_native_floats_for_numpy_values(self):
+        cs = DefectChargeState(charge=1, energy=np.float64(0.5), degeneracy=2)
+        cs.fix_concentration(np.float64(1e20))
+        dictionary = cs.as_dict()
+        self.assertIs(type(dictionary["energy"]), float)
+        self.assertIs(type(dictionary["fixed_concentration"]), float)
+        yaml.safe_dump(dictionary)
+
+    def test_as_dict_preserves_none_energy(self):
+        cs = DefectChargeState(charge=1, fixed_concentration=1e20)
+        dictionary = cs.as_dict()
+        self.assertIsNone(dictionary["energy"])
+        yaml.safe_dump(dictionary)
 
     def test_defect_charge_state_from_dict_warns(self):
         dictionary = {

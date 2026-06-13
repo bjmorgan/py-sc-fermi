@@ -1,9 +1,11 @@
+import json
 import os
 import unittest
 from io import StringIO
 from unittest.mock import Mock, patch
 
 import numpy as np
+import yaml
 from scipy.constants import physical_constants
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
@@ -1648,6 +1650,221 @@ class TestDefectSystemReport(unittest.TestCase):
         self.assertIn("1.93", output)
         self.assertNotIn("→", output)
         self.assertEqual(system.dos._bandgap, 2.0)
+
+
+class TestDefectSystemPoolSerialisation(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+        self.species_a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=1.2, degeneracy=2),
+            ],
+        )
+        self.species_b = DefectSpecies(
+            "B",
+            nsites=1,
+            charge_states=[
+                DefectChargeState(charge=0, energy=0.8, degeneracy=1),
+                DefectChargeState(charge=-1, energy=1.5, degeneracy=2),
+            ],
+        )
+        self.species_c = DefectSpecies(
+            "C",
+            nsites=3,
+            charge_states=[
+                DefectChargeState(charge=0, energy=0.5, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=2),
+            ],
+        )
+
+    def _system(self):
+        # site pool mixes object (A) and name ("B"); element pool references C
+        # by object -- exercises both reference spellings through normalisation.
+        return DefectSystem(
+            defect_species=[self.species_a, self.species_b, self.species_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"cation": (4.0, [self.species_a, "B"])},
+            element_pools={"X": (0.3, [(self.species_c, 1.0)])},
+        )
+
+    @staticmethod
+    def _concs_by_name(system, e_fermi):
+        concs = system._global_defect_concs(e_fermi)
+        return {
+            ds.name: sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+            for ds in system.defect_species
+        }
+
+    def test_round_trip_through_json_preserves_pools_and_physics(self):
+        system = self._system()
+        as_dict = system.as_dict()
+        self.assertEqual(
+            as_dict["site_pools"],
+            {"cation": {"n_sites": 4.0, "species": ["A", "B"]}},
+        )
+        self.assertEqual(
+            as_dict["element_pools"],
+            {"X": {"target": 0.3, "members": [{"species": "C", "stoichiometry": 1.0}]}},
+        )
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(as_dict)))
+        self.assertEqual(reloaded.site_pools, {"cation": (4.0, ["A", "B"])})
+        self.assertEqual(reloaded.element_pools, {"X": (0.3, [("C", 1.0)])})
+        original = self._concs_by_name(system, 1.0)
+        reloaded_totals = self._concs_by_name(reloaded, 1.0)
+        self.assertEqual(set(original), set(reloaded_totals))
+        for name, total in original.items():
+            self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
+    def test_round_trip_through_yaml_preserves_pools_and_physics(self):
+        system = self._system()
+        reloaded = DefectSystem.from_dict(
+            yaml.safe_load(yaml.safe_dump(system.as_dict()))
+        )
+        self.assertEqual(reloaded.site_pools, {"cation": (4.0, ["A", "B"])})
+        self.assertEqual(reloaded.element_pools, {"X": (0.3, [("C", 1.0)])})
+        original = self._concs_by_name(system, 1.0)
+        reloaded_totals = self._concs_by_name(reloaded, 1.0)
+        for name, total in original.items():
+            self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
+    def test_system_without_pools_emits_neither_key(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        as_dict = system.as_dict()
+        self.assertNotIn("site_pools", as_dict)
+        self.assertNotIn("element_pools", as_dict)
+
+    def test_dict_without_pool_keys_still_loads(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        as_dict = system.as_dict()
+        as_dict.pop("site_pools", None)
+        as_dict.pop("element_pools", None)
+        reloaded = DefectSystem.from_dict(as_dict)
+        self.assertEqual(reloaded.site_pools, {})
+        self.assertEqual(reloaded.element_pools, {})
+
+    def test_corrections_round_trip_via_baked_energies(self):
+        donor_states = [
+            DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+            DefectChargeState(charge=1, energy=0.6, degeneracy=2),
+        ]
+        acceptor_states = [
+            DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+            DefectChargeState(charge=-1, energy=0.6, degeneracy=2),
+        ]
+        donor = DefectSpecies("D", nsites=2, charge_states=donor_states)
+        acceptor = DefectSpecies("Acc", nsites=2, charge_states=acceptor_states)
+        system = DefectSystem(
+            defect_species=[donor, acceptor],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            vbm_shift=0.1,
+            cbm_shift=-0.05,
+            formation_energy_corrections={donor_states[1]: 0.2},
+            rigid_shift=False,
+        )
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
+        e_original = system.get_sc_fermi()[0]
+        e_reloaded = reloaded.get_sc_fermi()[0]
+        self.assertAlmostEqual(e_original, e_reloaded, places=6)
+        original = self._concs_by_name(system, e_original)
+        reloaded_totals = self._concs_by_name(reloaded, e_reloaded)
+        for name, total in original.items():
+            self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
+    def test_multi_member_pools_round_trip_faithfully(self):
+        # A multi-member element pool with asymmetric, opposite-sign
+        # stoichiometries, and a species (A) that belongs to both a site pool
+        # and an element pool: pins that reconstruction preserves member order,
+        # the name-stoichiometry pairing, and the sign, with no cross-pool mix-up.
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (6.0, [self.species_a, "C"])},
+            element_pools={"dX": (0.0, [(self.species_a, 1.0), ("C", -2.0)])},
+        )
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
+        self.assertEqual(reloaded.site_pools, {"shared": (6.0, ["A", "C"])})
+        self.assertEqual(
+            reloaded.element_pools, {"dX": (0.0, [("A", 1.0), ("C", -2.0)])}
+        )
+
+    def test_numpy_convergence_tolerance_is_yaml_safe(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            convergence_tolerance=np.float64(1e-8),
+        )
+        as_dict = system.as_dict()
+        self.assertIs(type(as_dict["convergence_tolerance"]), float)
+        yaml.safe_dump(as_dict)
+
+    def test_baked_numpy_correction_keeps_as_dict_yaml_safe(self):
+        # The documented temperature-dependent-shift workflow: a numpy vbm_shift
+        # with rigid_shift=False bakes -charge * vbm_shift into each energy,
+        # promoting it to np.float64. The whole-system dict must stay YAML-safe.
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            vbm_shift=np.float64(0.1),
+            rigid_shift=False,
+        )
+        yaml.safe_dump(system.as_dict())
+
+    def test_fully_numpy_system_as_dict_is_yaml_safe(self):
+        # Contract guard at the boundary: every numeric field built from a numpy
+        # scalar. Catches a YAML-safety leak in any field without relying on a
+        # per-field test being remembered for it.
+        species = DefectSpecies(
+            "Z",
+            nsites=np.int64(4),
+            charge_states=[
+                DefectChargeState(
+                    charge=np.int64(0),
+                    energy=np.float64(0.5),
+                    degeneracy=np.float64(1),
+                ),
+                DefectChargeState(
+                    charge=np.int64(1), fixed_concentration=np.float64(1e19)
+                ),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=np.float64(100.0),
+            temperature=np.float64(300.0),
+            convergence_tolerance=np.float64(1e-8),
+            site_pools={"p": (np.float64(4.0), ["Z"])},
+            element_pools={"X": (np.float64(0.5), [("Z", np.float64(1.0))])},
+        )
+        yaml.safe_dump(system.as_dict())
 
 
 if __name__ == "__main__":
