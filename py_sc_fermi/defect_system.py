@@ -738,8 +738,15 @@ class DefectSystem:
 
         Returns:
             DefectSpecies: ``DefectSpecies`` where ``DefectSpecies.name == name``
+
+        Raises:
+            ValueError: if no ``DefectSpecies`` in the system has that name.
         """
-        return [ds for ds in self.defect_species if ds.name == name][0]
+        for ds in self.defect_species:
+            if ds.name == name:
+                return ds
+        available = ", ".join(self.defect_species_names)
+        raise ValueError(f"no defect species named '{name}'; available: {available}")
     
     def get_sc_fermi(self) -> tuple[float, float]:
         """Calculate the self-consistent Fermi energy.

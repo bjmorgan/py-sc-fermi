@@ -84,6 +84,12 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.defect_species[0],
         )
 
+    def test_defect_species_by_name_raises_for_unknown_name(self):
+        with self.assertRaisesRegex(
+            ValueError, "no defect species named 'Xx'; available: v_O, O_i"
+        ):
+            self.defect_system.defect_species_by_name("Xx")
+
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
