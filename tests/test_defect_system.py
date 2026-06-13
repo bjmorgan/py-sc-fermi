@@ -552,16 +552,18 @@ class TestDefectSystemSitePools(unittest.TestCase):
             )
 
     def test_species_fixed_equal_to_all_fixed_charge_states_is_accepted(self):
-        # All charge states fixed and summing exactly to the species total
-        # (no variable state needed) is consistent: construct and solve.
+        # All charge states fixed and summing to the species total -- within
+        # floating-point noise, since 0.1 + 0.2 != 0.3 in binary -- is
+        # consistent: construct AND solve must both succeed, exercising the
+        # isclose tolerance through the whole path, not just construction.
         species = DefectSpecies(
             "F",
             nsites=10,
             charge_states=[
-                DefectChargeState(charge=0, fixed_concentration=2.0),
-                DefectChargeState(charge=0, fixed_concentration=3.0),
+                DefectChargeState(charge=0, fixed_concentration=0.1),
+                DefectChargeState(charge=0, fixed_concentration=0.2),
             ],
-            fixed_concentration=5.0,
+            fixed_concentration=0.3,
         )
         system = DefectSystem(
             defect_species=[species],
@@ -573,7 +575,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             system._global_defect_concs(system.get_sc_fermi()[0])[cs]
             for cs in system.defect_species[0].charge_states
         )
-        self.assertAlmostEqual(total, 5.0, places=8)
+        self.assertAlmostEqual(total, 0.3, places=8)
 
     def test_species_fixed_above_fixed_charge_states_with_variable_succeeds(self):
         # With a variable charge state to absorb the remainder, a species
