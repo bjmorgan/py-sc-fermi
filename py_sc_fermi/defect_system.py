@@ -346,19 +346,33 @@ class DefectSystem:
             )
 
     def _validate_fixed_concentrations(self) -> None:
-        """Reject fixed concentrations that exceed their site-exclusion group's
-        site budget.
+        """Reject fixed concentrations that cannot be hosted.
 
-        Whether the fixed concentrations fit is independent of the Fermi level
-        -- it depends only on the fixed concentrations and the group site
-        budgets -- so it is a static property of the system, checked here at
-        construction rather than left to surface from a later solve.
+        Both checks are independent of the Fermi level -- they depend only on
+        the fixed concentrations and the site budgets -- so they are static
+        properties of the system, caught here at construction rather than left
+        to surface (wrapped as a Fermi-window error) from a later solve:
+
+        * within a species fixed at the total level, its individually-fixed
+          charge states cannot together exceed that total; and
+        * within a site-exclusion group, the members' total fixed
+          concentration cannot exceed the group's site budget.
 
         Raises:
-            ValueError: if any group's total fixed concentration exceeds its
-                site budget (its ``site_pools`` size, or, for an unpooled
-                species, its own ``nsites``).
+            ValueError: if a species' fixed charge states exceed its
+                species-level fixed concentration, or a group's total fixed
+                concentration exceeds its site budget (its ``site_pools`` size,
+                or, for an unpooled species, its own ``nsites``).
         """
+        for sp in self.defect_species:
+            if sp.fixed_concentration is not None:
+                charge_state_total = self._charge_state_fixed_total(sp)
+                if charge_state_total > sp.fixed_concentration:
+                    raise ValueError(
+                        f"'{sp.name}' is fixed at {sp.fixed_concentration} but "
+                        f"its fixed charge states require {charge_state_total}"
+                    )
+
         for label, n_sites, species in self._exclusion_group_specs():
             fixed_total = sum((self._fixed_total(sp) for sp in species), 0.0)
             if fixed_total > n_sites:
@@ -368,6 +382,17 @@ class DefectSystem:
                 )
 
     @staticmethod
+    def _charge_state_fixed_total(species: DefectSpecies) -> float:
+        """Sum of the explicit fixed concentrations of ``species``' charge
+        states (zero if none are individually fixed).
+        """
+        total = 0.0
+        for cs in species.charge_states:
+            if cs.fixed_concentration is not None:
+                total += cs.fixed_concentration
+        return total
+
+    @staticmethod
     def _fixed_total(species: DefectSpecies) -> float:
         """Total fixed concentration ``species`` contributes to its group's
         occupancy: its species-level ``fixed_concentration`` if set, otherwise
@@ -375,11 +400,7 @@ class DefectSystem:
         """
         if species.fixed_concentration is not None:
             return species.fixed_concentration
-        total = 0.0
-        for cs in species.charge_states:
-            if cs.fixed_concentration is not None:
-                total += cs.fixed_concentration
-        return total
+        return DefectSystem._charge_state_fixed_total(species)
 
     def __repr__(self) -> str:
         bandgap = self.dos.bandgap + (self.cbm_shift - self.vbm_shift)

@@ -476,6 +476,60 @@ class TestDefectSystemSitePools(unittest.TestCase):
                 temperature=300,
             )
 
+    def test_species_fixed_below_its_fixed_charge_states_raises_at_construction(self):
+        # A species fixed below the sum of its own fixed charge states is a
+        # static inconsistency, independent of the Fermi level; reject it at
+        # construction rather than wrapped as a Fermi-window error mid-solve.
+        species = DefectSpecies(
+            "F",
+            nsites=10,
+            charge_states=[DefectChargeState(charge=0, fixed_concentration=5.0)],
+            fixed_concentration=1.0,
+        )
+        with self.assertRaisesRegex(ValueError, r"'F' is fixed at 1.*require 5"):
+            DefectSystem(
+                defect_species=[species],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
+
+    def test_fixed_concentration_equal_to_sites_is_accepted(self):
+        # Exactly saturating the sites (n_free == 0) is valid: the strict ">"
+        # budget check must admit it and the solve must succeed.
+        species = DefectSpecies(
+            "F",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+            fixed_concentration=2.0,
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        total = sum(
+            system._global_defect_concs(system.get_sc_fermi()[0])[cs]
+            for cs in system.defect_species[0].charge_states
+        )
+        self.assertAlmostEqual(total, 2.0, places=8)
+
+    def test_pool_raises_when_members_jointly_exceed_site_count(self):
+        # Each member fits the pool alone -- A across its two fixed charge
+        # states, B in one -- but together they exceed the shared budget.
+        self.species_a.charge_states[0].fix_concentration(4.0)
+        self.species_a.charge_states[1].fix_concentration(4.0)
+        self.species_b.charge_states[0].fix_concentration(4.0)
+        with self.assertRaises(ValueError):
+            DefectSystem(
+                defect_species=[self.species_a, self.species_b],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (10.0, [self.species_a, self.species_b])},
+            )
+
     def test_repr_lists_site_pools_by_name(self):
         system = DefectSystem(
             defect_species=[self.species_a, self.species_b],
