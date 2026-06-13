@@ -4,7 +4,7 @@ import copy
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, TypeAlias
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
@@ -17,6 +17,19 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
+
+
+# Pools as accepted by the constructor: each species given as a DefectSpecies
+# object or by its name.
+SitePoolsInput: TypeAlias = dict[str, tuple[float, list[DefectSpecies | str]]]
+ElementPoolsInput: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
+
+# Pools as stored on a DefectSystem: references reduced to names.
+SitePools: TypeAlias = dict[str, tuple[float, list[str]]]
+ElementPools: TypeAlias = dict[str, tuple[float, list[tuple[str, float]]]]
+
+# Element pools with names resolved back to roster DefectSpecies (solve time).
+ElementPoolsResolved: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]
 
 
 class _VariableState(NamedTuple):
@@ -51,9 +64,7 @@ def _species_name(species: DefectSpecies | str) -> str:
     return species.name if isinstance(species, DefectSpecies) else species
 
 
-def _normalise_site_pools(
-    site_pools: dict[str, tuple[float, list[DefectSpecies | str]]] | None,
-) -> dict[str, tuple[float, list[str]]]:
+def _normalise_site_pools(site_pools: SitePoolsInput | None) -> SitePools:
     """Reduce every site-pool species reference to a species name."""
     if not site_pools:
         return {}
@@ -63,9 +74,7 @@ def _normalise_site_pools(
     }
 
 
-def _normalise_element_pools(
-    element_pools: dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None,
-) -> dict[str, tuple[float, list[tuple[str, float]]]]:
+def _normalise_element_pools(element_pools: ElementPoolsInput | None) -> ElementPools:
     """Reduce every element-pool species reference to a species name."""
     if not element_pools:
         return {}
@@ -90,7 +99,7 @@ class DefectSystem:
           will be solved for.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV. If not specified, uses scipy's default.
-        site_pools (dict[str, tuple[float, list[DefectSpecies | str]]] | None, optional):
+        site_pools (SitePoolsInput | None, optional):
           Mapping of pool name -> (total sites in that pool, list of the
           DefectSpecies sharing those sites, each given as an object or by
           name). References are reduced to species names at construction,
@@ -100,7 +109,7 @@ class DefectSystem:
           compete with each other via Langmuir statistics; `site_pools` is
           only needed when several species must share one physical site
           budget.
-        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None):
+        element_pools (ElementPoolsInput | None, optional):
           Mapping of element name -> (target content, list of
           (species, stoichiometry) pairs). Constrains the total amount of
           an element supplied by the listed species: the chemical
@@ -176,10 +185,8 @@ class DefectSystem:
         volume: float,
         temperature: float,
         convergence_tolerance: float | None = None,
-        site_pools: dict[str, tuple[float, list[DefectSpecies | str]]] | None = None,
-        element_pools: (
-            dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None
-        ) = None,
+        site_pools: SitePoolsInput | None = None,
+        element_pools: ElementPoolsInput | None = None,
         vbm_shift: float = 0.0,
         cbm_shift: float = 0.0,
         formation_energy_corrections: dict[DefectChargeState, float] | None = None,
@@ -198,12 +205,8 @@ class DefectSystem:
             defect_species, formation_energy_corrections or {}
         )
 
-        self.site_pools: dict[str, tuple[float, list[str]]] = _normalise_site_pools(
-            site_pools
-        )
-        self.element_pools: dict[str, tuple[float, list[tuple[str, float]]]] = (
-            _normalise_element_pools(element_pools)
-        )
+        self.site_pools: SitePools = _normalise_site_pools(site_pools)
+        self.element_pools: ElementPools = _normalise_element_pools(element_pools)
 
         self._validate_pools()
 
@@ -477,9 +480,7 @@ class DefectSystem:
 
         return groups, fixed_concs
 
-    def _resolve_element_pools(
-        self,
-    ) -> dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]:
+    def _resolve_element_pools(self) -> ElementPoolsResolved:
         """Resolve string species references in `element_pools` to DefectSpecies."""
         return {
             elem: (target, [(self._resolve_species(name), stoich) for name, stoich in pool_list])
@@ -488,7 +489,7 @@ class DefectSystem:
 
     @staticmethod
     def _stoichiometry_lookup(
-        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+        pools: ElementPoolsResolved,
     ) -> dict[DefectSpecies, dict[str, float]]:
         """Map each species to {element: stoichiometry} for every element
         pool it participates in."""
@@ -500,7 +501,7 @@ class DefectSystem:
 
     @staticmethod
     def _remaining_element_targets(
-        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+        pools: ElementPoolsResolved,
     ) -> dict[str, float]:
         """For each element pool, the target content still to be supplied by
         variable-concentration states, after subtracting fixed contributions."""
@@ -552,7 +553,7 @@ class DefectSystem:
         elements: list[str],
         stoich: dict[DefectSpecies, dict[str, float]],
         remaining: dict[str, float],
-        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+        pools: ElementPoolsResolved,
     ) -> np.ndarray:
         """Solve for one chemical potential `mu_X` per element pool such
         that the total content of each pooled element, summed over every
@@ -574,7 +575,7 @@ class DefectSystem:
     def _solve_element_pools(
         self,
         groups: list[_ExclusionGroup],
-        pools: dict[str, tuple[float, list[tuple[DefectSpecies, float]]]],
+        pools: ElementPoolsResolved,
         elements: list[str],
         stoich: dict[DefectSpecies, dict[str, float]],
     ) -> tuple[np.ndarray, list[str], set[DefectSpecies]]:
@@ -943,9 +944,9 @@ class DefectSystemFactory:
         volume (float): volume of the unit cell in Angstroms cubed.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV, passed to every `DefectSystem` built by `at()`.
-        site_pools (dict[str, tuple[float, list[DefectSpecies | str]]] | None, optional):
+        site_pools (SitePoolsInput | None, optional):
           passed to every `DefectSystem` built by `at()`.
-        element_pools (dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None):
+        element_pools (ElementPoolsInput | None, optional):
           passed to every `DefectSystem` built by `at()`. Defaults to None.
         vbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the valence-band-maximum shift (in eV) at
@@ -967,10 +968,8 @@ class DefectSystemFactory:
         dos: DOS,
         volume: float,
         convergence_tolerance: float | None = None,
-        site_pools: dict[str, tuple[float, list[DefectSpecies | str]]] | None = None,
-        element_pools: (
-            dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]] | None
-        ) = None,
+        site_pools: SitePoolsInput | None = None,
+        element_pools: ElementPoolsInput | None = None,
         vbm_shift_fn: Callable[[float], float] | None = None,
         cbm_shift_fn: Callable[[float], float] | None = None,
         formation_energy_correction_fns: (
