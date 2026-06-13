@@ -5,6 +5,7 @@ from io import StringIO
 from unittest.mock import Mock, patch
 
 import numpy as np
+import yaml
 from scipy.constants import physical_constants
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
@@ -1723,6 +1724,43 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         self.assertEqual(set(original), set(reloaded_totals))
         for name, total in original.items():
             self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
+    def test_round_trip_through_yaml_preserves_pools_and_physics(self):
+        system = self._system()
+        reloaded = DefectSystem.from_dict(
+            yaml.safe_load(yaml.safe_dump(system.as_dict()))
+        )
+        self.assertEqual(reloaded.site_pools, {"cation": (4.0, ["A", "B"])})
+        self.assertEqual(reloaded.element_pools, {"X": (0.3, [("C", 1.0)])})
+        original = self._concs_by_name(system, 1.0)
+        reloaded_totals = self._concs_by_name(reloaded, 1.0)
+        for name, total in original.items():
+            self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
+    def test_system_without_pools_emits_neither_key(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        as_dict = system.as_dict()
+        self.assertNotIn("site_pools", as_dict)
+        self.assertNotIn("element_pools", as_dict)
+
+    def test_dict_without_pool_keys_still_loads(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        as_dict = system.as_dict()
+        as_dict.pop("site_pools", None)
+        as_dict.pop("element_pools", None)
+        reloaded = DefectSystem.from_dict(as_dict)
+        self.assertEqual(reloaded.site_pools, {})
+        self.assertEqual(reloaded.element_pools, {})
 
 
 if __name__ == "__main__":
