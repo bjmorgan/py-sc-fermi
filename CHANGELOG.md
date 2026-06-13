@@ -53,6 +53,12 @@
   are satisfied simultaneously. Note: within a shared `site_pools` group, only
   each charge state's `degeneracy` (not its species' `nsites`) sets its
   relative weight.
+- `DefectSystem.as_dict`/`from_dict` now serialise `site_pools` and
+  `element_pools`, so a system with site or element constraints round-trips
+  through JSON and YAML (previously the pools were silently dropped). Each pool
+  is written as a self-describing mapping with species referenced by name.
+  `DOS.as_dict` now emits native Python floats, so a `DefectSystem` dictionary
+  is YAML-safe.
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) used to compute the
