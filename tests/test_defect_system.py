@@ -84,6 +84,12 @@ class TestDefectSystem(unittest.TestCase):
             self.defect_system.defect_species[0],
         )
 
+    def test_defect_species_by_name_raises_for_unknown_name(self):
+        with self.assertRaisesRegex(
+            ValueError, "no defect species named 'Xx'; available: v_O, O_i"
+        ):
+            self.defect_system.defect_species_by_name("Xx")
+
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
@@ -386,22 +392,15 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertGreater(total_occupied, 0.0)
         self.assertLessEqual(total_occupied, n_pool)
 
-    def test_pools_can_reference_species_by_name(self):
-        n_pool = 10.0
+    def test_pool_references_are_normalised_to_names(self):
         system = DefectSystem(
             defect_species=[self.species_a, self.species_b],
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (n_pool, ["A", "B"])},
+            site_pools={"shared": (10.0, [self.species_a, "B"])},
         )
-        concs = system._global_defect_concs(1.0)
-        total_occupied = sum(
-            concs[cs]
-            for sp in system.defect_species
-            for cs in sp.charge_states
-        )
-        self.assertLessEqual(total_occupied, n_pool)
+        self.assertEqual(system.site_pools, {"shared": (10.0, ["A", "B"])})
 
     def test_pool_raises_when_fixed_concentrations_exceed_site_count(self):
         self.species_a.charge_states[0].fix_concentration(20.0)
@@ -455,6 +454,102 @@ class TestDefectSystemSitePools(unittest.TestCase):
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
 
+    def test_repr_lists_site_pools_by_name(self):
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (10.0, [self.species_a, "B"])},
+            element_pools={"dE": (1.0, [("A", 2.0)])},
+        )
+        self.assertIn("shared: 10 sites", repr(system))
+        self.assertIn("[A, B]", repr(system))
+        self.assertIn("dE: 1 per cell", repr(system))
+        self.assertIn("A ×2", repr(system))
+
+
+class TestDefectSystemPoolValidation(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+        self.species_a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        self.species_b = DefectSpecies(
+            "B",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.8, degeneracy=1)],
+        )
+
+    def _system(self, **kwargs):
+        return DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            **kwargs,
+        )
+
+    def test_duplicate_roster_names_raise(self):
+        twin = DefectSpecies(
+            "A",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.5, degeneracy=1)],
+        )
+        with self.assertRaisesRegex(ValueError, "duplicate names: A"):
+            DefectSystem(
+                defect_species=[self.species_a, twin],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
+
+    def test_site_pool_referencing_unknown_species_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "site pool 'shared' references species not in defect_species: C"
+        ):
+            self._system(site_pools={"shared": (10.0, ["A", "C"])})
+
+    def test_element_pool_referencing_unknown_species_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "element pool 'X' references species not in defect_species: C"
+        ):
+            self._system(element_pools={"X": (1.0, [("C", 1.0)])})
+
+    def test_site_pool_listing_a_species_twice_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "site pool 'shared' lists species more than once: A"
+        ):
+            self._system(site_pools={"shared": (10.0, [self.species_a, "A"])})
+
+    def test_element_pool_listing_a_species_twice_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "element pool 'X' lists species more than once: A"
+        ):
+            self._system(element_pools={"X": (1.0, [("A", 1.0), ("A", -1.0)])})
+
+    def test_species_in_two_site_pools_raises(self):
+        with self.assertRaisesRegex(
+            ValueError, "species 'A' appears in site pools 'p1' and 'p2'"
+        ):
+            self._system(site_pools={"p1": (5.0, ["A"]), "p2": (5.0, ["A", "B"])})
+
+    def test_species_may_appear_in_multiple_element_pools(self):
+        system = self._system(
+            element_pools={
+                "X": (0.1, [("A", 1.0)]),
+                "Y": (0.1, [("A", 1.0), ("B", 1.0)]),
+            }
+        )
+        self.assertEqual(set(system.element_pools), {"X", "Y"})
+
 
 class TestDefectSystemElementPools(unittest.TestCase):
     def setUp(self):
@@ -498,6 +593,31 @@ class TestDefectSystemElementPools(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
+
+    def test_element_pool_references_are_normalised_to_names(self):
+        o_i = DefectSpecies(
+            "O_i",
+            nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        v_o = DefectSpecies(
+            "V_O",
+            nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        # Mixed object/name spelling, two members, asymmetric stoichiometries:
+        # pins that normalisation preserves both order and the name-stoichiometry
+        # pairing (a swap would invert the balance constraint).
+        system = DefectSystem(
+            defect_species=[o_i, v_o],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": (0.0, [(o_i, 2.0), ("V_O", -3.0)])},
+        )
+        self.assertEqual(
+            system.element_pools, {"dO": (0.0, [("O_i", 2.0), ("V_O", -3.0)])}
+        )
 
     def test_element_pool_leaves_fixed_charge_states_unscaled(self):
         fixed_value = 2.0
