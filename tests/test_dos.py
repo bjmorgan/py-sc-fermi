@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
+import yaml
 
 from py_sc_fermi.dos import DOS
 
@@ -239,14 +240,20 @@ class TestDos(unittest.TestCase):
         self.assertEqual(dos.spin_polarised, True)
 
     def test_as_dict(self):
-        self.dos._dos = [1,2,3,4,5]
-        self.dos._edos = [1,2,3,4,5]
+        self.dos._dos = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        self.dos._edos = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         dictionary = self.dos.as_dict()
-        self.assertEqual(dictionary["spin_pol"],False)
+        self.assertEqual(dictionary["spin_pol"], False)
         self.assertEqual(dictionary["nelect"], 10)
         self.assertEqual(dictionary["bandgap"], 3)
-        self.assertEqual(dictionary["edos"], [1,2,3,4,5])
-        self.assertEqual(dictionary["dos"], [1,2,3,4,5])
+        self.assertEqual(dictionary["edos"], [1.0, 2.0, 3.0, 4.0, 5.0])
+        self.assertEqual(dictionary["dos"], [1.0, 2.0, 3.0, 4.0, 5.0])
+
+    def test_as_dict_is_yaml_safe(self):
+        dictionary = self.dos.as_dict()
+        self.assertTrue(all(type(x) is float for x in dictionary["edos"]))
+        self.assertTrue(all(type(x) is float for x in dictionary["dos"]))
+        yaml.safe_dump(dictionary)
 
 
 if __name__ == "__main__":
