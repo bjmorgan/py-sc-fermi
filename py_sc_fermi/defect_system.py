@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -254,6 +255,7 @@ class DefectSystem:
         self.element_pools: ElementPools = _normalise_element_pools(element_pools)
 
         self._validate_pools()
+        self._validate_fixed_concentrations()
 
     def _apply_formation_energy_corrections(
         self,
@@ -343,6 +345,74 @@ class DefectSystem:
                 f"{kind} '{pool_name}' lists species more than once: "
                 f"{', '.join(repeated)}"
             )
+
+    def _validate_fixed_concentrations(self) -> None:
+        """Reject fixed concentrations that cannot be hosted.
+
+        Both checks are independent of the Fermi level -- they depend only on
+        the fixed concentrations and the site budgets -- so they are static
+        properties of the system, caught here at construction rather than left
+        to surface (wrapped as a Fermi-window error) from a later solve:
+
+        * a species fixed at the total level must be consistent with its
+          individually-fixed charge states: those cannot exceed the total, and
+          if every charge state is fixed (none variable) they must sum to it,
+          since there is then nothing to make up any shortfall; and
+        * within a site-exclusion group, the members' total fixed
+          concentration cannot exceed the group's site budget.
+
+        Raises:
+            ValueError: if a species' fixed charge states are inconsistent with
+                its species-level fixed concentration, or a group's total fixed
+                concentration exceeds its site budget (its ``site_pools`` size,
+                or, for an unpooled species, its own ``nsites``).
+        """
+        for sp in self.defect_species:
+            if sp.fixed_concentration is None:
+                continue
+            charge_state_total = self._charge_state_fixed_total(sp)
+            if math.isclose(charge_state_total, sp.fixed_concentration):
+                continue
+            if charge_state_total > sp.fixed_concentration:
+                raise ValueError(
+                    f"'{sp.name}' is fixed at {sp.fixed_concentration} but its "
+                    f"fixed charge states require {charge_state_total}"
+                )
+            if all(cs.fixed_concentration is not None for cs in sp.charge_states):
+                raise ValueError(
+                    f"'{sp.name}' is fixed at {sp.fixed_concentration} but its "
+                    f"fixed charge states sum to {charge_state_total}, with no "
+                    f"variable charge state to make up the difference"
+                )
+
+        for label, n_sites, species in self._exclusion_group_specs():
+            fixed_total = sum((self._fixed_total(sp) for sp in species), 0.0)
+            if fixed_total > n_sites:
+                raise ValueError(
+                    f"'{label}' has {n_sites} sites but fixed-concentration "
+                    f"states occupy {fixed_total}"
+                )
+
+    @staticmethod
+    def _charge_state_fixed_total(species: DefectSpecies) -> float:
+        """Sum of the explicit fixed concentrations of ``species``' charge
+        states (zero if none are individually fixed).
+        """
+        total = 0.0
+        for cs in species.charge_states:
+            if cs.fixed_concentration is not None:
+                total += cs.fixed_concentration
+        return total
+
+    @staticmethod
+    def _fixed_total(species: DefectSpecies) -> float:
+        """Total fixed concentration ``species`` contributes to its group's
+        occupancy: its species-level ``fixed_concentration`` if set, otherwise
+        the sum of its charge states' fixed concentrations.
+        """
+        if species.fixed_concentration is not None:
+            return species.fixed_concentration
+        return DefectSystem._charge_state_fixed_total(species)
 
     def __repr__(self) -> str:
         bandgap = self.dos.bandgap + (self.cbm_shift - self.vbm_shift)
@@ -458,7 +528,6 @@ class DefectSystem:
 
     def _build_group(
         self,
-        label: str,
         n_sites: float,
         species: list[DefectSpecies],
         e_fermi: float,
@@ -467,34 +536,45 @@ class DefectSystem:
         """Build an exclusion group of `n_sites` sites shared by `species`.
 
         Species-level `fixed_concentration` and individually-fixed charge
-        states are written into `fixed_concs` and subtracted from `n_sites`
-        to give the group's free-site budget; every other charge state
-        becomes a variable state of the group.
+        states are written into `fixed_concs`; every other charge state
+        becomes a variable state of the group. The free-site budget is
+        `n_sites` minus the group's total fixed concentration, which
+        `_validate_fixed_concentrations` guarantees is non-negative at
+        construction.
         """
-        fixed_total = 0.0
         variable_states: list[_VariableState] = []
         for sp in species:
             if sp.fixed_concentration is not None:
-                fixed_total += sp.fixed_concentration
                 for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
                     fixed_concs[cs] = conc
                 continue
             for cs in sp.charge_states:
                 if cs.fixed_concentration is not None:
                     fixed_concs[cs] = cs.fixed_concentration
-                    fixed_total += cs.fixed_concentration
                 else:
                     Ef = cs.get_formation_energy(e_fermi)
                     log_w = np.log(cs.degeneracy) - Ef / (_kboltz * self.temperature)
                     variable_states.append(_VariableState(cs, sp, log_w))
 
-        n_free = n_sites - fixed_total
-        if n_free < 0:
-            raise ValueError(
-                f"'{label}' has {n_sites} sites but fixed-concentration "
-                f"states occupy {fixed_total}"
-            )
+        n_free = n_sites - sum((self._fixed_total(sp) for sp in species), 0.0)
         return _ExclusionGroup(n_free=n_free, variable_states=variable_states)
+
+    def _exclusion_group_specs(self) -> list[tuple[str, float, list[DefectSpecies]]]:
+        """Enumerate the site-exclusion groups as
+        ``(label, site budget, member species)``: one group per `site_pools`
+        entry (its pool size and members), plus an implicit single-species
+        group of `nsites` for every species not in a site pool.
+        """
+        specs: list[tuple[str, float, list[DefectSpecies]]] = []
+        pooled_species: set[DefectSpecies] = set()
+        for pool_name, (n_pool, species_list) in self.site_pools.items():
+            sp_objs = [self._resolve_species(name) for name in species_list]
+            pooled_species.update(sp_objs)
+            specs.append((pool_name, n_pool, sp_objs))
+        for sp in self.defect_species:
+            if sp not in pooled_species:
+                specs.append((sp.name, sp.nsites, [sp]))
+        return specs
 
     def _build_exclusion_groups(
         self, e_fermi: float
@@ -512,17 +592,8 @@ class DefectSystem:
         """
         groups: list[_ExclusionGroup] = []
         fixed_concs: dict[DefectChargeState, float] = {}
-        pooled_species: set[DefectSpecies] = set()
-
-        for pool_name, (n_pool, species_list) in self.site_pools.items():
-            sp_objs = [self._resolve_species(name) for name in species_list]
-            pooled_species.update(sp_objs)
-            groups.append(self._build_group(pool_name, n_pool, sp_objs, e_fermi, fixed_concs))
-
-        for sp in self.defect_species:
-            if sp not in pooled_species:
-                groups.append(self._build_group(sp.name, sp.nsites, [sp], e_fermi, fixed_concs))
-
+        for _, n_sites, species in self._exclusion_group_specs():
+            groups.append(self._build_group(n_sites, species, e_fermi, fixed_concs))
         return groups, fixed_concs
 
     def _resolve_element_pools(self) -> ElementPoolsResolved:

@@ -554,7 +554,18 @@ class TestDefectSpecies(unittest.TestCase):
             charge_states=[cs_0, cs_1]
         )
         defect.fix_concentration(0.1)  # Less than fixed charge state concentration
-        
+
+        with self.assertRaises(ValueError):
+            defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+
+    def test_charge_state_concentrations_raises_if_below_total_with_no_variable(self):
+        """Should raise ValueError if all charge states are fixed and sum to
+        less than the species total, with no variable state to make up the
+        difference."""
+        cs_0 = DefectChargeState(charge=0, fixed_concentration=3.0)
+        defect = DefectSpecies(name="test", nsites=10, charge_states=[cs_0])
+        defect.fix_concentration(5.0)
+
         with self.assertRaises(ValueError):
             defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
 

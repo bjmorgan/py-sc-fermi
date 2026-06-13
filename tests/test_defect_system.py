@@ -41,6 +41,10 @@ class TestDefectSystemInit(unittest.TestCase):
         mock_defect_species[1].name = "O_i"
         mock_defect_species[0].charge_states = []
         mock_defect_species[1].charge_states = []
+        mock_defect_species[0].fixed_concentration = None
+        mock_defect_species[1].fixed_concentration = None
+        mock_defect_species[0].nsites = 1
+        mock_defect_species[1].nsites = 1
         dos = Mock(spec=DOS)
         temperature = 298
         defect_system = DefectSystem(
@@ -67,6 +71,10 @@ class TestDefectSystem(unittest.TestCase):
         mock_defect_species[1].name = "O_i"
         mock_defect_species[0].charge_states = []
         mock_defect_species[1].charge_states = []
+        mock_defect_species[0].fixed_concentration = None
+        mock_defect_species[1].fixed_concentration = None
+        mock_defect_species[0].nsites = 1
+        mock_defect_species[1].nsites = 1
         dos = Mock(spec=DOS)
         dos.spin_polarised = True
         dos._nelect = 12
@@ -405,16 +413,17 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertEqual(system.site_pools, {"shared": (10.0, ["A", "B"])})
 
     def test_pool_raises_when_fixed_concentrations_exceed_site_count(self):
+        # Over-budget fixed concentrations are a static constraint violation,
+        # rejected at construction rather than surfacing from the solve.
         self.species_a.charge_states[0].fix_concentration(20.0)
-        system = DefectSystem(
-            defect_species=[self.species_a],
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-            site_pools={"shared": (10.0, [self.species_a])},
-        )
         with self.assertRaises(ValueError):
-            system._global_defect_concs(1.0)
+            DefectSystem(
+                defect_species=[self.species_a],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (10.0, [self.species_a])},
+            )
 
     def test_pooled_species_honours_species_level_fixed_concentration(self):
         self.species_a.fix_concentration(3.0)
@@ -446,15 +455,151 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self,
     ):
         self.species_a.fix_concentration(20.0)
+        with self.assertRaises(ValueError):
+            DefectSystem(
+                defect_species=[self.species_a],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (10.0, [self.species_a])},
+            )
+
+    def test_unpooled_species_raises_when_fixed_concentration_exceeds_nsites(self):
+        # An unpooled species' implicit group budget is its own nsites; the
+        # error names the species and the budget-versus-occupancy.
+        self.species_a.fix_concentration(20.0)  # nsites=5
+        with self.assertRaisesRegex(ValueError, r"'A' has 5 .*occupy 20"):
+            DefectSystem(
+                defect_species=[self.species_a],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
+
+    def test_species_fixed_below_its_fixed_charge_states_raises_at_construction(self):
+        # A species fixed below the sum of its own fixed charge states is a
+        # static inconsistency, independent of the Fermi level; reject it at
+        # construction rather than wrapped as a Fermi-window error mid-solve.
+        species = DefectSpecies(
+            "F",
+            nsites=10,
+            charge_states=[DefectChargeState(charge=0, fixed_concentration=5.0)],
+            fixed_concentration=1.0,
+        )
+        with self.assertRaisesRegex(ValueError, r"'F' is fixed at 1.*require 5"):
+            DefectSystem(
+                defect_species=[species],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
+
+    def test_fixed_concentration_equal_to_sites_is_accepted(self):
+        # Exactly saturating the sites (n_free == 0) is valid: the strict ">"
+        # budget check must admit it and the solve must succeed.
+        species = DefectSpecies(
+            "F",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+            fixed_concentration=2.0,
+        )
         system = DefectSystem(
-            defect_species=[self.species_a],
+            defect_species=[species],
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (10.0, [self.species_a])},
         )
+        total = sum(
+            system._global_defect_concs(system.get_sc_fermi()[0])[cs]
+            for cs in system.defect_species[0].charge_states
+        )
+        self.assertAlmostEqual(total, 2.0, places=8)
+
+    def test_pool_raises_when_members_jointly_exceed_site_count(self):
+        # Each member fits the pool alone -- A across its two fixed charge
+        # states, B in one -- but together they exceed the shared budget.
+        self.species_a.charge_states[0].fix_concentration(4.0)
+        self.species_a.charge_states[1].fix_concentration(4.0)
+        self.species_b.charge_states[0].fix_concentration(4.0)
         with self.assertRaises(ValueError):
-            system._global_defect_concs(1.0)
+            DefectSystem(
+                defect_species=[self.species_a, self.species_b],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (10.0, [self.species_a, self.species_b])},
+            )
+
+    def test_species_fixed_above_all_fixed_charge_states_raises_at_construction(self):
+        # A species pinned at a total its all-fixed charge states cannot reach,
+        # with no variable charge state to make up the difference, is a static
+        # inconsistency; reject it at construction rather than silently
+        # under-reporting the total.
+        species = DefectSpecies(
+            "F",
+            nsites=10,
+            charge_states=[DefectChargeState(charge=0, fixed_concentration=3.0)],
+            fixed_concentration=5.0,
+        )
+        with self.assertRaisesRegex(
+            ValueError, r"'F' is fixed at 5.*sum to 3.*no variable"
+        ):
+            DefectSystem(
+                defect_species=[species],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
+
+    def test_species_fixed_equal_to_all_fixed_charge_states_is_accepted(self):
+        # All charge states fixed and summing to the species total -- within
+        # floating-point noise, since 0.1 + 0.2 != 0.3 in binary -- is
+        # consistent: construct AND solve must both succeed, exercising the
+        # isclose tolerance through the whole path, not just construction.
+        species = DefectSpecies(
+            "F",
+            nsites=10,
+            charge_states=[
+                DefectChargeState(charge=0, fixed_concentration=0.1),
+                DefectChargeState(charge=0, fixed_concentration=0.2),
+            ],
+            fixed_concentration=0.3,
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        total = sum(
+            system._global_defect_concs(system.get_sc_fermi()[0])[cs]
+            for cs in system.defect_species[0].charge_states
+        )
+        self.assertAlmostEqual(total, 0.3, places=8)
+
+    def test_species_fixed_above_fixed_charge_states_with_variable_succeeds(self):
+        # With a variable charge state to absorb the remainder, a species
+        # total above its fixed charge states is fine.
+        species = DefectSpecies(
+            "F",
+            nsites=10,
+            charge_states=[
+                DefectChargeState(charge=0, fixed_concentration=3.0),
+                DefectChargeState(charge=0, energy=-0.5, degeneracy=1),
+            ],
+            fixed_concentration=5.0,
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        total = sum(
+            system._global_defect_concs(system.get_sc_fermi()[0])[cs]
+            for cs in system.defect_species[0].charge_states
+        )
+        self.assertAlmostEqual(total, 5.0, places=8)
 
     def test_repr_lists_site_pools_by_name(self):
         system = DefectSystem(
@@ -1851,7 +1996,7 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
                     degeneracy=np.float64(1),
                 ),
                 DefectChargeState(
-                    charge=np.int64(1), fixed_concentration=np.float64(1e19)
+                    charge=np.int64(1), fixed_concentration=np.float64(2.0)
                 ),
             ],
         )
