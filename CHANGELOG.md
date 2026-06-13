@@ -71,14 +71,16 @@
   names interchangeably (both are normalised to names internally).
   `DefectSystem.defect_species_by_name` now raises a `ValueError` listing the
   available names, rather than an `IndexError`, when given an unknown name.
-- Fixed concentrations are validated at construction: a `ValueError` is raised
-  if a species' individually-fixed charge states together exceed its
-  species-level `fixed_concentration`, or if the total fixed concentration in a
-  site-exclusion group exceeds its available sites (an unpooled species' own
-  `nsites`, or a `site_pools` entry's shared size). Both conditions are
-  independent of the Fermi level, so they previously surfaced only when
-  solving, wrapped as a `RuntimeError` about the Fermi-energy search window;
-  they now fail fast at construction with a clear message.
+- Fixed concentrations are validated at construction. A `ValueError` is raised
+  if a species' individually-fixed charge states are inconsistent with its
+  species-level `fixed_concentration` -- they exceed it, or, when every charge
+  state is fixed so none can absorb a shortfall, fall below it -- or if the
+  total fixed concentration in a site-exclusion group exceeds its available
+  sites (an unpooled species' own `nsites`, or a `site_pools` entry's shared
+  size). These conditions are all independent of the Fermi level; they
+  previously surfaced only at solve time (wrapped as a `RuntimeError` about the
+  Fermi-energy search window) or, for a shortfall, were silently under-reported.
+  They now fail fast at construction with a clear message.
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) used to compute the

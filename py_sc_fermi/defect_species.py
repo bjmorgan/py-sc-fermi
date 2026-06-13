@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from scipy.constants import physical_constants
 from scipy.special import logsumexp
@@ -510,6 +512,12 @@ class DefectSpecies:
                 log_total = logsumexp(log_weights)
                 for (idx, cs), log_w in zip(var_states, log_weights, strict=True):
                     results[idx] = (cs, np.exp(log_w - log_total) * constrained_conc)
+            elif not math.isclose(fixed_conc_total, self.fixed_concentration):
+                raise ValueError(
+                    f"Fixed charge state concentrations ({fixed_conc_total}) are "
+                    f"below total species concentration ({self.fixed_concentration}) "
+                    "with no variable charge state to make up the difference"
+                )
 
         return results
 

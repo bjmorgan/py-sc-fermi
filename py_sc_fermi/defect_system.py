@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -353,25 +354,36 @@ class DefectSystem:
         properties of the system, caught here at construction rather than left
         to surface (wrapped as a Fermi-window error) from a later solve:
 
-        * within a species fixed at the total level, its individually-fixed
-          charge states cannot together exceed that total; and
+        * a species fixed at the total level must be consistent with its
+          individually-fixed charge states: those cannot exceed the total, and
+          if every charge state is fixed (none variable) they must sum to it,
+          since there is then nothing to make up any shortfall; and
         * within a site-exclusion group, the members' total fixed
           concentration cannot exceed the group's site budget.
 
         Raises:
-            ValueError: if a species' fixed charge states exceed its
-                species-level fixed concentration, or a group's total fixed
+            ValueError: if a species' fixed charge states are inconsistent with
+                its species-level fixed concentration, or a group's total fixed
                 concentration exceeds its site budget (its ``site_pools`` size,
                 or, for an unpooled species, its own ``nsites``).
         """
         for sp in self.defect_species:
-            if sp.fixed_concentration is not None:
-                charge_state_total = self._charge_state_fixed_total(sp)
-                if charge_state_total > sp.fixed_concentration:
-                    raise ValueError(
-                        f"'{sp.name}' is fixed at {sp.fixed_concentration} but "
-                        f"its fixed charge states require {charge_state_total}"
-                    )
+            if sp.fixed_concentration is None:
+                continue
+            charge_state_total = self._charge_state_fixed_total(sp)
+            if math.isclose(charge_state_total, sp.fixed_concentration):
+                continue
+            if charge_state_total > sp.fixed_concentration:
+                raise ValueError(
+                    f"'{sp.name}' is fixed at {sp.fixed_concentration} but its "
+                    f"fixed charge states require {charge_state_total}"
+                )
+            if all(cs.fixed_concentration is not None for cs in sp.charge_states):
+                raise ValueError(
+                    f"'{sp.name}' is fixed at {sp.fixed_concentration} but its "
+                    f"fixed charge states sum to {charge_state_total}, with no "
+                    f"variable charge state to make up the difference"
+                )
 
         for label, n_sites, species in self._exclusion_group_specs():
             fixed_total = sum((self._fixed_total(sp) for sp in species), 0.0)
