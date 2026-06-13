@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from io import StringIO
@@ -1648,6 +1649,80 @@ class TestDefectSystemReport(unittest.TestCase):
         self.assertIn("1.93", output)
         self.assertNotIn("→", output)
         self.assertEqual(system.dos._bandgap, 2.0)
+
+
+class TestDefectSystemPoolSerialisation(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+        self.species_a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=1.2, degeneracy=2),
+            ],
+        )
+        self.species_b = DefectSpecies(
+            "B",
+            nsites=1,
+            charge_states=[
+                DefectChargeState(charge=0, energy=0.8, degeneracy=1),
+                DefectChargeState(charge=-1, energy=1.5, degeneracy=2),
+            ],
+        )
+        self.species_c = DefectSpecies(
+            "C",
+            nsites=3,
+            charge_states=[
+                DefectChargeState(charge=0, energy=0.5, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=2),
+            ],
+        )
+
+    def _system(self):
+        # site pool mixes object (A) and name ("B"); element pool references C
+        # by object -- exercises both reference spellings through normalisation.
+        return DefectSystem(
+            defect_species=[self.species_a, self.species_b, self.species_c],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"cation": (4.0, [self.species_a, "B"])},
+            element_pools={"X": (0.3, [(self.species_c, 1.0)])},
+        )
+
+    @staticmethod
+    def _concs_by_name(system, e_fermi):
+        concs = system._global_defect_concs(e_fermi)
+        return {
+            ds.name: sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+            for ds in system.defect_species
+        }
+
+    def test_round_trip_through_json_preserves_pools_and_physics(self):
+        system = self._system()
+        as_dict = system.as_dict()
+        self.assertEqual(
+            as_dict["site_pools"],
+            {"cation": {"n_sites": 4.0, "species": ["A", "B"]}},
+        )
+        self.assertEqual(
+            as_dict["element_pools"],
+            {"X": {"target": 0.3, "members": [{"species": "C", "stoichiometry": 1.0}]}},
+        )
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(as_dict)))
+        self.assertEqual(reloaded.site_pools, {"cation": (4.0, ["A", "B"])})
+        self.assertEqual(reloaded.element_pools, {"X": (0.3, [("C", 1.0)])})
+        original = self._concs_by_name(system, 1.0)
+        reloaded_totals = self._concs_by_name(reloaded, 1.0)
+        self.assertEqual(set(original), set(reloaded_totals))
+        for name, total in original.items():
+            self.assertAlmostEqual(reloaded_totals[name], total, places=8)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import copy
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypeAlias
+from typing import Any, NamedTuple, TypeAlias, TypedDict
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
@@ -30,6 +30,27 @@ ElementPools: TypeAlias = dict[str, tuple[float, list[tuple[str, float]]]]
 
 # Element pools with names resolved back to roster DefectSpecies (solve time).
 ElementPoolsResolved: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]
+
+
+class SerialisedSitePool(TypedDict):
+    """JSON/YAML form of one site pool: a named site budget and its species."""
+
+    n_sites: float
+    species: list[str]
+
+
+class SerialisedElementMember(TypedDict):
+    """JSON/YAML form of one (species, stoichiometry) member of an element pool."""
+
+    species: str
+    stoichiometry: float
+
+
+class SerialisedElementPool(TypedDict):
+    """JSON/YAML form of one element pool: a target content and its members."""
+
+    target: float
+    members: list[SerialisedElementMember]
 
 
 class _VariableState(NamedTuple):
@@ -80,6 +101,30 @@ def _normalise_element_pools(element_pools: ElementPoolsInput | None) -> Element
         return {}
     return {
         element: (target, [(_species_name(sp), stoich) for sp, stoich in pool_list])
+        for element, (target, pool_list) in element_pools.items()
+    }
+
+
+def _site_pools_as_dict(site_pools: SitePools) -> dict[str, SerialisedSitePool]:
+    """Serialise stored site pools to JSON/YAML-safe mappings."""
+    return {
+        pool_name: {"n_sites": float(n_sites), "species": list(species_names)}
+        for pool_name, (n_sites, species_names) in site_pools.items()
+    }
+
+
+def _element_pools_as_dict(
+    element_pools: ElementPools,
+) -> dict[str, SerialisedElementPool]:
+    """Serialise stored element pools to JSON/YAML-safe mappings."""
+    return {
+        element: {
+            "target": float(target),
+            "members": [
+                {"species": name, "stoichiometry": float(stoich)}
+                for name, stoich in pool_list
+            ],
+        }
         for element, (target, pool_list) in element_pools.items()
     }
 
@@ -711,13 +756,28 @@ class DefectSystem:
     @classmethod
     def from_dict(cls, dictionary: dict) -> DefectSystem:
         """Generate a DefectSystem from a dictionary.
-    
+
+        Reads ``site_pools`` and ``element_pools`` when present; dictionaries
+        without those keys (e.g. older serialisations) load unchanged.
+
         Args:
-            dictionary (dict): Dictionary containing the DefectSystem data.
-    
+            dictionary (dict): Dictionary containing the DefectSystem data, as
+              produced by ``DefectSystem.as_dict``.
+
         Returns:
             DefectSystem: DefectSystem corresponding to the provided dictionary.
         """
+        site_pools = {
+            name: (pool["n_sites"], list(pool["species"]))
+            for name, pool in dictionary.get("site_pools", {}).items()
+        }
+        element_pools = {
+            element: (
+                pool["target"],
+                [(m["species"], m["stoichiometry"]) for m in pool["members"]],
+            )
+            for element, pool in dictionary.get("element_pools", {}).items()
+        }
         return cls(
             dos=DOS.from_dict(dictionary["dos"]),
             volume=dictionary["volume"],
@@ -727,6 +787,8 @@ class DefectSystem:
                 DefectSpecies.from_dict(defect_species)
                 for defect_species in dictionary["defect_species"]
             ],
+            site_pools=site_pools,
+            element_pools=element_pools,
         )
         
     def defect_species_by_name(self, name: str) -> DefectSpecies:
@@ -915,9 +977,21 @@ class DefectSystem:
     def as_dict(self) -> dict:
         """Return a dictionary representation of the ``DefectSystem``.
 
+        The returned dictionary contains only JSON/YAML-safe types and round-
+        trips through ``DefectSystem.from_dict``. ``site_pools`` and
+        ``element_pools`` are included only when non-empty; each pool is
+        serialised as a mapping with named fields, species referenced by name
+        (a site pool as ``{"n_sites", "species"}``; an element pool as
+        ``{"target", "members": [{"species", "stoichiometry"}]}``).
+
+        The serialised formation energies already include any corrections
+        applied at construction (``vbm_shift``, ``cbm_shift``,
+        ``formation_energy_corrections``, ``rigid_shift``); those constructor
+        parameters are deliberately not round-tripped, since re-applying a
+        non-rigid correction on load would double-count it.
+
         Returns:
-            dict: dictionary representation of the ``DefectSystem``, suitable for
-            round-tripping through ``DefectSystem.from_dict``.
+            dict: dictionary representation of the ``DefectSystem``.
         """
 
         defect_system_dict = dict(
@@ -930,6 +1004,12 @@ class DefectSystem:
         )
         if self.convergence_tolerance is not None:
             defect_system_dict["convergence_tolerance"] = self.convergence_tolerance
+        if self.site_pools:
+            defect_system_dict["site_pools"] = _site_pools_as_dict(self.site_pools)
+        if self.element_pools:
+            defect_system_dict["element_pools"] = _element_pools_as_dict(
+                self.element_pools
+            )
         return defect_system_dict
 
 
