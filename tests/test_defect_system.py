@@ -1762,6 +1762,36 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         self.assertEqual(reloaded.site_pools, {})
         self.assertEqual(reloaded.element_pools, {})
 
+    def test_corrections_round_trip_via_baked_energies(self):
+        donor_states = [
+            DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+            DefectChargeState(charge=1, energy=0.6, degeneracy=2),
+        ]
+        acceptor_states = [
+            DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+            DefectChargeState(charge=-1, energy=0.6, degeneracy=2),
+        ]
+        donor = DefectSpecies("D", nsites=2, charge_states=donor_states)
+        acceptor = DefectSpecies("Acc", nsites=2, charge_states=acceptor_states)
+        system = DefectSystem(
+            defect_species=[donor, acceptor],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            vbm_shift=0.1,
+            cbm_shift=-0.05,
+            formation_energy_corrections={donor_states[1]: 0.2},
+            rigid_shift=False,
+        )
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
+        e_original = system.get_sc_fermi()[0]
+        e_reloaded = reloaded.get_sc_fermi()[0]
+        self.assertAlmostEqual(e_original, e_reloaded, places=6)
+        original = self._concs_by_name(system, e_original)
+        reloaded_totals = self._concs_by_name(reloaded, e_reloaded)
+        for name, total in original.items():
+            self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
 
 if __name__ == "__main__":
     unittest.main()
