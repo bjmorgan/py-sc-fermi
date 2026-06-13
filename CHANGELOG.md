@@ -21,6 +21,11 @@
   v2.1.0. The self-consistent Fermi energy solver uses `scipy.optimize.brentq`
   and no longer takes a maximum-iterations argument; pass
   `convergence_tolerance` to control solver precision instead.
+- `DefectSpecies` names within a `DefectSystem` must now be unique;
+  constructing a `DefectSystem` with two species sharing a name raises a
+  `ValueError`. Names key `concentration_dict` and `defect_species_by_name`, so
+  duplicates were already ambiguous -- this now fails loudly at construction
+  rather than silently.
 
 ### Improvements
 
@@ -59,6 +64,13 @@
   is written as a self-describing mapping with species referenced by name.
   `DOS.as_dict` now emits native Python floats, so a `DefectSystem` dictionary
   is YAML-safe.
+- `site_pools` and `element_pools` references are validated at construction: a
+  `ValueError` is raised for a reference to a species not in `defect_species`,
+  a species listed more than once within a pool, or a species placed in more
+  than one site pool. References may be given as `DefectSpecies` objects or
+  names interchangeably (both are normalised to names internally).
+  `DefectSystem.defect_species_by_name` now raises a `ValueError` listing the
+  available names, rather than an `IndexError`, when given an unknown name.
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) used to compute the
