@@ -41,6 +41,10 @@ class TestDefectSystemInit(unittest.TestCase):
         mock_defect_species[1].name = "O_i"
         mock_defect_species[0].charge_states = []
         mock_defect_species[1].charge_states = []
+        mock_defect_species[0].fixed_concentration = None
+        mock_defect_species[1].fixed_concentration = None
+        mock_defect_species[0].nsites = 1
+        mock_defect_species[1].nsites = 1
         dos = Mock(spec=DOS)
         temperature = 298
         defect_system = DefectSystem(
@@ -67,6 +71,10 @@ class TestDefectSystem(unittest.TestCase):
         mock_defect_species[1].name = "O_i"
         mock_defect_species[0].charge_states = []
         mock_defect_species[1].charge_states = []
+        mock_defect_species[0].fixed_concentration = None
+        mock_defect_species[1].fixed_concentration = None
+        mock_defect_species[0].nsites = 1
+        mock_defect_species[1].nsites = 1
         dos = Mock(spec=DOS)
         dos.spin_polarised = True
         dos._nelect = 12
@@ -405,16 +413,17 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertEqual(system.site_pools, {"shared": (10.0, ["A", "B"])})
 
     def test_pool_raises_when_fixed_concentrations_exceed_site_count(self):
+        # Over-budget fixed concentrations are a static constraint violation,
+        # rejected at construction rather than surfacing from the solve.
         self.species_a.charge_states[0].fix_concentration(20.0)
-        system = DefectSystem(
-            defect_species=[self.species_a],
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-            site_pools={"shared": (10.0, [self.species_a])},
-        )
         with self.assertRaises(ValueError):
-            system._global_defect_concs(1.0)
+            DefectSystem(
+                defect_species=[self.species_a],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (10.0, [self.species_a])},
+            )
 
     def test_pooled_species_honours_species_level_fixed_concentration(self):
         self.species_a.fix_concentration(3.0)
@@ -446,15 +455,26 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self,
     ):
         self.species_a.fix_concentration(20.0)
-        system = DefectSystem(
-            defect_species=[self.species_a],
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-            site_pools={"shared": (10.0, [self.species_a])},
-        )
         with self.assertRaises(ValueError):
-            system._global_defect_concs(1.0)
+            DefectSystem(
+                defect_species=[self.species_a],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (10.0, [self.species_a])},
+            )
+
+    def test_unpooled_species_raises_when_fixed_concentration_exceeds_nsites(self):
+        # An unpooled species' implicit group budget is its own nsites; the
+        # error names the species and the budget-versus-occupancy.
+        self.species_a.fix_concentration(20.0)  # nsites=5
+        with self.assertRaisesRegex(ValueError, r"'A' has 5 .*occupy 20"):
+            DefectSystem(
+                defect_species=[self.species_a],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+            )
 
     def test_repr_lists_site_pools_by_name(self):
         system = DefectSystem(
@@ -1851,7 +1871,7 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
                     degeneracy=np.float64(1),
                 ),
                 DefectChargeState(
-                    charge=np.int64(1), fixed_concentration=np.float64(1e19)
+                    charge=np.int64(1), fixed_concentration=np.float64(2.0)
                 ),
             ],
         )
