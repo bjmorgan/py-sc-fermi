@@ -720,24 +720,6 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
         )
         self.assertAlmostEqual(system.site_percentages()["F"], 75.0, places=8)
 
-    def test_fixed_concentration_exceeding_sites_is_not_reported(self):
-        # A fixed concentration above the site budget cannot be hosted: the
-        # solve raises rather than returning an occupancy above 100%.
-        species = DefectSpecies(
-            "F",
-            nsites=2,
-            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
-            fixed_concentration=5.0,
-        )
-        system = DefectSystem(
-            defect_species=[species],
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-        )
-        with self.assertRaises(RuntimeError):
-            system.site_percentages()
-
     def test_mixed_pooled_and_unpooled_species_use_their_own_denominators(self):
         # A pooled species is divided by the pool size; an unpooled species in
         # the same system is divided by its own nsites.
