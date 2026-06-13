@@ -627,12 +627,17 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             volume=100,
             temperature=300,
         )
-        self.assertLessEqual(system.site_percentages()["R"], 100.0)
+        # Two-sided: a saturating species fills almost all its sites, so the
+        # occupancy is both bounded by 100% (the bug) and near it (not zero).
+        pct = system.site_percentages()["R"]
+        self.assertLessEqual(pct, 100.0)
+        self.assertGreater(pct, 99.0)
 
-    def test_site_percentages_match_global_defect_concs(self):
-        # One source of truth: the reported percentage equals the species'
-        # total in _global_defect_concs over its available sites, at the
-        # solved Fermi level.
+    def test_site_percentages_agree_with_concentration_dict(self):
+        # The documented contract: site_percentages reports the same solved
+        # concentrations as concentration_dict, just as an occupancy fraction.
+        # Comparing the two public methods pins that contract without
+        # duplicating the internal formula.
         species = DefectSpecies(
             "R",
             nsites=2,
@@ -647,10 +652,8 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             volume=100,
             temperature=300,
         )
-        e_fermi = system.get_sc_fermi()[0]
-        concs = system._global_defect_concs(e_fermi)
-        ds = system.defect_species[0]
-        expected = sum(concs[cs] for cs in ds.charge_states) / ds.nsites * 100
+        per_cell = system.concentration_dict(decomposed=False, per_volume=False)
+        expected = per_cell["R"] / species.nsites * 100
         self.assertAlmostEqual(system.site_percentages()["R"], expected, places=8)
 
     def test_pooled_species_percentages_bounded_by_pool(self):
@@ -698,6 +701,71 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
         old_expression = species.get_concentration(e_fermi, 300) / species.nsites * 100
         new_pct = system.site_percentages()["D"]
         self.assertAlmostEqual(new_pct / old_expression, 1.0, places=6)
+
+    def test_fixed_concentration_within_sites_reports_faithful_ratio(self):
+        # A fixed concentration takes a distinct path (_build_group writes it
+        # straight into the concentrations); in budget it is reported
+        # faithfully as fixed / nsites, e.g. 3 of 4 sites -> 75%.
+        species = DefectSpecies(
+            "F",
+            nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+            fixed_concentration=3.0,
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        self.assertAlmostEqual(system.site_percentages()["F"], 75.0, places=8)
+
+    def test_fixed_concentration_exceeding_sites_is_not_reported(self):
+        # A fixed concentration above the site budget cannot be hosted: the
+        # solve raises rather than returning an occupancy above 100%.
+        species = DefectSpecies(
+            "F",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+            fixed_concentration=5.0,
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        with self.assertRaises(RuntimeError):
+            system.site_percentages()
+
+    def test_mixed_pooled_and_unpooled_species_use_their_own_denominators(self):
+        # A pooled species is divided by the pool size; an unpooled species in
+        # the same system is divided by its own nsites.
+        pooled = DefectSpecies(
+            "P",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+        )
+        unpooled = DefectSpecies(
+            "U",
+            nsites=3,
+            charge_states=[DefectChargeState(charge=0, energy=-0.5, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[pooled, unpooled],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": (4.0, [pooled])},
+        )
+        per_cell = system.concentration_dict(decomposed=False, per_volume=False)
+        pct = system.site_percentages()
+        # P's own nsites is 5, but as a pool member its denominator is the
+        # pool size 4.0; U falls back to its own nsites 3.
+        self.assertAlmostEqual(pct["P"], per_cell["P"] / 4.0 * 100, places=8)
+        self.assertAlmostEqual(pct["U"], per_cell["U"] / 3.0 * 100, places=8)
+        self.assertLessEqual(pct["P"], 100.0)
+        self.assertLessEqual(pct["U"], 100.0)
 
 
 class TestDefectSystemPoolValidation(unittest.TestCase):

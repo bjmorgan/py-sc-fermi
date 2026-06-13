@@ -1028,17 +1028,14 @@ class DefectSystem:
         """Return each ``DefectSpecies``' solved site occupancy as a
         percentage of the sites available to it.
 
-        The occupancies are taken from the same solved, pool- and
-        exclusion-aware concentrations as ``report`` and
-        ``concentration_dict`` (``_global_defect_concs`` at the
-        self-consistent Fermi level), so the three agree. For a
-        variable-concentration species the occupancy is at most 100%: site
-        exclusion caps a species' total at the sites available to it. The
-        denominator is that available site count -- the species' own
+        The occupancies are drawn from the same solved, pool- and
+        exclusion-aware concentrations as ``report`` and ``concentration_dict``
+        (``_global_defect_concs`` at the self-consistent Fermi level). The
+        denominator is the sites available to the species -- its own
         ``nsites``, or, for a species in a ``site_pools`` entry, the pool's
-        total site count, so a pool's members occupy at most 100% of it. An
-        explicit ``fixed_concentration`` exceeding the site count is reported
-        faithfully and may exceed 100%.
+        total site count (so a pool's members together occupy at most 100% of
+        it). A species' concentration cannot exceed its available sites, so
+        every occupancy is at most 100%.
 
         Returns:
             dict[str, float]: mapping of ``DefectSpecies`` name to its site
