@@ -1823,6 +1823,49 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         self.assertIs(type(as_dict["convergence_tolerance"]), float)
         yaml.safe_dump(as_dict)
 
+    def test_baked_numpy_correction_keeps_as_dict_yaml_safe(self):
+        # The documented temperature-dependent-shift workflow: a numpy vbm_shift
+        # with rigid_shift=False bakes -charge * vbm_shift into each energy,
+        # promoting it to np.float64. The whole-system dict must stay YAML-safe.
+        system = DefectSystem(
+            defect_species=[self.species_a, self.species_b],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            vbm_shift=np.float64(0.1),
+            rigid_shift=False,
+        )
+        yaml.safe_dump(system.as_dict())
+
+    def test_fully_numpy_system_as_dict_is_yaml_safe(self):
+        # Contract guard at the boundary: every numeric field built from a numpy
+        # scalar. Catches a YAML-safety leak in any field without relying on a
+        # per-field test being remembered for it.
+        species = DefectSpecies(
+            "Z",
+            nsites=np.int64(4),
+            charge_states=[
+                DefectChargeState(
+                    charge=np.int64(0),
+                    energy=np.float64(0.5),
+                    degeneracy=np.float64(1),
+                ),
+                DefectChargeState(
+                    charge=np.int64(1), fixed_concentration=np.float64(1e19)
+                ),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=np.float64(100.0),
+            temperature=np.float64(300.0),
+            convergence_tolerance=np.float64(1e-8),
+            site_pools={"p": (np.float64(4.0), ["Z"])},
+            element_pools={"X": (np.float64(0.5), [("Z", np.float64(1.0))])},
+        )
+        yaml.safe_dump(system.as_dict())
+
 
 if __name__ == "__main__":
     unittest.main()
