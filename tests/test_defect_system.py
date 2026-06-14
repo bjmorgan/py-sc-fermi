@@ -2531,6 +2531,29 @@ class TestDiluteLimitWarning(unittest.TestCase):
         self.assertIn("dilute", message.lower())
         self.assertIn("non-physical", message.lower())
 
+    def test_factory_forwards_threshold_to_built_systems(self):
+        species = self._saturating_species("S")
+        warning_factory = DefectSystemFactory(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            occupancy_warning_threshold=0.01,
+        )
+        silent_factory = DefectSystemFactory(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            occupancy_warning_threshold=None,
+        )
+        with warnings.catch_warnings(record=True) as warn_records:
+            warnings.simplefilter("always")
+            warning_factory.at(300).get_sc_fermi()
+        with warnings.catch_warnings(record=True) as silent_records:
+            warnings.simplefilter("always")
+            silent_factory.at(300).get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(warn_records)), 1)
+        self.assertEqual(self._dilute_warnings(silent_records), [])
+
     def test_pooled_species_occupancy_measured_against_pool_size(self):
         # nsites=1 but the species shares a 10-site pool. At ~0.057 eV it holds
         # ~1 defect/cell -> ~10% of the POOL. If occupancy were (wrongly)

@@ -1320,6 +1320,7 @@ class DefectSystemFactory:
             dict[DefectChargeState, Callable[[float], float]] | None
         ) = None,
         rigid_shift: bool = True,
+        occupancy_warning_threshold: float | None = 0.01,
     ):
         self.defect_species = defect_species
         self.dos = dos
@@ -1331,6 +1332,7 @@ class DefectSystemFactory:
         self.cbm_shift_fn = cbm_shift_fn
         self.formation_energy_correction_fns = formation_energy_correction_fns or {}
         self.rigid_shift = rigid_shift
+        self.occupancy_warning_threshold = occupancy_warning_threshold
 
     def at(self, temperature: float, **overrides: Any) -> DefectSystem:
         """Build a `DefectSystem` snapshot at `temperature`.
@@ -1376,6 +1378,7 @@ class DefectSystemFactory:
             cbm_shift=cbm_shift,
             formation_energy_corrections=formation_energy_corrections,
             rigid_shift=self.rigid_shift,
+            occupancy_warning_threshold=self.occupancy_warning_threshold,
         )
         kwargs.update(overrides)
         return DefectSystem(**kwargs)
