@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import math
+import sys
+import warnings
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -18,6 +20,20 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
+
+
+class DiluteLimitWarning(UserWarning):
+    """Warns that a defect's solved site occupancy is high enough that
+    py-sc-fermi's dilute, non-interacting-defect assumption may no longer hold,
+    so the results may be non-physical.
+
+    Emitted by :meth:`DefectSystem.get_sc_fermi` -- and therefore by every
+    results path that solves (``report``, ``concentration_dict``,
+    ``site_percentages``) -- when any species' occupancy exceeds
+    ``DefectSystem.occupancy_warning_threshold``, at most once per
+    ``DefectSystem`` instance. A dedicated ``UserWarning`` subclass so it can be
+    filtered independently of other warnings.
+    """
 
 
 # Pools as accepted by the constructor: each species given as a DefectSpecies
@@ -217,14 +233,26 @@ class DefectSystem:
           -- its own `nsites`, or its shared `site_pools` size -- or below its
           individually-fixed charge states), is rejected at construction by the
           same checks as a species-level fix. Defaults to None (no fixes).
+        occupancy_warning_threshold (float | None, optional): the site-occupancy
+          fraction (0.01 = 1%) above which a ``DiluteLimitWarning`` is emitted
+          when the system is solved, naming any species whose solved occupancy
+          exceeds it. py-sc-fermi assumes dilute, non-interacting defects, so a
+          high occupancy flags a regime in which un-modelled defect-defect
+          interactions may make the results non-physical. The default is a
+          heuristic, provisional value that will be revisited; lower it where
+          interactions matter sooner (e.g. charged defects in low-dielectric
+          hosts), or set ``None`` to silence the warning. Must be ``None`` or a
+          finite fraction in (0, 1]. This is a reporting preference, not part of
+          the physical system, and is not serialised. Defaults to 0.01.
 
     Raises:
         ValueError: if two entries in `defect_species` share a name, a pool
           references a species not in `defect_species`, a pool lists a
           species more than once, a species appears in more than one site
           pool, `formation_energy_corrections` references a `DefectChargeState`
-          that is not part of `defect_species`, or `fixed_concentrations` names
-          a species not in `defect_species`.
+          that is not part of `defect_species`, `fixed_concentrations` names
+          a species not in `defect_species`, or `occupancy_warning_threshold`
+          is not ``None`` or a finite fraction in (0, 1].
 
     Note:
         `DefectSystem` is an immutable, fixed-temperature snapshot:
@@ -251,6 +279,7 @@ class DefectSystem:
         formation_energy_corrections: dict[DefectChargeState, float] | None = None,
         rigid_shift: bool = True,
         fixed_concentrations: dict[str, float] | None = None,
+        occupancy_warning_threshold: float | None = 0.01,
     ):
         self.volume = volume
         self.dos = dos
@@ -259,6 +288,10 @@ class DefectSystem:
         self.vbm_shift = vbm_shift
         self.cbm_shift = cbm_shift
         self.rigid_shift = rigid_shift
+        self.occupancy_warning_threshold = self._validate_occupancy_warning_threshold(
+            occupancy_warning_threshold
+        )
+        self._occupancy_warning_emitted = False
 
         self.defect_species = copy.deepcopy(defect_species)
         self._apply_formation_energy_corrections(
@@ -271,6 +304,28 @@ class DefectSystem:
         self._validate_pools()
         self._apply_fixed_concentrations(fixed_concentrations or {})
         self._validate_fixed_concentrations()
+
+    @staticmethod
+    def _validate_occupancy_warning_threshold(value: float | None) -> float | None:
+        """Validate the site-occupancy warning threshold.
+
+        Returns ``value`` unchanged if it is ``None`` (warning disabled) or a
+        finite fraction in ``(0, 1]``.
+
+        Raises:
+            ValueError: if ``value`` is not ``None`` and not a finite number in
+                ``(0, 1]``. Occupancy is a fraction that maxes at 1.0, so a
+                threshold outside this range -- including NaN or infinity --
+                could never sensibly fire.
+        """
+        if value is None:
+            return None
+        if not (0.0 < value <= 1.0):
+            raise ValueError(
+                "occupancy_warning_threshold must be a fraction in (0, 1] or "
+                f"None; got {value}"
+            )
+        return value
 
     def _apply_fixed_concentrations(
         self, fixed_concentrations: dict[str, float]
@@ -329,7 +384,8 @@ class DefectSystem:
         Raises:
             ValueError: if two roster species share a name, a pool references
                 a species not in the roster, a pool lists a species more than
-                once, or a species appears in more than one site pool.
+                once, a species appears in more than one site pool, or a site
+                pool has a non-positive site count.
         """
         name_counts = Counter(ds.name for ds in self.defect_species)
         duplicates = sorted(name for name, count in name_counts.items() if count > 1)
@@ -341,7 +397,12 @@ class DefectSystem:
 
         roster = set(name_counts)
         site_pool_of: dict[str, str] = {}
-        for pool_name, (_, members) in self.site_pools.items():
+        for pool_name, (n_pool_sites, members) in self.site_pools.items():
+            if not (n_pool_sites > 0):
+                raise ValueError(
+                    f"site pool '{pool_name}' must have n_sites > 0; "
+                    f"got {n_pool_sites}."
+                )
             self._check_pool_members("site pool", pool_name, members, roster)
             for name in members:
                 first = site_pool_of.setdefault(name, pool_name)
@@ -966,7 +1027,97 @@ class DefectSystem:
         # window brackets a genuine root. The returned residual is a diagnostic
         # on that solution.
         residual = abs(self.q_tot(e_fermi))
+        self._warn_if_high_occupancy(e_fermi)
         return e_fermi, residual
+
+    def _warn_if_high_occupancy(self, e_fermi: float) -> None:
+        """Emit a ``DiluteLimitWarning`` if any species' solved site occupancy
+        exceeds ``occupancy_warning_threshold``.
+
+        Does nothing when the threshold is ``None`` or when this system has
+        already warned. Otherwise computes the per-species occupancy fractions
+        at the converged ``e_fermi`` and, if any species is above the threshold,
+        emits one warning naming every offending species and its occupancy,
+        worst first. The warning fires at most once per ``DefectSystem``: the
+        occupancy verdict is deterministic for an immutable snapshot, so a user
+        inspecting one solved system through several methods (``report``,
+        ``concentration_dict``, ``site_percentages``, a direct ``get_sc_fermi``)
+        sees a single warning, attributed to their own call rather than to an
+        internal solve method.
+
+        Args:
+            e_fermi (float): the self-consistent Fermi energy from
+              ``get_sc_fermi``.
+        """
+        threshold = self.occupancy_warning_threshold
+        if self._occupancy_warning_emitted or threshold is None:
+            return
+        fractions = self._site_occupancy_fractions(e_fermi)
+        offenders = sorted(
+            (
+                (name, fraction)
+                for name, fraction in fractions.items()
+                if fraction > threshold
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        if not offenders:
+            return
+        self._occupancy_warning_emitted = True
+        warnings.warn(
+            self._high_occupancy_message(offenders),
+            DiluteLimitWarning,
+            stacklevel=self._warning_stacklevel(),
+        )
+
+    @staticmethod
+    def _warning_stacklevel() -> int:
+        """``stacklevel`` for the high-occupancy ``warnings.warn`` call that
+        points at the first frame outside this module.
+
+        The warning is reached at different stack depths -- directly via
+        ``get_sc_fermi``, or one frame deeper via ``report``,
+        ``concentration_dict`` or ``site_percentages`` -- so no fixed
+        ``stacklevel`` blames the caller on every path. Counting frames up to
+        the first one outside ``py_sc_fermi.defect_system`` attributes the
+        warning to the user's call. ``warnings.warn`` is invoked one frame above
+        this helper, where the count begins.
+        """
+        frame: Any = sys._getframe(1)
+        level = 1
+        while frame is not None and frame.f_globals.get("__name__") == __name__:
+            frame = frame.f_back
+            level += 1
+        return level
+
+    @staticmethod
+    def _high_occupancy_message(offenders: list[tuple[str, float]]) -> str:
+        """Build the ``DiluteLimitWarning`` message for the offending species.
+
+        Args:
+            offenders: ``(name, occupancy fraction)`` pairs, ordered worst first.
+
+        Returns:
+            str: a two-sentence message reporting the occupancies, naming the
+            dilute assumption, and warning the results may be non-physical.
+        """
+        caveat = (
+            "py-sc-fermi assumes dilute, non-interacting defects, so results at "
+            "this occupancy may be non-physical."
+        )
+        if len(offenders) == 1:
+            name, fraction = offenders[0]
+            return (
+                f"'{name}' reaches {fraction * 100:.3g}% site occupancy at the "
+                f"self-consistent Fermi level. {caveat}"
+            )
+        listed = [f"'{name}' ({fraction * 100:.3g}%)" for name, fraction in offenders]
+        joined = f"{', '.join(listed[:-1])} and {listed[-1]}"
+        return (
+            f"{joined} reach high site occupancy at the self-consistent Fermi "
+            f"level. {caveat}"
+        )
 
     def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float,float]:
         lhs = rhs = 0.0
@@ -1067,6 +1218,41 @@ class DefectSystem:
                 decomp_concs[str(ds.name)] = by_charge
             return {**run_stats, **decomp_concs}
 
+    def _site_occupancy_fractions(self, e_fermi: float) -> dict[str, float]:
+        """Return each ``DefectSpecies``' site occupancy as a fraction of the
+        sites available to it, at an already-solved Fermi level.
+
+        The concentrations are the same pool- and exclusion-aware values used
+        by ``report`` and ``concentration_dict`` (``_global_defect_concs`` at
+        ``e_fermi``). The denominator is the sites available to the species:
+        the pool's total site count for a species in a ``site_pools`` entry,
+        otherwise its own ``nsites``. This is the fractional form of
+        ``site_percentages`` (which scales it by 100); both draw on a single
+        solved ``e_fermi`` rather than re-solving, so the high-occupancy warning
+        and ``site_percentages`` share one source of truth.
+
+        Args:
+            e_fermi (float): a self-consistent Fermi energy, as returned by
+              ``get_sc_fermi``.
+
+        Returns:
+            dict[str, float]: mapping of ``DefectSpecies`` name to its site
+            occupancy as a fraction (0.0-1.0).
+        """
+        concs = self._global_defect_concs(e_fermi)
+        pool_sites = {
+            name: n_sites
+            for n_sites, members in self.site_pools.values()
+            for name in members
+        }
+        return {
+            str(ds.name): float(
+                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+                / pool_sites.get(ds.name, ds.nsites)
+            )
+            for ds in self.defect_species
+        }
+
     def site_percentages(self) -> dict[str, float]:
         """Return each ``DefectSpecies``' solved site occupancy as a
         percentage of the sites available to it.
@@ -1085,19 +1271,9 @@ class DefectSystem:
             occupancy as a percentage.
         """
         e_fermi = self.get_sc_fermi()[0]
-        concs = self._global_defect_concs(e_fermi)
-        pool_sites = {
-            name: n_sites
-            for n_sites, members in self.site_pools.values()
-            for name in members
-        }
         return {
-            str(ds.name): float(
-                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
-                / pool_sites.get(ds.name, ds.nsites)
-                * 100
-            )
-            for ds in self.defect_species
+            name: fraction * 100
+            for name, fraction in self._site_occupancy_fractions(e_fermi).items()
         }
 
     def as_dict(self) -> dict:
@@ -1173,6 +1349,10 @@ class DefectSystemFactory:
           be `DefectChargeState`s in `defect_species`. Defaults to None.
         rigid_shift (bool, optional): passed to every `DefectSystem` built by
           `at()`. Defaults to True.
+        occupancy_warning_threshold (float | None, optional): passed to every
+          `DefectSystem` built by `at()`, so a temperature sweep warns
+          consistently. See `DefectSystem` for its meaning and validation.
+          Defaults to 0.01.
     """
 
     def __init__(
@@ -1189,6 +1369,7 @@ class DefectSystemFactory:
             dict[DefectChargeState, Callable[[float], float]] | None
         ) = None,
         rigid_shift: bool = True,
+        occupancy_warning_threshold: float | None = 0.01,
     ):
         self.defect_species = defect_species
         self.dos = dos
@@ -1200,6 +1381,7 @@ class DefectSystemFactory:
         self.cbm_shift_fn = cbm_shift_fn
         self.formation_energy_correction_fns = formation_energy_correction_fns or {}
         self.rigid_shift = rigid_shift
+        self.occupancy_warning_threshold = occupancy_warning_threshold
 
     def at(self, temperature: float, **overrides: Any) -> DefectSystem:
         """Build a `DefectSystem` snapshot at `temperature`.
@@ -1245,6 +1427,7 @@ class DefectSystemFactory:
             cbm_shift=cbm_shift,
             formation_energy_corrections=formation_energy_corrections,
             rigid_shift=self.rigid_shift,
+            occupancy_warning_threshold=self.occupancy_warning_threshold,
         )
         kwargs.update(overrides)
         return DefectSystem(**kwargs)

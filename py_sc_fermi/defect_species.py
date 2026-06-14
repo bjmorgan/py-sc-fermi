@@ -38,6 +38,10 @@ class DefectSpecies:
             raise ValueError(
                 f"DefectSpecies '{name}' must have at least one charge state."
             )
+        if nsites <= 0:
+            raise ValueError(
+                f"DefectSpecies '{name}' must have nsites > 0; got {nsites}."
+            )
         self._name = name
         self._nsites = nsites
         self._charge_states = charge_states

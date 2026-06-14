@@ -1,6 +1,8 @@
 import json
 import os
 import unittest
+import warnings
+from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -10,7 +12,11 @@ from scipy.constants import physical_constants
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.defect_system import DefectSystem, DefectSystemFactory
+from py_sc_fermi.defect_system import (
+    DefectSystem,
+    DefectSystemFactory,
+    DiluteLimitWarning,
+)
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 
@@ -2360,6 +2366,258 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
                 site_pools={"shared": (1.0, ["A", "B"])},
                 fixed_concentrations={"A": 0.7, "B": 0.5},
             )
+
+
+class TestDiluteLimitWarning(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+
+    def _make_system(self, defect_species, **kwargs):
+        return DefectSystem(
+            defect_species=defect_species,
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            **kwargs,
+        )
+
+    @staticmethod
+    def _saturating_species(name="S", nsites=2, energy=-2.0):
+        # A neutral state's occupancy w/(1+w) is e_fermi-independent; a low
+        # energy drives it to ~100% of its sites.
+        return DefectSpecies(
+            name,
+            nsites=nsites,
+            charge_states=[DefectChargeState(charge=0, energy=energy, degeneracy=1)],
+        )
+
+    def test_threshold_defaults_to_one_percent(self):
+        system = self._make_system([self._saturating_species()])
+        self.assertEqual(system.occupancy_warning_threshold, 0.01)
+
+    def test_threshold_is_stored(self):
+        system = self._make_system(
+            [self._saturating_species()], occupancy_warning_threshold=0.2
+        )
+        self.assertEqual(system.occupancy_warning_threshold, 0.2)
+
+    def test_none_threshold_is_stored(self):
+        system = self._make_system(
+            [self._saturating_species()], occupancy_warning_threshold=None
+        )
+        self.assertIsNone(system.occupancy_warning_threshold)
+
+    def test_out_of_range_threshold_raises(self):
+        species = self._saturating_species()
+        for bad in (0.0, 1.5, -0.1, float("nan"), float("inf")):
+            with self.assertRaises(ValueError):
+                self._make_system([species], occupancy_warning_threshold=bad)
+
+    def test_threshold_of_one_is_allowed(self):
+        system = self._make_system(
+            [self._saturating_species()], occupancy_warning_threshold=1.0
+        )
+        self.assertEqual(system.occupancy_warning_threshold, 1.0)
+
+    def test_site_occupancy_fractions_match_site_percentages(self):
+        # Pooled system: occupancy is measured against the pool size, and the
+        # fractions are exactly site_percentages / 100.
+        a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=0.057, degeneracy=1)],
+        )
+        b = DefectSpecies(
+            "B",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.2, degeneracy=1)],
+        )
+        system = self._make_system([a, b], site_pools={"shared": (4.0, [a, b])})
+        e_fermi = system.get_sc_fermi()[0]
+        fractions = system._site_occupancy_fractions(e_fermi)
+        percentages = system.site_percentages()
+        for name in ("A", "B"):
+            self.assertAlmostEqual(fractions[name] * 100, percentages[name], places=10)
+
+    @staticmethod
+    def _dilute_warnings(records):
+        return [r for r in records if issubclass(r.category, DiluteLimitWarning)]
+
+    def test_high_occupancy_species_emits_single_warning(self):
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        self.assertIn("S", str(dilute[0].message))
+
+    def test_dilute_species_emits_no_warning(self):
+        species = DefectSpecies(
+            "D",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = self._make_system([species])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(self._dilute_warnings(records), [])
+
+    def test_none_threshold_suppresses_warning(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(self._dilute_warnings(records), [])
+
+    def test_custom_threshold_changes_when_warning_fires(self):
+        # Neutral state at ~0.057 eV -> ~10% site occupancy.
+        def at_ten_percent():
+            return DefectSpecies(
+                "T",
+                nsites=1,
+                charge_states=[
+                    DefectChargeState(charge=0, energy=0.057, degeneracy=1)
+                ],
+            )
+
+        fires = self._make_system(
+            [at_ten_percent()], occupancy_warning_threshold=0.01
+        )
+        silent = self._make_system(
+            [at_ten_percent()], occupancy_warning_threshold=0.5
+        )
+        with warnings.catch_warnings(record=True) as fires_records:
+            warnings.simplefilter("always")
+            fires.get_sc_fermi()
+        with warnings.catch_warnings(record=True) as silent_records:
+            warnings.simplefilter("always")
+            silent.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(fires_records)), 1)
+        self.assertEqual(self._dilute_warnings(silent_records), [])
+
+    def test_multiple_high_occupancy_species_listed_worst_first(self):
+        # Distinct occupancies (neutral states are e_fermi-independent): the
+        # lower-occupancy species is declared FIRST, so the test fails if the
+        # message is not re-ordered worst-first.
+        low = DefectSpecies(
+            "low_occ",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.1, degeneracy=1)],
+        )
+        high = DefectSpecies(
+            "high_occ",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+        )
+        system = self._make_system([low, high])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        message = str(dilute[0].message)
+        self.assertIn("low_occ", message)
+        self.assertIn("high_occ", message)
+        self.assertIn(" and ", message)
+        self.assertLess(message.index("high_occ"), message.index("low_occ"))
+
+    def test_warning_is_dilute_limit_category_with_expected_content(self):
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        self.assertIs(dilute[0].category, DiluteLimitWarning)
+        message = str(dilute[0].message)
+        self.assertIn("S", message)
+        self.assertIn("%", message)
+        self.assertIn("dilute", message.lower())
+        self.assertIn("non-physical", message.lower())
+
+    def test_factory_forwards_threshold_to_built_systems(self):
+        species = self._saturating_species("S")
+        warning_factory = DefectSystemFactory(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            occupancy_warning_threshold=0.01,
+        )
+        silent_factory = DefectSystemFactory(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            occupancy_warning_threshold=None,
+        )
+        with warnings.catch_warnings(record=True) as warn_records:
+            warnings.simplefilter("always")
+            warning_factory.at(300).get_sc_fermi()
+        with warnings.catch_warnings(record=True) as silent_records:
+            warnings.simplefilter("always")
+            silent_factory.at(300).get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(warn_records)), 1)
+        self.assertEqual(self._dilute_warnings(silent_records), [])
+
+    def test_pooled_species_occupancy_measured_against_pool_size(self):
+        # nsites=1 but the species shares a 10-site pool. At ~0.057 eV it holds
+        # ~1 defect/cell -> ~10% of the POOL. If occupancy were (wrongly)
+        # measured against nsites=1 it would read ~100%, so the reported figure
+        # discriminates the denominator. site_percentages is the pool-based
+        # reference the warning must agree with.
+        species = DefectSpecies(
+            "P",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.057, degeneracy=1)],
+        )
+        system = self._make_system(
+            [species],
+            site_pools={"shared": (10.0, [species])},
+            occupancy_warning_threshold=0.01,
+        )
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        pool_pct = system.site_percentages()["P"]
+        self.assertLess(pool_pct, 100.0)
+        self.assertIn(f"{pool_pct:.3g}%", str(dilute[0].message))
+
+    def test_warns_at_most_once_per_system_under_default_filter(self):
+        # Inspecting one solved system several ways reaches the chokepoint at
+        # different stack depths; under the realistic default filter (not
+        # "always") that would defeat location-based de-duplication, so the
+        # once-per-instance guard is what holds this to a single warning.
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records, redirect_stdout(
+            StringIO()
+        ):
+            warnings.simplefilter("default")
+            system.report()
+            system.site_percentages()
+            system.concentration_dict()
+            system.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(records)), 1)
+
+    def test_threshold_absent_from_as_dict(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=0.5
+        )
+        self.assertNotIn("occupancy_warning_threshold", system.as_dict())
+
+    def test_zero_site_pool_rejected_at_construction(self):
+        species = self._saturating_species("S")
+        with self.assertRaises(ValueError):
+            self._make_system([species], site_pools={"shared": (0.0, [species])})
 
 
 if __name__ == "__main__":
