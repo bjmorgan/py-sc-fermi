@@ -2146,5 +2146,143 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         yaml.safe_dump(system.as_dict())
 
 
+class TestDefectSystemFixedConcentrations(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+
+    def _donor(self, name="X", energy=0.5, nsites=1):
+        return DefectSpecies(
+            name=name,
+            nsites=nsites,
+            charge_states=[DefectChargeState(charge=1, energy=energy, degeneracy=1)],
+        )
+
+    def test_constructor_fixes_species_total_by_name(self):
+        species = self._donor("X")
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            fixed_concentrations={"X": 0.01},
+        )
+        self.assertAlmostEqual(
+            system.concentration_dict(per_volume=False)["X"], 0.01
+        )
+        self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
+
+    def test_factory_at_fixes_species_total_by_name(self):
+        factory = DefectSystemFactory(
+            defect_species=[self._donor("X")], dos=self.dos, volume=100
+        )
+        system = factory.at(300, fixed_concentrations={"X": 0.01})
+        self.assertAlmostEqual(
+            system.concentration_dict(per_volume=False)["X"], 0.01
+        )
+        self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
+
+    def test_anneal_and_quench_freezes_some_species_and_re_equilibrates_rest(self):
+        # A minority donor frozen at its high-temperature total, plus a major
+        # donor/acceptor pair that re-equilibrates when the temperature drops.
+        frozen = self._donor("X_frozen", energy=1.5)
+        donor = self._donor("D", energy=0.5)
+        acceptor = DefectSpecies(
+            name="A",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=-1, energy=0.5, degeneracy=1)],
+        )
+        factory = DefectSystemFactory(
+            defect_species=[frozen, donor, acceptor], dos=self.dos, volume=100
+        )
+        T_high, T_low = 1000, 300
+
+        high = factory.at(T_high).concentration_dict(per_volume=False)
+        low = factory.at(
+            T_low, fixed_concentrations={"X_frozen": high["X_frozen"]}
+        ).concentration_dict(per_volume=False)
+
+        # the frozen species keeps its high-temperature total
+        self.assertAlmostEqual(
+            low["X_frozen"], high["X_frozen"], delta=abs(high["X_frozen"]) * 1e-9
+        )
+        # a non-frozen species and the carriers re-equilibrate
+        self.assertNotAlmostEqual(low["D"], high["D"])
+        self.assertNotAlmostEqual(low["n0"], high["n0"])
+
+    def test_fix_on_one_call_does_not_leak_to_another_or_to_the_factory(self):
+        species = self._donor("X")
+        factory = DefectSystemFactory(
+            defect_species=[species], dos=self.dos, volume=100
+        )
+
+        fixed = factory.at(300, fixed_concentrations={"X": 0.01})
+        free = factory.at(300)
+
+        # the un-fixed call is unaffected by the earlier fixed call
+        self.assertIsNone(free.defect_species_by_name("X").fixed_concentration)
+        self.assertNotAlmostEqual(
+            free.concentration_dict(per_volume=False)["X"], 0.01
+        )
+        self.assertAlmostEqual(
+            fixed.concentration_dict(per_volume=False)["X"], 0.01
+        )
+        # the factory's own species object is never mutated
+        self.assertIsNone(species.fixed_concentration)
+
+    def test_fix_composes_with_formation_energy_corrections(self):
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        corrected = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
+        acceptor = DefectSpecies(
+            name="A",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=-1, energy=0.5, degeneracy=1)],
+        )
+        factory = DefectSystemFactory(
+            defect_species=[corrected, acceptor],
+            dos=self.dos,
+            volume=100,
+            formation_energy_correction_fns={
+                cs_a: lambda T: 0.1,
+                cs_b: lambda T: -0.05,
+            },
+        )
+        system = factory.at(300, fixed_concentrations={"X_i": 0.02})
+
+        # the corrections (resolved by identity) survive applying the fix
+        self.assertAlmostEqual(system.defect_species[0].charge_states[0].energy, 0.6)
+        self.assertAlmostEqual(system.defect_species[0].charge_states[1].energy, 0.85)
+        # and the fix (resolved by name) is in effect
+        self.assertAlmostEqual(
+            system.concentration_dict(per_volume=False)["X_i"], 0.02
+        )
+
+    def test_unknown_species_name_raises_value_error_naming_it(self):
+        with self.assertRaises(ValueError) as ctx:
+            DefectSystem(
+                defect_species=[self._donor("X")],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                fixed_concentrations={"NOPE": 0.01},
+            )
+        self.assertIn("NOPE", str(ctx.exception))
+
+    def test_over_budget_fix_raises_value_error_at_construction(self):
+        with self.assertRaises(ValueError):
+            DefectSystem(
+                defect_species=[self._donor("X", nsites=1)],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                fixed_concentrations={"X": 5.0},
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
