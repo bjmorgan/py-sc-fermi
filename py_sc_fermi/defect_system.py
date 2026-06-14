@@ -231,14 +231,26 @@ class DefectSystem:
           -- its own `nsites`, or its shared `site_pools` size -- or below its
           individually-fixed charge states), is rejected at construction by the
           same checks as a species-level fix. Defaults to None (no fixes).
+        occupancy_warning_threshold (float | None, optional): the site-occupancy
+          fraction (0.01 = 1%) above which a ``DiluteLimitWarning`` is emitted
+          when the system is solved, naming any species whose solved occupancy
+          exceeds it. py-sc-fermi assumes dilute, non-interacting defects, so a
+          high occupancy flags a regime in which un-modelled defect-defect
+          interactions may make the results non-physical. The default is a
+          heuristic, provisional value that will be revisited; lower it where
+          interactions matter sooner (e.g. charged defects in low-dielectric
+          hosts), or set ``None`` to silence the warning. Must be ``None`` or a
+          finite fraction in (0, 1]. This is a reporting preference, not part of
+          the physical system, and is not serialised. Defaults to 0.01.
 
     Raises:
         ValueError: if two entries in `defect_species` share a name, a pool
           references a species not in `defect_species`, a pool lists a
           species more than once, a species appears in more than one site
           pool, `formation_energy_corrections` references a `DefectChargeState`
-          that is not part of `defect_species`, or `fixed_concentrations` names
-          a species not in `defect_species`.
+          that is not part of `defect_species`, `fixed_concentrations` names
+          a species not in `defect_species`, or `occupancy_warning_threshold`
+          is not ``None`` or a finite fraction in (0, 1].
 
     Note:
         `DefectSystem` is an immutable, fixed-temperature snapshot:
@@ -1304,6 +1316,10 @@ class DefectSystemFactory:
           be `DefectChargeState`s in `defect_species`. Defaults to None.
         rigid_shift (bool, optional): passed to every `DefectSystem` built by
           `at()`. Defaults to True.
+        occupancy_warning_threshold (float | None, optional): passed to every
+          `DefectSystem` built by `at()`, so a temperature sweep warns
+          consistently. See `DefectSystem` for its meaning and validation.
+          Defaults to 0.01.
     """
 
     def __init__(
