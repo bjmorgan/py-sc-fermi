@@ -205,21 +205,34 @@ class DefectSystem:
           defect levels are fixed in absolute energy while the band edges
           move, so such charge states have their formation energy shifted by
           `-charge * vbm_shift`.
+        fixed_concentrations (dict[str, float] | None, optional): mapping of
+          species name -> fixed total concentration (per unit cell). Each
+          named species has its total concentration fixed at the given value,
+          overriding any species-level `fixed_concentration` it was constructed
+          with. The fix is applied by name to this system's own copies of
+          `defect_species`, so it composes with `formation_energy_corrections`
+          (resolved by identity against the passed-in objects) and never
+          mutates the caller's species. A non-finite or negative value, or one
+          that cannot be hosted (above its site-exclusion group's site budget
+          -- its own `nsites`, or its shared `site_pools` size -- or below its
+          individually-fixed charge states), is rejected at construction by the
+          same checks as a species-level fix. Defaults to None (no fixes).
 
     Raises:
         ValueError: if two entries in `defect_species` share a name, a pool
           references a species not in `defect_species`, a pool lists a
           species more than once, a species appears in more than one site
-          pool, or `formation_energy_corrections` references a
-          `DefectChargeState` that is not part of `defect_species`.
+          pool, `formation_energy_corrections` references a `DefectChargeState`
+          that is not part of `defect_species`, or `fixed_concentrations` names
+          a species not in `defect_species`.
 
     Note:
         `DefectSystem` is an immutable, fixed-temperature snapshot:
-        `vbm_shift`, `cbm_shift`, `formation_energy_corrections`, and
-        `rigid_shift` are evaluated once at construction and applied to
-        copies of `defect_species` -- the objects passed in (including any
-        `formation_energy_corrections` keys) are never modified, even
-        temporarily. To build `DefectSystem`s at several temperatures from
+        `vbm_shift`, `cbm_shift`, `formation_energy_corrections`,
+        `rigid_shift`, and `fixed_concentrations` are applied once at
+        construction to copies of `defect_species` -- the objects passed in
+        (including any `formation_energy_corrections` keys) are never modified,
+        even temporarily. To build `DefectSystem`s at several temperatures from
         temperature-dependent shift/correction functions, see
         `DefectSystemFactory`.
     """
@@ -237,6 +250,7 @@ class DefectSystem:
         cbm_shift: float = 0.0,
         formation_energy_corrections: dict[DefectChargeState, float] | None = None,
         rigid_shift: bool = True,
+        fixed_concentrations: dict[str, float] | None = None,
     ):
         self.volume = volume
         self.dos = dos
@@ -255,7 +269,26 @@ class DefectSystem:
         self.element_pools: ElementPools = _normalise_element_pools(element_pools)
 
         self._validate_pools()
+        self._apply_fixed_concentrations(fixed_concentrations or {})
         self._validate_fixed_concentrations()
+
+    def _apply_fixed_concentrations(
+        self, fixed_concentrations: dict[str, float]
+    ) -> None:
+        """Fix the total concentration of named species on the deep copies.
+
+        Each ``name -> conc`` entry sets the species-level
+        ``fixed_concentration`` of the matching copy in ``self.defect_species``,
+        overriding any species-level fix it was constructed with. The copies
+        are resolved by name (never the caller's originals) and validated by
+        ``_validate_fixed_concentrations``.
+
+        Raises:
+            ValueError: if a name is not in the species roster (via
+                ``defect_species_by_name``, listing the available names).
+        """
+        for name, conc in fixed_concentrations.items():
+            self.defect_species_by_name(name).fix_concentration(conc)
 
     def _apply_formation_energy_corrections(
         self,
@@ -347,13 +380,16 @@ class DefectSystem:
             )
 
     def _validate_fixed_concentrations(self) -> None:
-        """Reject fixed concentrations that cannot be hosted.
+        """Reject fixed concentrations that are invalid or cannot be hosted.
 
-        Both checks are independent of the Fermi level -- they depend only on
+        The checks are independent of the Fermi level -- they depend only on
         the fixed concentrations and the site budgets -- so they are static
         properties of the system, caught here at construction rather than left
         to surface (wrapped as a Fermi-window error) from a later solve:
 
+        * a species-level fixed concentration must be a finite, non-negative
+          number (a NaN would otherwise pass every comparison below and
+          surface silently as ``nan`` in the solved concentrations);
         * a species fixed at the total level must be consistent with its
           individually-fixed charge states: those cannot exceed the total, and
           if every charge state is fixed (none variable) they must sum to it,
@@ -362,14 +398,21 @@ class DefectSystem:
           concentration cannot exceed the group's site budget.
 
         Raises:
-            ValueError: if a species' fixed charge states are inconsistent with
-                its species-level fixed concentration, or a group's total fixed
-                concentration exceeds its site budget (its ``site_pools`` size,
-                or, for an unpooled species, its own ``nsites``).
+            ValueError: if a species-level fixed concentration is not finite
+                and non-negative, a species' fixed charge states are
+                inconsistent with its species-level fixed concentration, or a
+                group's total fixed concentration exceeds its site budget (its
+                ``site_pools`` size, or, for an unpooled species, its own
+                ``nsites``).
         """
         for sp in self.defect_species:
             if sp.fixed_concentration is None:
                 continue
+            if not math.isfinite(sp.fixed_concentration) or sp.fixed_concentration < 0:
+                raise ValueError(
+                    f"'{sp.name}' has an invalid fixed concentration "
+                    f"{sp.fixed_concentration}; it must be finite and non-negative"
+                )
             charge_state_total = self._charge_state_fixed_total(sp)
             if math.isclose(charge_state_total, sp.fixed_concentration):
                 continue
@@ -1174,8 +1217,12 @@ class DefectSystemFactory:
               `DefectSystem`.
             **overrides: keyword arguments forwarded to `DefectSystem.__init__`,
               overriding any of this factory's corresponding attributes (e.g.
-              `fixed_concentrations` on individual `DefectSpecies`, or
-              `temperature` itself).
+              `temperature` itself, or `fixed_concentrations`, a
+              `dict[str, float]` mapping species name to a fixed total
+              concentration per unit cell). Passing `fixed_concentrations`
+              freezes those species' totals at the given values, as in the
+              anneal-and-quench workflow: take the totals solved at a high
+              temperature and re-solve at a lower one with them held fixed.
 
         Returns:
             DefectSystem: a new, independent `DefectSystem` for `temperature`.
