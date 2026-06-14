@@ -251,6 +251,7 @@ class DefectSystem:
         formation_energy_corrections: dict[DefectChargeState, float] | None = None,
         rigid_shift: bool = True,
         fixed_concentrations: dict[str, float] | None = None,
+        occupancy_warning_threshold: float | None = 0.01,
     ):
         self.volume = volume
         self.dos = dos
@@ -259,6 +260,9 @@ class DefectSystem:
         self.vbm_shift = vbm_shift
         self.cbm_shift = cbm_shift
         self.rigid_shift = rigid_shift
+        self.occupancy_warning_threshold = self._validate_occupancy_warning_threshold(
+            occupancy_warning_threshold
+        )
 
         self.defect_species = copy.deepcopy(defect_species)
         self._apply_formation_energy_corrections(
@@ -271,6 +275,29 @@ class DefectSystem:
         self._validate_pools()
         self._apply_fixed_concentrations(fixed_concentrations or {})
         self._validate_fixed_concentrations()
+
+    @staticmethod
+    def _validate_occupancy_warning_threshold(value: float | None) -> float | None:
+        """Validate the site-occupancy warning threshold.
+
+        Returns ``value`` unchanged if it is ``None`` (warning disabled) or a
+        finite fraction in ``(0, 1]``.
+
+        Raises:
+            ValueError: if ``value`` is not ``None`` and not a finite number in
+                ``(0, 1]``. Occupancy is a fraction that maxes at 1.0, so a
+                threshold outside this range -- including NaN or infinity --
+                could never sensibly fire (NaN would silently disable the
+                warning rather than raise).
+        """
+        if value is None:
+            return None
+        if not (0.0 < value <= 1.0):
+            raise ValueError(
+                "occupancy_warning_threshold must be a fraction in (0, 1] or "
+                f"None; got {value}"
+            )
+        return value
 
     def _apply_fixed_concentrations(
         self, fixed_concentrations: dict[str, float]

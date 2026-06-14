@@ -2362,5 +2362,62 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
             )
 
 
+class TestDiluteLimitWarning(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+
+    def _make_system(self, defect_species, **kwargs):
+        return DefectSystem(
+            defect_species=defect_species,
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            **kwargs,
+        )
+
+    @staticmethod
+    def _saturating_species(name="S", nsites=2, energy=-2.0):
+        # A neutral state's occupancy w/(1+w) is e_fermi-independent; a low
+        # energy drives it to ~100% of its sites.
+        return DefectSpecies(
+            name,
+            nsites=nsites,
+            charge_states=[DefectChargeState(charge=0, energy=energy, degeneracy=1)],
+        )
+
+    def test_threshold_defaults_to_one_percent(self):
+        system = self._make_system([self._saturating_species()])
+        self.assertEqual(system.occupancy_warning_threshold, 0.01)
+
+    def test_threshold_is_stored(self):
+        system = self._make_system(
+            [self._saturating_species()], occupancy_warning_threshold=0.2
+        )
+        self.assertEqual(system.occupancy_warning_threshold, 0.2)
+
+    def test_none_threshold_is_stored(self):
+        system = self._make_system(
+            [self._saturating_species()], occupancy_warning_threshold=None
+        )
+        self.assertIsNone(system.occupancy_warning_threshold)
+
+    def test_out_of_range_threshold_raises(self):
+        species = self._saturating_species()
+        for bad in (0.0, 1.5, -0.1, float("nan"), float("inf")):
+            with self.assertRaises(ValueError):
+                self._make_system([species], occupancy_warning_threshold=bad)
+
+    def test_threshold_of_one_is_allowed(self):
+        system = self._make_system(
+            [self._saturating_species()], occupancy_warning_threshold=1.0
+        )
+        self.assertEqual(system.occupancy_warning_threshold, 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()
