@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import math
+import warnings
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -18,6 +19,19 @@ from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
+
+
+class DiluteLimitWarning(UserWarning):
+    """Warns that a defect's solved site occupancy is high enough that
+    py-sc-fermi's dilute, non-interacting-defect assumption may no longer hold,
+    so the results may be non-physical.
+
+    Emitted by :meth:`DefectSystem.get_sc_fermi` -- and therefore by every
+    results path that solves (``report``, ``concentration_dict``,
+    ``site_percentages``) -- when any species' occupancy exceeds
+    ``DefectSystem.occupancy_warning_threshold``. A dedicated ``UserWarning``
+    subclass so it can be filtered independently of other warnings.
+    """
 
 
 # Pools as accepted by the constructor: each species given as a DefectSpecies
@@ -993,7 +1007,72 @@ class DefectSystem:
         # window brackets a genuine root. The returned residual is a diagnostic
         # on that solution.
         residual = abs(self.q_tot(e_fermi))
+        self._warn_if_high_occupancy(e_fermi)
         return e_fermi, residual
+
+    def _warn_if_high_occupancy(self, e_fermi: float) -> None:
+        """Emit a single ``DiluteLimitWarning`` if any species' solved site
+        occupancy exceeds ``occupancy_warning_threshold``.
+
+        Does nothing when the threshold is ``None``. Otherwise computes the
+        per-species occupancy fractions at the converged ``e_fermi`` (one extra
+        ``_global_defect_concs`` evaluation) and, if any species is above the
+        threshold, warns once -- naming every offending species and its
+        occupancy, worst first. Repeated identical solves are de-duplicated by
+        the standard ``warnings`` machinery.
+
+        Args:
+            e_fermi (float): the self-consistent Fermi energy from
+              ``get_sc_fermi``.
+        """
+        threshold = self.occupancy_warning_threshold
+        if threshold is None:
+            return
+        fractions = self._site_occupancy_fractions(e_fermi)
+        offenders = sorted(
+            (
+                (name, fraction)
+                for name, fraction in fractions.items()
+                if fraction > threshold
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        if not offenders:
+            return
+        warnings.warn(
+            self._high_occupancy_message(offenders),
+            DiluteLimitWarning,
+            stacklevel=3,
+        )
+
+    @staticmethod
+    def _high_occupancy_message(offenders: list[tuple[str, float]]) -> str:
+        """Build the ``DiluteLimitWarning`` message for the offending species.
+
+        Args:
+            offenders: ``(name, occupancy fraction)`` pairs, ordered worst first.
+
+        Returns:
+            str: a two-sentence message reporting the occupancies, naming the
+            dilute assumption, and warning the results may be non-physical.
+        """
+        caveat = (
+            "py-sc-fermi assumes dilute, non-interacting defects, so results at "
+            "this occupancy may be non-physical."
+        )
+        if len(offenders) == 1:
+            name, fraction = offenders[0]
+            return (
+                f"'{name}' reaches {fraction * 100:.0f}% site occupancy at the "
+                f"self-consistent Fermi level. {caveat}"
+            )
+        listed = [f"'{name}' ({fraction * 100:.0f}%)" for name, fraction in offenders]
+        joined = f"{', '.join(listed[:-1])} and {listed[-1]}"
+        return (
+            f"{joined} reach high site occupancy at the self-consistent Fermi "
+            f"level. {caveat}"
+        )
 
     def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float,float]:
         lhs = rhs = 0.0

@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+import warnings
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -10,7 +11,11 @@ from scipy.constants import physical_constants
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.defect_system import DefectSystem, DefectSystemFactory
+from py_sc_fermi.defect_system import (
+    DefectSystem,
+    DefectSystemFactory,
+    DiluteLimitWarning,
+)
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 
@@ -2437,6 +2442,94 @@ class TestDiluteLimitWarning(unittest.TestCase):
         percentages = system.site_percentages()
         for name in ("A", "B"):
             self.assertAlmostEqual(fractions[name] * 100, percentages[name], places=10)
+
+    @staticmethod
+    def _dilute_warnings(records):
+        return [r for r in records if issubclass(r.category, DiluteLimitWarning)]
+
+    def test_high_occupancy_species_emits_single_warning(self):
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        self.assertIn("S", str(dilute[0].message))
+
+    def test_dilute_species_emits_no_warning(self):
+        species = DefectSpecies(
+            "D",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = self._make_system([species])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(self._dilute_warnings(records), [])
+
+    def test_none_threshold_suppresses_warning(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(self._dilute_warnings(records), [])
+
+    def test_custom_threshold_changes_when_warning_fires(self):
+        # Neutral state at ~0.057 eV -> ~10% site occupancy.
+        def at_ten_percent():
+            return DefectSpecies(
+                "T",
+                nsites=1,
+                charge_states=[
+                    DefectChargeState(charge=0, energy=0.057, degeneracy=1)
+                ],
+            )
+
+        fires = self._make_system(
+            [at_ten_percent()], occupancy_warning_threshold=0.01
+        )
+        silent = self._make_system(
+            [at_ten_percent()], occupancy_warning_threshold=0.5
+        )
+        with warnings.catch_warnings(record=True) as fires_records:
+            warnings.simplefilter("always")
+            fires.get_sc_fermi()
+        with warnings.catch_warnings(record=True) as silent_records:
+            warnings.simplefilter("always")
+            silent.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(fires_records)), 1)
+        self.assertEqual(self._dilute_warnings(silent_records), [])
+
+    def test_multiple_high_occupancy_species_listed_in_one_warning(self):
+        a = self._saturating_species("A", energy=-2.0)
+        b = self._saturating_species("B", energy=-1.5)
+        system = self._make_system([a, b])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        message = str(dilute[0].message)
+        self.assertIn("A", message)
+        self.assertIn("B", message)
+        self.assertIn(" and ", message)
+
+    def test_warning_is_dilute_limit_category_with_expected_content(self):
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        self.assertIs(dilute[0].category, DiluteLimitWarning)
+        message = str(dilute[0].message)
+        self.assertIn("S", message)
+        self.assertIn("%", message)
+        self.assertIn("dilute", message.lower())
+        self.assertIn("non-physical", message.lower())
 
 
 if __name__ == "__main__":
