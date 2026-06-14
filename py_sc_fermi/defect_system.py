@@ -1094,6 +1094,41 @@ class DefectSystem:
                 decomp_concs[str(ds.name)] = by_charge
             return {**run_stats, **decomp_concs}
 
+    def _site_occupancy_fractions(self, e_fermi: float) -> dict[str, float]:
+        """Return each ``DefectSpecies``' site occupancy as a fraction of the
+        sites available to it, at an already-solved Fermi level.
+
+        The concentrations are the same pool- and exclusion-aware values used
+        by ``report`` and ``concentration_dict`` (``_global_defect_concs`` at
+        ``e_fermi``). The denominator is the sites available to the species:
+        the pool's total site count for a species in a ``site_pools`` entry,
+        otherwise its own ``nsites``. This is the fractional form of
+        ``site_percentages`` (which scales it by 100); both draw on a single
+        solved ``e_fermi`` rather than re-solving, so the high-occupancy warning
+        and ``site_percentages`` share one source of truth.
+
+        Args:
+            e_fermi (float): a self-consistent Fermi energy, as returned by
+              ``get_sc_fermi``.
+
+        Returns:
+            dict[str, float]: mapping of ``DefectSpecies`` name to its site
+            occupancy as a fraction (0.0-1.0).
+        """
+        concs = self._global_defect_concs(e_fermi)
+        pool_sites = {
+            name: n_sites
+            for n_sites, members in self.site_pools.values()
+            for name in members
+        }
+        return {
+            str(ds.name): float(
+                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+                / pool_sites.get(ds.name, ds.nsites)
+            )
+            for ds in self.defect_species
+        }
+
     def site_percentages(self) -> dict[str, float]:
         """Return each ``DefectSpecies``' solved site occupancy as a
         percentage of the sites available to it.
@@ -1112,19 +1147,9 @@ class DefectSystem:
             occupancy as a percentage.
         """
         e_fermi = self.get_sc_fermi()[0]
-        concs = self._global_defect_concs(e_fermi)
-        pool_sites = {
-            name: n_sites
-            for n_sites, members in self.site_pools.values()
-            for name in members
-        }
         return {
-            str(ds.name): float(
-                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
-                / pool_sites.get(ds.name, ds.nsites)
-                * 100
-            )
-            for ds in self.defect_species
+            name: fraction * 100
+            for name, fraction in self._site_occupancy_fractions(e_fermi).items()
         }
 
     def as_dict(self) -> dict:

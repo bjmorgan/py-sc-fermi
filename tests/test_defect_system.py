@@ -2418,6 +2418,26 @@ class TestDiluteLimitWarning(unittest.TestCase):
         )
         self.assertEqual(system.occupancy_warning_threshold, 1.0)
 
+    def test_site_occupancy_fractions_match_site_percentages(self):
+        # Pooled system: occupancy is measured against the pool size, and the
+        # fractions are exactly site_percentages / 100.
+        a = DefectSpecies(
+            "A",
+            nsites=5,
+            charge_states=[DefectChargeState(charge=0, energy=0.057, degeneracy=1)],
+        )
+        b = DefectSpecies(
+            "B",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.2, degeneracy=1)],
+        )
+        system = self._make_system([a, b], site_pools={"shared": (4.0, [a, b])})
+        e_fermi = system.get_sc_fermi()[0]
+        fractions = system._site_occupancy_fractions(e_fermi)
+        percentages = system.site_percentages()
+        for name in ("A", "B"):
+            self.assertAlmostEqual(fractions[name] * 100, percentages[name], places=10)
+
 
 if __name__ == "__main__":
     unittest.main()
