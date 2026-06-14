@@ -212,10 +212,11 @@ class DefectSystem:
           with. The fix is applied by name to this system's own copies of
           `defect_species`, so it composes with `formation_energy_corrections`
           (resolved by identity against the passed-in objects) and never
-          mutates the caller's species. A value that cannot be hosted (above
-          the species' available sites, or below its individually-fixed charge
-          states) is rejected at construction by the same checks as a
-          species-level fix. Defaults to None (no fixes).
+          mutates the caller's species. A non-finite or negative value, or one
+          that cannot be hosted (above its site-exclusion group's site budget
+          -- its own `nsites`, or its shared `site_pools` size -- or below its
+          individually-fixed charge states), is rejected at construction by the
+          same checks as a species-level fix. Defaults to None (no fixes).
 
     Raises:
         ValueError: if two entries in `defect_species` share a name, a pool
@@ -278,10 +279,8 @@ class DefectSystem:
 
         Each ``name -> conc`` entry sets the species-level
         ``fixed_concentration`` of the matching copy in ``self.defect_species``,
-        overriding any species-level fix it was constructed with. Resolving by
-        name on the copies keeps this independent of
-        ``formation_energy_corrections``, which are resolved by identity against
-        the originals. The now-fixed copies are validated by
+        overriding any species-level fix it was constructed with. The copies
+        are resolved by name (never the caller's originals) and validated by
         ``_validate_fixed_concentrations``.
 
         Raises:
@@ -381,13 +380,16 @@ class DefectSystem:
             )
 
     def _validate_fixed_concentrations(self) -> None:
-        """Reject fixed concentrations that cannot be hosted.
+        """Reject fixed concentrations that are invalid or cannot be hosted.
 
-        Both checks are independent of the Fermi level -- they depend only on
+        The checks are independent of the Fermi level -- they depend only on
         the fixed concentrations and the site budgets -- so they are static
         properties of the system, caught here at construction rather than left
         to surface (wrapped as a Fermi-window error) from a later solve:
 
+        * a species-level fixed concentration must be a finite, non-negative
+          number (a NaN would otherwise pass every comparison below and
+          surface silently as ``nan`` in the solved concentrations);
         * a species fixed at the total level must be consistent with its
           individually-fixed charge states: those cannot exceed the total, and
           if every charge state is fixed (none variable) they must sum to it,
@@ -396,14 +398,21 @@ class DefectSystem:
           concentration cannot exceed the group's site budget.
 
         Raises:
-            ValueError: if a species' fixed charge states are inconsistent with
-                its species-level fixed concentration, or a group's total fixed
-                concentration exceeds its site budget (its ``site_pools`` size,
-                or, for an unpooled species, its own ``nsites``).
+            ValueError: if a species-level fixed concentration is not finite
+                and non-negative, a species' fixed charge states are
+                inconsistent with its species-level fixed concentration, or a
+                group's total fixed concentration exceeds its site budget (its
+                ``site_pools`` size, or, for an unpooled species, its own
+                ``nsites``).
         """
         for sp in self.defect_species:
             if sp.fixed_concentration is None:
                 continue
+            if not math.isfinite(sp.fixed_concentration) or sp.fixed_concentration < 0:
+                raise ValueError(
+                    f"'{sp.name}' has an invalid fixed concentration "
+                    f"{sp.fixed_concentration}; it must be finite and non-negative"
+                )
             charge_state_total = self._charge_state_fixed_total(sp)
             if math.isclose(charge_state_total, sp.fixed_concentration):
                 continue

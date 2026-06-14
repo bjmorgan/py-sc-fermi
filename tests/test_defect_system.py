@@ -2283,6 +2283,84 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
                 fixed_concentrations={"X": 5.0},
             )
 
+    def test_nan_fixed_concentration_raises_at_construction(self):
+        # a charge-neutral species never enters charge neutrality, so without
+        # the guard a NaN survives the solve and surfaces silently as nan.
+        neutral = DefectSpecies(
+            "N", 1, [DefectChargeState(charge=0, energy=0.5, degeneracy=1)]
+        )
+        with self.assertRaises(ValueError) as ctx:
+            DefectSystem(
+                defect_species=[neutral],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                fixed_concentrations={"N": float("nan")},
+            )
+        self.assertIn("N", str(ctx.exception))
+        self.assertIn("finite", str(ctx.exception))
+
+    def test_negative_fixed_concentration_raises_with_clear_message(self):
+        with self.assertRaises(ValueError) as ctx:
+            DefectSystem(
+                defect_species=[self._donor("X")],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                fixed_concentrations={"X": -0.01},
+            )
+        message = str(ctx.exception)
+        self.assertIn("X", message)
+        self.assertIn("non-negative", message)
+
+    def test_overrides_a_constructed_species_level_fixed_concentration(self):
+        species = DefectSpecies(
+            "X",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=1, energy=0.5, degeneracy=1)],
+            fixed_concentration=0.05,
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            fixed_concentrations={"X": 0.01},
+        )
+        self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
+        self.assertAlmostEqual(
+            system.concentration_dict(per_volume=False)["X"], 0.01
+        )
+
+    def test_fixes_multiple_species_in_one_call(self):
+        system = DefectSystem(
+            defect_species=[self._donor("X", energy=0.5), self._donor("Y", energy=0.7)],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            fixed_concentrations={"X": 0.01, "Y": 0.02},
+        )
+        cd = system.concentration_dict(per_volume=False)
+        self.assertAlmostEqual(cd["X"], 0.01)
+        self.assertAlmostEqual(cd["Y"], 0.02)
+
+    def test_pooled_fix_exceeding_pool_budget_raises_naming_the_pool(self):
+        a = DefectSpecies(
+            "A", 5, [DefectChargeState(charge=0, energy=1.0, degeneracy=1)]
+        )
+        b = DefectSpecies(
+            "B", 5, [DefectChargeState(charge=0, energy=1.0, degeneracy=1)]
+        )
+        with self.assertRaisesRegex(ValueError, "shared"):
+            DefectSystem(
+                defect_species=[a, b],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                site_pools={"shared": (1.0, ["A", "B"])},
+                fixed_concentrations={"A": 0.7, "B": 0.5},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -72,7 +72,9 @@
   `DefectSystem.defect_species_by_name` now raises a `ValueError` listing the
   available names, rather than an `IndexError`, when given an unknown name.
 - Fixed concentrations are validated at construction. A `ValueError` is raised
-  if a species' individually-fixed charge states are inconsistent with its
+  if a species-level `fixed_concentration` is not a finite, non-negative number
+  (a NaN would otherwise pass silently into the solved concentrations), if a
+  species' individually-fixed charge states are inconsistent with its
   species-level `fixed_concentration` -- they exceed it, or, when every charge
   state is fixed so none can absorb a shortfall, fall below it -- or if the
   total fixed concentration in a site-exclusion group exceeds its available
@@ -108,7 +110,7 @@
   mapping species name to a fixed total concentration per unit cell, applied by
   name to the constructor's own copies of `defect_species` (overriding any
   species-level `fixed_concentration` they were constructed with, and composing
-  with `formation_energy_corrections`, which resolve by identity). This makes
+  with `formation_energy_corrections`, which are resolved by identity). This makes
   the anneal-and-quench override documented on `DefectSystemFactory.at` work:
   freeze some species' totals at their high-temperature values and re-solve at
   a lower temperature, e.g.
