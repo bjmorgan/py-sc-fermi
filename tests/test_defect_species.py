@@ -54,6 +54,14 @@ class TestDefectSpeciesInit(unittest.TestCase):
             DefectSpecies(name="V_O", nsites=2, charge_states=[])
         self.assertIn("V_O", str(cm.exception))
 
+    def test_defect_species_raises_with_non_positive_nsites(self):
+        cs = Mock(spec=DefectChargeState)
+        cs.charge = 0
+        for bad in (0, -1):
+            with self.assertRaises(ValueError) as cm:
+                DefectSpecies(name="V_O", nsites=bad, charge_states=[cs])
+            self.assertIn("V_O", str(cm.exception))
+
 
 class TestDefectSpecies(unittest.TestCase):
     def setUp(self):
