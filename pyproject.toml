@@ -54,6 +54,10 @@ select = [
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
+[tool.pytest.ini_options]
+# Treat any warning as an error, so an unexpected warning fails the suite.
+filterwarnings = ["error"]
+
 [tool.setuptools]
 packages = ["py_sc_fermi"]
 

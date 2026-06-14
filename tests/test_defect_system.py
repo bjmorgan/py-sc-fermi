@@ -241,6 +241,7 @@ class TestDefectSystem(unittest.TestCase):
             volume=100,
             temperature=300,
             defect_species=[defect_species],
+            occupancy_warning_threshold=None,
         )
 
         self.assertTrue(np.isfinite(defect_system.q_tot(dos.emax())))
@@ -501,6 +502,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
+            occupancy_warning_threshold=None,
         )
         total = sum(
             system._global_defect_concs(system.get_sc_fermi()[0])[cs]
@@ -563,6 +565,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
+            occupancy_warning_threshold=None,
         )
         total = sum(
             system._global_defect_concs(system.get_sc_fermi()[0])[cs]
@@ -587,6 +590,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
+            occupancy_warning_threshold=None,
         )
         total = sum(
             system._global_defect_concs(system.get_sc_fermi()[0])[cs]
@@ -632,6 +636,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
+            occupancy_warning_threshold=None,
         )
         # Two-sided: a saturating species fills almost all its sites, so the
         # occupancy is both bounded by 100% (the bug) and near it (not zero).
@@ -657,6 +662,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
+            occupancy_warning_threshold=None,
         )
         per_cell = system.concentration_dict(decomposed=False, per_volume=False)
         expected = per_cell["R"] / species.nsites * 100
@@ -681,6 +687,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             volume=100,
             temperature=300,
             site_pools={"shared": (4.0, [species_a, species_b])},
+            occupancy_warning_threshold=None,
         )
         pct = system.site_percentages()
         self.assertLessEqual(pct["A"], 100.0)
@@ -723,6 +730,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
+            occupancy_warning_threshold=None,
         )
         self.assertAlmostEqual(system.site_percentages()["F"], 75.0, places=8)
 
@@ -745,6 +753,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             volume=100,
             temperature=300,
             site_pools={"shared": (4.0, [pooled])},
+            occupancy_warning_threshold=None,
         )
         per_cell = system.concentration_dict(decomposed=False, per_volume=False)
         pct = system.site_percentages()
@@ -2067,10 +2076,15 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
             cbm_shift=-0.05,
             formation_energy_corrections={donor_states[1]: 0.2},
             rigid_shift=False,
+            occupancy_warning_threshold=None,
         )
         reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
         e_original = system.get_sc_fermi()[0]
-        e_reloaded = reloaded.get_sc_fermi()[0]
+        # The reloaded system uses the default occupancy_warning_threshold (it is
+        # not serialised), so the solve below would emit DiluteLimitWarning.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DiluteLimitWarning)
+            e_reloaded = reloaded.get_sc_fermi()[0]
         self.assertAlmostEqual(e_original, e_reloaded, places=6)
         original = self._concs_by_name(system, e_original)
         reloaded_totals = self._concs_by_name(reloaded, e_reloaded)
@@ -2203,7 +2217,8 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
             charge_states=[DefectChargeState(charge=-1, energy=0.5, degeneracy=1)],
         )
         factory = DefectSystemFactory(
-            defect_species=[frozen, donor, acceptor], dos=self.dos, volume=100
+            defect_species=[frozen, donor, acceptor], dos=self.dos, volume=100,
+            occupancy_warning_threshold=None,
         )
         T_high, T_low = 1000, 300
 
@@ -2257,6 +2272,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
                 cs_a: lambda T: 0.1,
                 cs_b: lambda T: -0.05,
             },
+            occupancy_warning_threshold=None,
         )
         system = factory.at(300, fixed_concentrations={"X_i": 0.02})
 
@@ -2345,6 +2361,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
             volume=100,
             temperature=300,
             fixed_concentrations={"X": 0.01, "Y": 0.02},
+            occupancy_warning_threshold=None,
         )
         cd = system.concentration_dict(per_volume=False)
         self.assertAlmostEqual(cd["X"], 0.01)
@@ -2437,7 +2454,9 @@ class TestDiluteLimitWarning(unittest.TestCase):
             nsites=1,
             charge_states=[DefectChargeState(charge=0, energy=0.2, degeneracy=1)],
         )
-        system = self._make_system([a, b], site_pools={"shared": (4.0, [a, b])})
+        system = self._make_system(
+            [a, b], site_pools={"shared": (4.0, [a, b])}, occupancy_warning_threshold=None
+        )
         e_fermi = system.get_sc_fermi()[0]
         fractions = system._site_occupancy_fractions(e_fermi)
         percentages = system.site_percentages()
