@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import math
+import sys
 import warnings
 from collections import Counter
 from collections.abc import Callable
@@ -29,8 +30,9 @@ class DiluteLimitWarning(UserWarning):
     Emitted by :meth:`DefectSystem.get_sc_fermi` -- and therefore by every
     results path that solves (``report``, ``concentration_dict``,
     ``site_percentages``) -- when any species' occupancy exceeds
-    ``DefectSystem.occupancy_warning_threshold``. A dedicated ``UserWarning``
-    subclass so it can be filtered independently of other warnings.
+    ``DefectSystem.occupancy_warning_threshold``, at most once per
+    ``DefectSystem`` instance. A dedicated ``UserWarning`` subclass so it can be
+    filtered independently of other warnings.
     """
 
 
@@ -289,6 +291,7 @@ class DefectSystem:
         self.occupancy_warning_threshold = self._validate_occupancy_warning_threshold(
             occupancy_warning_threshold
         )
+        self._occupancy_warning_emitted = False
 
         self.defect_species = copy.deepcopy(defect_species)
         self._apply_formation_energy_corrections(
@@ -313,8 +316,7 @@ class DefectSystem:
             ValueError: if ``value`` is not ``None`` and not a finite number in
                 ``(0, 1]``. Occupancy is a fraction that maxes at 1.0, so a
                 threshold outside this range -- including NaN or infinity --
-                could never sensibly fire (NaN would silently disable the
-                warning rather than raise).
+                could never sensibly fire.
         """
         if value is None:
             return None
@@ -382,7 +384,8 @@ class DefectSystem:
         Raises:
             ValueError: if two roster species share a name, a pool references
                 a species not in the roster, a pool lists a species more than
-                once, or a species appears in more than one site pool.
+                once, a species appears in more than one site pool, or a site
+                pool has a non-positive site count.
         """
         name_counts = Counter(ds.name for ds in self.defect_species)
         duplicates = sorted(name for name, count in name_counts.items() if count > 1)
@@ -394,7 +397,12 @@ class DefectSystem:
 
         roster = set(name_counts)
         site_pool_of: dict[str, str] = {}
-        for pool_name, (_, members) in self.site_pools.items():
+        for pool_name, (n_pool_sites, members) in self.site_pools.items():
+            if not (n_pool_sites > 0):
+                raise ValueError(
+                    f"site pool '{pool_name}' must have n_sites > 0; "
+                    f"got {n_pool_sites}."
+                )
             self._check_pool_members("site pool", pool_name, members, roster)
             for name in members:
                 first = site_pool_of.setdefault(name, pool_name)
@@ -1023,22 +1031,26 @@ class DefectSystem:
         return e_fermi, residual
 
     def _warn_if_high_occupancy(self, e_fermi: float) -> None:
-        """Emit a single ``DiluteLimitWarning`` if any species' solved site
-        occupancy exceeds ``occupancy_warning_threshold``.
+        """Emit a ``DiluteLimitWarning`` if any species' solved site occupancy
+        exceeds ``occupancy_warning_threshold``.
 
-        Does nothing when the threshold is ``None``. Otherwise computes the
-        per-species occupancy fractions at the converged ``e_fermi`` (one extra
-        ``_global_defect_concs`` evaluation) and, if any species is above the
-        threshold, warns once -- naming every offending species and its
-        occupancy, worst first. Repeated identical solves are de-duplicated by
-        the standard ``warnings`` machinery.
+        Does nothing when the threshold is ``None`` or when this system has
+        already warned. Otherwise computes the per-species occupancy fractions
+        at the converged ``e_fermi`` and, if any species is above the threshold,
+        emits one warning naming every offending species and its occupancy,
+        worst first. The warning fires at most once per ``DefectSystem``: the
+        occupancy verdict is deterministic for an immutable snapshot, so a user
+        inspecting one solved system through several methods (``report``,
+        ``concentration_dict``, ``site_percentages``, a direct ``get_sc_fermi``)
+        sees a single warning, attributed to their own call rather than to an
+        internal solve method.
 
         Args:
             e_fermi (float): the self-consistent Fermi energy from
               ``get_sc_fermi``.
         """
         threshold = self.occupancy_warning_threshold
-        if threshold is None:
+        if self._occupancy_warning_emitted or threshold is None:
             return
         fractions = self._site_occupancy_fractions(e_fermi)
         offenders = sorted(
@@ -1052,11 +1064,32 @@ class DefectSystem:
         )
         if not offenders:
             return
+        self._occupancy_warning_emitted = True
         warnings.warn(
             self._high_occupancy_message(offenders),
             DiluteLimitWarning,
-            stacklevel=3,
+            stacklevel=self._warning_stacklevel(),
         )
+
+    @staticmethod
+    def _warning_stacklevel() -> int:
+        """``stacklevel`` for the high-occupancy ``warnings.warn`` call that
+        points at the first frame outside this module.
+
+        The warning is reached at different stack depths -- directly via
+        ``get_sc_fermi``, or one frame deeper via ``report``,
+        ``concentration_dict`` or ``site_percentages`` -- so no fixed
+        ``stacklevel`` blames the caller on every path. Counting frames up to
+        the first one outside ``py_sc_fermi.defect_system`` attributes the
+        warning to the user's call. ``warnings.warn`` is invoked one frame above
+        this helper, where the count begins.
+        """
+        frame: Any = sys._getframe(1)
+        level = 1
+        while frame is not None and frame.f_globals.get("__name__") == __name__:
+            frame = frame.f_back
+            level += 1
+        return level
 
     @staticmethod
     def _high_occupancy_message(offenders: list[tuple[str, float]]) -> str:
@@ -1076,10 +1109,10 @@ class DefectSystem:
         if len(offenders) == 1:
             name, fraction = offenders[0]
             return (
-                f"'{name}' reaches {fraction * 100:.0f}% site occupancy at the "
+                f"'{name}' reaches {fraction * 100:.3g}% site occupancy at the "
                 f"self-consistent Fermi level. {caveat}"
             )
-        listed = [f"'{name}' ({fraction * 100:.0f}%)" for name, fraction in offenders]
+        listed = [f"'{name}' ({fraction * 100:.3g}%)" for name, fraction in offenders]
         joined = f"{', '.join(listed[:-1])} and {listed[-1]}"
         return (
             f"{joined} reach high site occupancy at the self-consistent Fermi "

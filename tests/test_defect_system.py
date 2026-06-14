@@ -2,6 +2,7 @@ import json
 import os
 import unittest
 import warnings
+from contextlib import redirect_stdout
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -2503,19 +2504,31 @@ class TestDiluteLimitWarning(unittest.TestCase):
         self.assertEqual(len(self._dilute_warnings(fires_records)), 1)
         self.assertEqual(self._dilute_warnings(silent_records), [])
 
-    def test_multiple_high_occupancy_species_listed_in_one_warning(self):
-        a = self._saturating_species("A", energy=-2.0)
-        b = self._saturating_species("B", energy=-1.5)
-        system = self._make_system([a, b])
+    def test_multiple_high_occupancy_species_listed_worst_first(self):
+        # Distinct occupancies (neutral states are e_fermi-independent): the
+        # lower-occupancy species is declared FIRST, so the test fails if the
+        # message is not re-ordered worst-first.
+        low = DefectSpecies(
+            "low_occ",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.1, degeneracy=1)],
+        )
+        high = DefectSpecies(
+            "high_occ",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+        )
+        system = self._make_system([low, high])
         with warnings.catch_warnings(record=True) as records:
             warnings.simplefilter("always")
             system.get_sc_fermi()
         dilute = self._dilute_warnings(records)
         self.assertEqual(len(dilute), 1)
         message = str(dilute[0].message)
-        self.assertIn("A", message)
-        self.assertIn("B", message)
+        self.assertIn("low_occ", message)
+        self.assertIn("high_occ", message)
         self.assertIn(" and ", message)
+        self.assertLess(message.index("high_occ"), message.index("low_occ"))
 
     def test_warning_is_dilute_limit_category_with_expected_content(self):
         system = self._make_system([self._saturating_species("S")])
@@ -2577,7 +2590,34 @@ class TestDiluteLimitWarning(unittest.TestCase):
         self.assertEqual(len(dilute), 1)
         pool_pct = system.site_percentages()["P"]
         self.assertLess(pool_pct, 100.0)
-        self.assertIn(f"{pool_pct:.0f}%", str(dilute[0].message))
+        self.assertIn(f"{pool_pct:.3g}%", str(dilute[0].message))
+
+    def test_warns_at_most_once_per_system_under_default_filter(self):
+        # Inspecting one solved system several ways reaches the chokepoint at
+        # different stack depths; under the realistic default filter (not
+        # "always") that would defeat location-based de-duplication, so the
+        # once-per-instance guard is what holds this to a single warning.
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records, redirect_stdout(
+            StringIO()
+        ):
+            warnings.simplefilter("default")
+            system.report()
+            system.site_percentages()
+            system.concentration_dict()
+            system.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(records)), 1)
+
+    def test_threshold_absent_from_as_dict(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=0.5
+        )
+        self.assertNotIn("occupancy_warning_threshold", system.as_dict())
+
+    def test_zero_site_pool_rejected_at_construction(self):
+        species = self._saturating_species("S")
+        with self.assertRaises(ValueError):
+            self._make_system([species], site_pools={"shared": (0.0, [species])})
 
 
 if __name__ == "__main__":

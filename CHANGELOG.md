@@ -116,12 +116,13 @@
   a lower temperature, e.g.
   `factory.at(T_low, fixed_concentrations={n: high[n] for n in frozen})`.
 - `DefectSystem` and `DefectSystemFactory` now emit a `DiluteLimitWarning`
-  (a dedicated `UserWarning` subclass) when a defect species' solved site
-  occupancy exceeds `occupancy_warning_threshold` (default 0.01, i.e. 1%; pass
-  `None` to disable, or a finite fraction in (0, 1] to retune). py-sc-fermi
-  models dilute, non-interacting defects, so a high occupancy flags a regime in
-  which un-modelled defect-defect interactions may make the results
-  non-physical. The threshold is a reporting preference and is not serialised.
+  (a dedicated `UserWarning` subclass), at most once per system, when a defect
+  species' solved site occupancy exceeds `occupancy_warning_threshold`
+  (default 0.01, i.e. 1%; pass `None` to disable, or a finite fraction in
+  (0, 1] to retune). py-sc-fermi models dilute, non-interacting defects, so a
+  high occupancy flags a regime in which un-modelled defect-defect interactions
+  may make the results non-physical. The threshold is a reporting preference
+  and is not serialised.
 
 ### Bug Fixes
 
