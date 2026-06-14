@@ -2531,6 +2531,31 @@ class TestDiluteLimitWarning(unittest.TestCase):
         self.assertIn("dilute", message.lower())
         self.assertIn("non-physical", message.lower())
 
+    def test_pooled_species_occupancy_measured_against_pool_size(self):
+        # nsites=1 but the species shares a 10-site pool. At ~0.057 eV it holds
+        # ~1 defect/cell -> ~10% of the POOL. If occupancy were (wrongly)
+        # measured against nsites=1 it would read ~100%, so the reported figure
+        # discriminates the denominator. site_percentages is the pool-based
+        # reference the warning must agree with.
+        species = DefectSpecies(
+            "P",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=0.057, degeneracy=1)],
+        )
+        system = self._make_system(
+            [species],
+            site_pools={"shared": (10.0, [species])},
+            occupancy_warning_threshold=0.01,
+        )
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        pool_pct = system.site_percentages()["P"]
+        self.assertLess(pool_pct, 100.0)
+        self.assertIn(f"{pool_pct:.0f}%", str(dilute[0].message))
+
 
 if __name__ == "__main__":
     unittest.main()
