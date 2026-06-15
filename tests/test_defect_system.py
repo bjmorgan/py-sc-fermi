@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import unittest
 import warnings
@@ -1081,6 +1082,185 @@ class TestDefectSystemElementPools(unittest.TestCase):
             system._global_defect_concs(1.0)
         self.assertIn("X", str(ctx.exception))
         self.assertIn("Y", str(ctx.exception))
+
+    def test_chemical_potential_shift_sign_tracks_target_vs_unconstrained(self):
+        # A charge-neutral species does not enter charge neutrality, so the
+        # pooled and unpooled systems share the same self-consistent e_fermi;
+        # at target == unconstrained content the solver needs no shift.
+        def build(**kwargs):
+            sp = DefectSpecies(
+                "S",
+                nsites=10,
+                charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+            )
+            return DefectSystem(
+                defect_species=[sp],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                occupancy_warning_threshold=None,
+                **kwargs,
+            )
+
+        base = build()
+        e_fermi = base.get_sc_fermi()[0]
+        concs = base._global_defect_concs(e_fermi)
+        c0 = sum(concs[cs] for cs in base.defect_species[0].charge_states)
+
+        at_target = build(element_pools={"X": (c0, [("S", 1.0)])})
+        above = build(element_pools={"X": (2 * c0, [("S", 1.0)])})
+        below = build(element_pools={"X": (0.5 * c0, [("S", 1.0)])})
+
+        self.assertAlmostEqual(
+            at_target.element_chemical_potential_shifts()["X"], 0.0, places=6
+        )
+        self.assertGreater(above.element_chemical_potential_shifts()["X"], 0.0)
+        self.assertLess(below.element_chemical_potential_shifts()["X"], 0.0)
+
+    def test_shift_reproduces_concentration_dict_content(self):
+        # Convert the reported delta_mu back to the activity
+        # lambda = exp(delta_mu / kT) and feed it through the site-exclusion
+        # formula: it must reproduce the species content concentration_dict
+        # reports at the same solved Fermi level. An independent check of the
+        # eV magnitude and of the documented consistency with
+        # concentration_dict.
+        nsites, energy, degeneracy, target, temperature = 10, 1.0, 1, 1e-3, 300
+        sp = DefectSpecies(
+            "S",
+            nsites=nsites,
+            charge_states=[
+                DefectChargeState(charge=0, energy=energy, degeneracy=degeneracy)
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=temperature,
+            element_pools={"X": (target, [("S", 1.0)])},
+            occupancy_warning_threshold=None,
+        )
+        delta_mu = system.element_chemical_potential_shifts()["X"]
+        w = degeneracy * math.exp(-energy / (kboltz * temperature))
+        activity = w * math.exp(delta_mu / (kboltz * temperature))
+        content_from_shift = nsites * activity / (1 + activity)
+
+        content_from_dict = system.concentration_dict(per_volume=False)["S"]
+        self.assertAlmostEqual(content_from_shift, content_from_dict, places=10)
+        self.assertAlmostEqual(content_from_dict, target, places=6)
+
+    def test_no_element_pools_returns_empty_dict(self):
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            occupancy_warning_threshold=None,
+        )
+        self.assertEqual(system.element_chemical_potential_shifts(), {})
+
+    def test_coupled_element_pools_report_finite_shifts(self):
+        sp_mgo = DefectSpecies(
+            "Mg_O",
+            nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+        )
+        sp_mgi = DefectSpecies(
+            "Mg_i",
+            nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+        )
+        sp_oi = DefectSpecies(
+            "O_i",
+            nsites=20,
+            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp_mgo, sp_mgi, sp_oi],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "Mg": (8.0, [("Mg_O", 1.0), ("Mg_i", 1.0)]),
+                "O": (5.0, [("Mg_O", 1.0), ("O_i", 1.0)]),
+            },
+            occupancy_warning_threshold=None,
+        )
+        shifts = system.element_chemical_potential_shifts()
+        self.assertEqual(set(shifts), {"Mg", "O"})
+        self.assertTrue(np.isfinite(shifts["Mg"]))
+        self.assertTrue(np.isfinite(shifts["O"]))
+
+    def test_fully_excluded_element_reports_negative_infinity(self):
+        # target 0 with a source-only species: the element is driven to the
+        # delta_mu -> -inf (complete-exclusion) limit and drops out of the solve.
+        sp = DefectSpecies(
+            "S",
+            nsites=10,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (0.0, [("S", 1.0)])},
+            occupancy_warning_threshold=None,
+        )
+        self.assertEqual(
+            system.element_chemical_potential_shifts()["X"], -math.inf
+        )
+
+    def test_excluded_element_keeps_declaration_order(self):
+        # A middle pool driven to exclusion (-inf) must keep its declared
+        # position: the dict is keyed by declaration order, not by the solver's
+        # narrowed element list, which drops excluded elements.
+        def neutral(name):
+            return DefectSpecies(
+                name,
+                nsites=10,
+                charge_states=[
+                    DefectChargeState(charge=0, energy=1.0, degeneracy=1)
+                ],
+            )
+
+        system = DefectSystem(
+            defect_species=[neutral("Sa"), neutral("Sb"), neutral("Sc")],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "A": (1e-3, [("Sa", 1.0)]),
+                "B": (0.0, [("Sb", 1.0)]),
+                "C": (2e-3, [("Sc", 1.0)]),
+            },
+            occupancy_warning_threshold=None,
+        )
+        shifts = system.element_chemical_potential_shifts()
+        self.assertEqual(list(shifts), ["A", "B", "C"])
+        self.assertEqual(shifts["B"], -math.inf)
+        self.assertTrue(math.isfinite(shifts["A"]))
+        self.assertTrue(math.isfinite(shifts["C"]))
+
+    def test_unachievable_target_raises(self):
+        # A target above the site-exclusion ceiling cannot be met at any
+        # chemical potential; the solver rejects it and the surfaced
+        # ElementPoolError propagates out of element_chemical_potential_shifts.
+        sp = DefectSpecies(
+            "S",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (5.0, [("S", 1.0)])},
+            occupancy_warning_threshold=None,
+        )
+        with self.assertRaises(ElementPoolError):
+            system.element_chemical_potential_shifts()
 
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):
