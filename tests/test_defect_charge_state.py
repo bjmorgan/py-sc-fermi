@@ -4,6 +4,7 @@ import numpy as np
 import yaml
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
+from py_sc_fermi.warnings import UnrecognisedKeyWarning
 
 
 class TestDefectChargeStateInit(unittest.TestCase):
@@ -194,15 +195,16 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
         self.assertIsNone(dictionary["energy"])
         yaml.safe_dump(dictionary)
 
-    def test_defect_charge_state_from_dict_warns(self):
+    def test_defect_charge_state_from_dict_warns_unrecognised_key_category(self):
+        """from_dict emits UnrecognisedKeyWarning (not a bare UserWarning) for
+        keys it does not recognise."""
         dictionary = {
             "degeneracy": 2,
             "energy": 0.1234,
             "charge": 1,
-            "fixed_concentration": 0.1234,
-            "foo": "bar"
+            "foo": "bar",
         }
-        with self.assertWarns(UserWarning):
+        with self.assertWarns(UnrecognisedKeyWarning):
             DefectChargeState.from_dict(dictionary)
 
 

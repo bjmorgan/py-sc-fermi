@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from scipy.constants import physical_constants
 
-from py_sc_fermi.warnings import suppresses_numpy_overflow
+from py_sc_fermi.warnings import UnrecognisedKeyWarning, suppresses_numpy_overflow
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -93,6 +93,7 @@ class DefectChargeState:
         if unrecognised_keys:
             warnings.warn(
                 f"Ignoring unrecognised keys: {', '.join(unrecognised_keys)}",
+                UnrecognisedKeyWarning,
                 stacklevel=2,
             )
 
