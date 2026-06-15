@@ -123,6 +123,16 @@
   high occupancy flags a regime in which un-modelled defect-defect interactions
   may make the results non-physical. The threshold is a reporting preference
   and is not serialised.
+- Added `DefectSystem.element_chemical_potential_shifts`, which reports the
+  solved chemical-potential shift (`delta_mu`, in eV) of each element
+  constrained by `element_pools`, evaluated at the self-consistent Fermi
+  level and relative to the reference at which the formation energies were
+  defined. A target above an element's unconstrained content gives a positive
+  shift, below it a negative shift, and equal to it a near-zero shift. The
+  shift is re-derived from the same element-pool solve used for the
+  concentrations, so it is consistent with `concentration_dict`; an element
+  driven to the complete-exclusion limit is reported as `-inf`. Intended for
+  external stability-region checks (py-sc-fermi has no competing-phase data).
 
 ### Bug Fixes
 
