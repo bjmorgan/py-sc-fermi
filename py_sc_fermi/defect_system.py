@@ -1276,6 +1276,57 @@ class DefectSystem:
             for name, fraction in self._site_occupancy_fractions(e_fermi).items()
         }
 
+    def element_chemical_potential_shifts(self) -> dict[str, float]:
+        """Solved chemical-potential shifts for each constrained element.
+
+        Returns the chemical-potential shift ``delta_mu`` (in eV) of every
+        element constrained by ``element_pools``, evaluated at the
+        self-consistent Fermi level. ``delta_mu`` is measured relative to the
+        chemical-potential reference at which the formation energies were
+        defined: a target above the element's unconstrained content gives
+        ``delta_mu > 0``, a target below it ``delta_mu < 0``, and a target
+        equal to it ``delta_mu ~ 0``. These are shifts, not absolute chemical
+        potentials.
+
+        py-sc-fermi reports the shift but cannot judge whether it is
+        physically accessible, having no competing-phase data. The value is
+        intended for an external stability-region check: a shift inside the
+        host's stability region corresponds to an accessible concentration,
+        one outside to a supersaturated or otherwise unphysical state.
+
+        The shift is re-derived from the same deterministic element-pool solve
+        used for the concentrations at this Fermi level, so it is consistent
+        with ``concentration_dict``.
+
+        Returns:
+            dict[str, float]: each constrained element mapped to its
+            ``delta_mu`` in eV, in the order the pools were declared. Empty
+            when no ``element_pools`` are defined. An element whose target is
+            met with zero variable content and that has no content-removing
+            (negative-stoichiometry) state is fully excluded; its shift is the
+            ``delta_mu -> -inf`` limit, reported as ``-math.inf``.
+
+        Raises:
+            ElementPoolError: if the element-pool constraints are infeasible
+                at the self-consistent Fermi level (raised by
+                ``get_sc_fermi``).
+        """
+        if not self.element_pools:
+            return {}
+        e_fermi = self.get_sc_fermi()[0]
+        groups, _ = self._build_exclusion_groups(e_fermi)
+        pools = self._resolve_element_pools()
+        elements = list(pools)
+        stoich = self._stoichiometry_lookup(pools)
+        mu, solved_elements, _ = self._solve_element_pools(
+            groups, pools, elements, stoich
+        )
+        shifts = {
+            elem: float(mu[i] * _kboltz * self.temperature)
+            for i, elem in enumerate(solved_elements)
+        }
+        return {elem: shifts.get(elem, -math.inf) for elem in pools}
+
     def as_dict(self) -> dict:
         """Return a dictionary representation of the ``DefectSystem``.
 
