@@ -1242,6 +1242,26 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self.assertTrue(math.isfinite(shifts["A"]))
         self.assertTrue(math.isfinite(shifts["C"]))
 
+    def test_unachievable_target_raises(self):
+        # A target above the site-exclusion ceiling cannot be met at any
+        # chemical potential; the solver rejects it and the surfaced
+        # ElementPoolError propagates out of element_chemical_potential_shifts.
+        sp = DefectSpecies(
+            "S",
+            nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[sp],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"X": (5.0, [("S", 1.0)])},
+            occupancy_warning_threshold=None,
+        )
+        with self.assertRaises(ElementPoolError):
+            system.element_chemical_potential_shifts()
+
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):
     """Convergence of the element-pool chemical-potential solve across
