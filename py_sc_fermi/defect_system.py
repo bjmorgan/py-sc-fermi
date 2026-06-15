@@ -1307,9 +1307,9 @@ class DefectSystem:
             ``delta_mu -> -inf`` limit, reported as ``-math.inf``.
 
         Raises:
-            ElementPoolError: if the element-pool constraints are infeasible
-                at the self-consistent Fermi level (raised by
-                ``get_sc_fermi``).
+            ElementPoolError: if the element-pool constraints cannot be
+                satisfied -- the targets are mutually inconsistent or exceed
+                the available sites.
         """
         if not self.element_pools:
             return {}

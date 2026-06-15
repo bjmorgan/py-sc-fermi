@@ -1117,33 +1117,37 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self.assertGreater(above.element_chemical_potential_shifts()["X"], 0.0)
         self.assertLess(below.element_chemical_potential_shifts()["X"], 0.0)
 
-    def test_chemical_potential_shift_is_dimensionless_mu_times_kt(self):
+    def test_shift_reproduces_concentration_dict_content(self):
+        # Convert the reported delta_mu back to the activity
+        # lambda = exp(delta_mu / kT) and feed it through the site-exclusion
+        # formula: it must reproduce the species content concentration_dict
+        # reports at the same solved Fermi level. An independent check of the
+        # eV magnitude and of the documented consistency with
+        # concentration_dict.
+        nsites, energy, degeneracy, target, temperature = 10, 1.0, 1, 1e-3, 300
         sp = DefectSpecies(
             "S",
-            nsites=10,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+            nsites=nsites,
+            charge_states=[
+                DefectChargeState(charge=0, energy=energy, degeneracy=degeneracy)
+            ],
         )
         system = DefectSystem(
             defect_species=[sp],
             dos=self.dos,
             volume=100,
-            temperature=300,
-            element_pools={"X": (1e-3, [("S", 1.0)])},
+            temperature=temperature,
+            element_pools={"X": (target, [("S", 1.0)])},
             occupancy_warning_threshold=None,
         )
-        e_fermi = system.get_sc_fermi()[0]
-        groups, _ = system._build_exclusion_groups(e_fermi)
-        pools = system._resolve_element_pools()
-        elements = list(pools)
-        stoich = system._stoichiometry_lookup(pools)
-        mu, solved_elements, _ = system._solve_element_pools(
-            groups, pools, elements, stoich
-        )
-        expected = float(mu[solved_elements.index("X")] * kboltz * 300)
+        delta_mu = system.element_chemical_potential_shifts()["X"]
+        w = degeneracy * math.exp(-energy / (kboltz * temperature))
+        activity = w * math.exp(delta_mu / (kboltz * temperature))
+        content_from_shift = nsites * activity / (1 + activity)
 
-        self.assertEqual(
-            system.element_chemical_potential_shifts()["X"], expected
-        )
+        content_from_dict = system.concentration_dict(per_volume=False)["S"]
+        self.assertAlmostEqual(content_from_shift, content_from_dict, places=10)
+        self.assertAlmostEqual(content_from_dict, target, places=6)
 
     def test_no_element_pools_returns_empty_dict(self):
         system = DefectSystem(
@@ -1206,6 +1210,37 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self.assertEqual(
             system.element_chemical_potential_shifts()["X"], -math.inf
         )
+
+    def test_excluded_element_keeps_declaration_order(self):
+        # A middle pool driven to exclusion (-inf) must keep its declared
+        # position: the dict is keyed by declaration order, not by the solver's
+        # narrowed element list, which drops excluded elements.
+        def neutral(name):
+            return DefectSpecies(
+                name,
+                nsites=10,
+                charge_states=[
+                    DefectChargeState(charge=0, energy=1.0, degeneracy=1)
+                ],
+            )
+
+        system = DefectSystem(
+            defect_species=[neutral("Sa"), neutral("Sb"), neutral("Sc")],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={
+                "A": (1e-3, [("Sa", 1.0)]),
+                "B": (0.0, [("Sb", 1.0)]),
+                "C": (2e-3, [("Sc", 1.0)]),
+            },
+            occupancy_warning_threshold=None,
+        )
+        shifts = system.element_chemical_potential_shifts()
+        self.assertEqual(list(shifts), ["A", "B", "C"])
+        self.assertEqual(shifts["B"], -math.inf)
+        self.assertTrue(math.isfinite(shifts["A"]))
+        self.assertTrue(math.isfinite(shifts["C"]))
 
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):
