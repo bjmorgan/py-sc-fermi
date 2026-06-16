@@ -46,10 +46,19 @@ class SitePool:
     """
 
     def __init__(self, n_sites: float, species: list[str | DefectSpecies]):
+        self._init_canonical(n_sites, [_species_name(s) for s in species])
+
+    def _init_canonical(self, n_sites: float, species: list[str]) -> None:
+        """Validate and store a pool whose species are already names.
+
+        Shared by ``__init__`` (after it reduces its references to names) and by
+        ``from_dict`` (whose serialised species are already names), so both
+        construct through the same validation.
+        """
         if not (n_sites > 0):
             raise ValueError(f"SitePool n_sites must be > 0; got {n_sites}.")
         self._n_sites = n_sites
-        self._species: list[str] = [_species_name(s) for s in species]
+        self._species: list[str] = species
 
     @property
     def n_sites(self) -> float:
@@ -76,7 +85,9 @@ class SitePool:
     @classmethod
     def from_dict(cls, d: SerialisedSitePool) -> SitePool:
         """Reconstruct a ``SitePool`` from ``as_dict`` output."""
-        return cls(n_sites=d["n_sites"], species=list(d["species"]))
+        pool = cls.__new__(cls)
+        pool._init_canonical(d["n_sites"], list(d["species"]))
+        return pool
 
 
 class ElementPool:
@@ -90,8 +101,6 @@ class ElementPool:
     """
 
     def __init__(self, target: float, members: dict[str | DefectSpecies, float]):
-        if not math.isfinite(target):
-            raise ValueError(f"ElementPool target must be finite; got {target}.")
         names = [_species_name(s) for s in members]
         duplicates = sorted({n for n in names if names.count(n) > 1})
         if duplicates:
@@ -99,10 +108,19 @@ class ElementPool:
                 "ElementPool members resolve to the same species name: "
                 + ", ".join(duplicates)
             )
+        self._init_canonical(target, dict(zip(names, members.values(), strict=True)))
+
+    def _init_canonical(self, target: float, members: dict[str, float]) -> None:
+        """Validate and store a pool whose members are already keyed by name.
+
+        Shared by ``__init__`` (after it reduces its references to names) and by
+        ``from_dict`` (whose serialised members are already names), so both
+        construct through the same validation.
+        """
+        if not math.isfinite(target):
+            raise ValueError(f"ElementPool target must be finite; got {target}.")
         self._target = target
-        self._members: dict[str, float] = dict(
-            zip(names, members.values(), strict=True)
-        )
+        self._members: dict[str, float] = members
 
     @property
     def target(self) -> float:
@@ -132,10 +150,9 @@ class ElementPool:
     @classmethod
     def from_dict(cls, d: SerialisedElementPool) -> ElementPool:
         """Reconstruct an ``ElementPool`` from ``as_dict`` output."""
-        return cls(
-            target=d["target"],
-            members={name: stoich for name, stoich in d["members"].items()},
-        )
+        pool = cls.__new__(cls)
+        pool._init_canonical(d["target"], dict(d["members"]))
+        return pool
 
 
 @dataclass(frozen=True)
