@@ -7,7 +7,7 @@ import warnings
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypeAlias, TypedDict
+from typing import Any, NamedTuple
 
 import numpy as np
 from scipy.constants import physical_constants as _physical_constants
@@ -18,56 +18,20 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
+from py_sc_fermi.pool_data import (
+    ElementPools,
+    ElementPoolsInput,
+    ElementPoolsResolved,
+    SitePools,
+    SitePoolsInput,
+    _element_pools_as_dict,
+    _normalise_element_pools,
+    _normalise_site_pools,
+    _site_pools_as_dict,
+)
+from py_sc_fermi.warnings import DiluteLimitWarning
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
-
-
-class DiluteLimitWarning(UserWarning):
-    """Warns that a defect's solved site occupancy is high enough that
-    py-sc-fermi's dilute, non-interacting-defect assumption may no longer hold,
-    so the results may be non-physical.
-
-    Emitted by :meth:`DefectSystem.get_sc_fermi` -- and therefore by every
-    results path that solves (``report``, ``concentration_dict``,
-    ``site_percentages``) -- when any species' occupancy exceeds
-    ``DefectSystem.occupancy_warning_threshold``, at most once per
-    ``DefectSystem`` instance. A dedicated ``UserWarning`` subclass so it can be
-    filtered independently of other warnings.
-    """
-
-
-# Pools as accepted by the constructor: each species given as a DefectSpecies
-# object or by its name.
-SitePoolsInput: TypeAlias = dict[str, tuple[float, list[DefectSpecies | str]]]
-ElementPoolsInput: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
-
-# Pools as stored on a DefectSystem: references reduced to names.
-SitePools: TypeAlias = dict[str, tuple[float, list[str]]]
-ElementPools: TypeAlias = dict[str, tuple[float, list[tuple[str, float]]]]
-
-# Element pools with names resolved back to roster DefectSpecies (solve time).
-ElementPoolsResolved: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]
-
-
-class SerialisedSitePool(TypedDict):
-    """JSON/YAML form of one site pool: a named site budget and its species."""
-
-    n_sites: float
-    species: list[str]
-
-
-class SerialisedElementMember(TypedDict):
-    """JSON/YAML form of one (species, stoichiometry) member of an element pool."""
-
-    species: str
-    stoichiometry: float
-
-
-class SerialisedElementPool(TypedDict):
-    """JSON/YAML form of one element pool: a target content and its members."""
-
-    target: float
-    members: list[SerialisedElementMember]
 
 
 class _VariableState(NamedTuple):
@@ -95,55 +59,6 @@ class _ExclusionGroup:
 
     n_free: float
     variable_states: list[_VariableState]
-
-
-def _species_name(species: DefectSpecies | str) -> str:
-    """Reduce a species reference (a ``DefectSpecies`` or its name) to the name."""
-    return species.name if isinstance(species, DefectSpecies) else species
-
-
-def _normalise_site_pools(site_pools: SitePoolsInput | None) -> SitePools:
-    """Reduce every site-pool species reference to a species name."""
-    if not site_pools:
-        return {}
-    return {
-        pool_name: (n_sites, [_species_name(sp) for sp in species_list])
-        for pool_name, (n_sites, species_list) in site_pools.items()
-    }
-
-
-def _normalise_element_pools(element_pools: ElementPoolsInput | None) -> ElementPools:
-    """Reduce every element-pool species reference to a species name."""
-    if not element_pools:
-        return {}
-    return {
-        element: (target, [(_species_name(sp), stoich) for sp, stoich in pool_list])
-        for element, (target, pool_list) in element_pools.items()
-    }
-
-
-def _site_pools_as_dict(site_pools: SitePools) -> dict[str, SerialisedSitePool]:
-    """Serialise stored site pools to JSON/YAML-safe mappings."""
-    return {
-        pool_name: {"n_sites": float(n_sites), "species": list(species_names)}
-        for pool_name, (n_sites, species_names) in site_pools.items()
-    }
-
-
-def _element_pools_as_dict(
-    element_pools: ElementPools,
-) -> dict[str, SerialisedElementPool]:
-    """Serialise stored element pools to JSON/YAML-safe mappings."""
-    return {
-        element: {
-            "target": float(target),
-            "members": [
-                {"species": name, "stoichiometry": float(stoich)}
-                for name, stoich in pool_list
-            ],
-        }
-        for element, (target, pool_list) in element_pools.items()
-    }
 
 
 class DefectSystem:
