@@ -1,8 +1,9 @@
+import math
 import unittest
 
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
-from py_sc_fermi.pools import SitePool
+from py_sc_fermi.pools import ElementPool, SitePool
 
 
 def _species(name: str) -> DefectSpecies:
@@ -40,4 +41,45 @@ class TestSitePool(unittest.TestCase):
         self.assertNotEqual(
             SitePool(n_sites=2.0, species=["A"]),
             SitePool(n_sites=3.0, species=["A"]),
+        )
+
+
+class TestElementPool(unittest.TestCase):
+    def test_normalises_members_to_names(self):
+        pool = ElementPool(target=5.0, members={_species("A"): 1.0, "B": -2.0})
+        self.assertEqual(pool.target, 5.0)
+        self.assertEqual(pool.members, {"A": 1.0, "B": -2.0})
+
+    def test_members_property_returns_a_copy(self):
+        pool = ElementPool(target=1.0, members={"A": 1.0})
+        pool.members["X"] = 9.0
+        self.assertEqual(pool.members, {"A": 1.0})
+
+    def test_accepts_negative_target(self):
+        self.assertEqual(ElementPool(target=-3.0, members={"A": -1.0}).target, -3.0)
+
+    def test_rejects_nan_target(self):
+        with self.assertRaisesRegex(ValueError, "target must be finite"):
+            ElementPool(target=math.nan, members={"A": 1.0})
+
+    def test_rejects_inf_target(self):
+        with self.assertRaisesRegex(ValueError, "target must be finite"):
+            ElementPool(target=math.inf, members={"A": 1.0})
+
+    def test_object_and_name_for_same_species_raise(self):
+        with self.assertRaisesRegex(ValueError, "resolve to the same species name: A"):
+            ElementPool(target=1.0, members={_species("A"): 1.0, "A": -1.0})
+
+    def test_two_distinct_objects_sharing_a_name_raise(self):
+        with self.assertRaisesRegex(ValueError, "resolve to the same species name: A"):
+            ElementPool(target=1.0, members={_species("A"): 1.0, _species("A"): -1.0})
+
+    def test_equality_by_value(self):
+        self.assertEqual(
+            ElementPool(target=1.0, members={"A": 1.0}),
+            ElementPool(target=1.0, members={"A": 1.0}),
+        )
+        self.assertNotEqual(
+            ElementPool(target=1.0, members={"A": 1.0}),
+            ElementPool(target=2.0, members={"A": 1.0}),
         )

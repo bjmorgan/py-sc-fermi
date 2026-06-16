@@ -10,6 +10,7 @@ JSON/YAML. The element-pool chemical-potential solver is in
 
 from __future__ import annotations
 
+import math
 from typing import TypeAlias, TypedDict
 
 from py_sc_fermi.defect_species import DefectSpecies
@@ -85,6 +86,50 @@ class SitePool:
 
     def __repr__(self) -> str:
         return f"SitePool(n_sites={self._n_sites!r}, species={self._species!r})"
+
+
+class ElementPool:
+    """A net-content target for one element and the species supplying it.
+
+    Args:
+        target: the element content the pool is solved to (per unit cell). May
+            be negative (intrinsic off-stoichiometry); only NaN/inf are rejected.
+        members: mapping of each supplying species (a ``DefectSpecies`` or its
+            name) to its stoichiometry for this element. Stored keyed by name.
+    """
+
+    def __init__(self, target: float, members: dict[str | DefectSpecies, float]):
+        if not math.isfinite(target):
+            raise ValueError(f"ElementPool target must be finite; got {target}.")
+        names = [_species_name(s) for s in members]
+        duplicates = sorted({n for n in names if names.count(n) > 1})
+        if duplicates:
+            raise ValueError(
+                "ElementPool members resolve to the same species name: "
+                + ", ".join(duplicates)
+            )
+        self._target = target
+        self._members: dict[str, float] = dict(
+            zip(names, members.values(), strict=True)
+        )
+
+    @property
+    def target(self) -> float:
+        """The element content the pool is solved to."""
+        return self._target
+
+    @property
+    def members(self) -> dict[str, float]:
+        """Mapping of pooled species name to stoichiometry."""
+        return dict(self._members)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ElementPool):
+            return NotImplemented
+        return self._target == other._target and self._members == other._members
+
+    def __repr__(self) -> str:
+        return f"ElementPool(target={self._target!r}, members={self._members!r})"
 
 
 def _normalise_site_pools(site_pools: SitePoolsInput | None) -> SitePools:
