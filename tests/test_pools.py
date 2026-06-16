@@ -83,3 +83,17 @@ class TestElementPool(unittest.TestCase):
             ElementPool(target=1.0, members={"A": 1.0}),
             ElementPool(target=2.0, members={"A": 1.0}),
         )
+
+
+class TestPoolSerialisation(unittest.TestCase):
+    def test_sitepool_round_trips_through_as_dict(self):
+        pool = SitePool(n_sites=4.0, species=[_species("A"), "B"])
+        self.assertEqual(pool.as_dict(), {"n_sites": 4.0, "species": ["A", "B"]})
+        self.assertEqual(SitePool.from_dict(pool.as_dict()), pool)
+
+    def test_elementpool_round_trips_with_members_mapping(self):
+        pool = ElementPool(target=0.3, members={_species("C"): 1.0, "D": -2.0})
+        self.assertEqual(
+            pool.as_dict(), {"target": 0.3, "members": {"C": 1.0, "D": -2.0}}
+        )
+        self.assertEqual(ElementPool.from_dict(pool.as_dict()), pool)

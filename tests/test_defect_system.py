@@ -20,6 +20,7 @@ from py_sc_fermi.defect_system import (
 )
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
+from py_sc_fermi.pools import ElementPool, SitePool
 
 input_string = "1\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 input_string_spin = (
@@ -386,7 +387,9 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (n_pool, [self.species_a, self.species_b])},
+            site_pools={
+                "shared": SitePool(n_sites=n_pool, species=[self.species_a, self.species_b])
+            },
         )
         concs = system._global_defect_concs(1.0)
         total_occupied = sum(
@@ -403,9 +406,12 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (10.0, [self.species_a, "B"])},
+            site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a, "B"])},
         )
-        self.assertEqual(system.site_pools, {"shared": (10.0, ["A", "B"])})
+        self.assertEqual(
+            system.site_pools,
+            {"shared": SitePool(n_sites=10.0, species=["A", "B"])},
+        )
 
     def test_pool_raises_when_fixed_concentrations_exceed_site_count(self):
         # Over-budget fixed concentrations are a static constraint violation,
@@ -417,7 +423,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
                 dos=self.dos,
                 volume=100,
                 temperature=300,
-                site_pools={"shared": (10.0, [self.species_a])},
+                site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a])},
             )
 
     def test_pooled_species_honours_species_level_fixed_concentration(self):
@@ -433,7 +439,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (10.0, [self.species_a, self.species_b])},
+            site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a, self.species_b])},
         )
         no_pool_total = sum(
             no_pool_system._global_defect_concs(1.0)[cs]
@@ -456,7 +462,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
                 dos=self.dos,
                 volume=100,
                 temperature=300,
-                site_pools={"shared": (10.0, [self.species_a])},
+                site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a])},
             )
 
     def test_unpooled_species_raises_when_fixed_concentration_exceeds_nsites(self):
@@ -523,7 +529,11 @@ class TestDefectSystemSitePools(unittest.TestCase):
                 dos=self.dos,
                 volume=100,
                 temperature=300,
-                site_pools={"shared": (10.0, [self.species_a, self.species_b])},
+                site_pools={
+                    "shared": SitePool(
+                        n_sites=10.0, species=[self.species_a, self.species_b]
+                    )
+                },
             )
 
     def test_species_fixed_above_all_fixed_charge_states_raises_at_construction(self):
@@ -605,8 +615,8 @@ class TestDefectSystemSitePools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (10.0, [self.species_a, "B"])},
-            element_pools={"dE": (1.0, [("A", 2.0)])},
+            site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a, "B"])},
+            element_pools={"dE": ElementPool(target=1.0, members={"A": 2.0})},
         )
         self.assertIn("shared: 10 sites", repr(system))
         self.assertIn("[A, B]", repr(system))
@@ -687,7 +697,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (4.0, [species_a, species_b])},
+            site_pools={"shared": SitePool(n_sites=4.0, species=[species_a, species_b])},
             occupancy_warning_threshold=None,
         )
         pct = system.site_percentages()
@@ -753,7 +763,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (4.0, [pooled])},
+            site_pools={"shared": SitePool(n_sites=4.0, species=[pooled])},
             occupancy_warning_threshold=None,
         )
         per_cell = system.concentration_dict(decomposed=False, per_volume=False)
@@ -812,37 +822,38 @@ class TestDefectSystemPoolValidation(unittest.TestCase):
         with self.assertRaisesRegex(
             ValueError, "site pool 'shared' references species not in defect_species: C"
         ):
-            self._system(site_pools={"shared": (10.0, ["A", "C"])})
+            self._system(site_pools={"shared": SitePool(n_sites=10.0, species=["A", "C"])})
 
     def test_element_pool_referencing_unknown_species_raises(self):
         with self.assertRaisesRegex(
             ValueError, "element pool 'X' references species not in defect_species: C"
         ):
-            self._system(element_pools={"X": (1.0, [("C", 1.0)])})
+            self._system(element_pools={"X": ElementPool(target=1.0, members={"C": 1.0})})
 
     def test_site_pool_listing_a_species_twice_raises(self):
         with self.assertRaisesRegex(
             ValueError, "site pool 'shared' lists species more than once: A"
         ):
-            self._system(site_pools={"shared": (10.0, [self.species_a, "A"])})
-
-    def test_element_pool_listing_a_species_twice_raises(self):
-        with self.assertRaisesRegex(
-            ValueError, "element pool 'X' lists species more than once: A"
-        ):
-            self._system(element_pools={"X": (1.0, [("A", 1.0), ("A", -1.0)])})
+            self._system(
+                site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a, "A"])}
+            )
 
     def test_species_in_two_site_pools_raises(self):
         with self.assertRaisesRegex(
             ValueError, "species 'A' appears in site pools 'p1' and 'p2'"
         ):
-            self._system(site_pools={"p1": (5.0, ["A"]), "p2": (5.0, ["A", "B"])})
+            self._system(
+                site_pools={
+                    "p1": SitePool(n_sites=5.0, species=["A"]),
+                    "p2": SitePool(n_sites=5.0, species=["A", "B"]),
+                }
+            )
 
     def test_species_may_appear_in_multiple_element_pools(self):
         system = self._system(
             element_pools={
-                "X": (0.1, [("A", 1.0)]),
-                "Y": (0.1, [("A", 1.0), ("B", 1.0)]),
+                "X": ElementPool(target=0.1, members={"A": 1.0}),
+                "Y": ElementPool(target=0.1, members={"A": 1.0, "B": 1.0}),
             }
         )
         self.assertEqual(set(system.element_pools), {"X", "Y"})
@@ -872,11 +883,25 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (target, [(self.species, 1.0)])},
+            element_pools={"Mg": ElementPool(target=target, members={self.species: 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
+
+    def test_element_pool_negative_target_solves(self):
+        # Negative net-content target with a negative stoichiometry (net removal):
+        # content = -1 * total, so a target of -5 drives the total to 5.
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": ElementPool(target=-5.0, members={self.species: -1.0})},
+        )
+        concs = system._global_defect_concs(1.0)
+        total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
+        self.assertAlmostEqual(total_mg, 5.0, places=6)
 
     def test_element_pool_can_reference_species_by_name(self):
         target = 5.0
@@ -885,7 +910,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (target, [("Mg_Zn", 1.0)])},
+            element_pools={"Mg": ElementPool(target=target, members={"Mg_Zn": 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
@@ -910,10 +935,11 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": (0.0, [(o_i, 2.0), ("V_O", -3.0)])},
+            element_pools={"dO": ElementPool(target=0.0, members={o_i: 2.0, "V_O": -3.0})},
         )
         self.assertEqual(
-            system.element_pools, {"dO": (0.0, [("O_i", 2.0), ("V_O", -3.0)])}
+            system.element_pools,
+            {"dO": ElementPool(target=0.0, members={"O_i": 2.0, "V_O": -3.0})},
         )
 
     def test_element_pool_leaves_fixed_charge_states_unscaled(self):
@@ -925,7 +951,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (target, [(self.species, 1.0)])},
+            element_pools={"Mg": ElementPool(target=target, members={self.species: 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         self.assertEqual(concs[system.defect_species[0].charge_states[0]], fixed_value)
@@ -939,7 +965,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (5.0, [(self.species, 1.0)])},
+            element_pools={"Mg": ElementPool(target=5.0, members={self.species: 1.0})},
         )
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
@@ -960,7 +986,9 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (target, [(species_a, 1.0), (species_b, 2.0)])},
+            element_pools={
+                "X": ElementPool(target=target, members={species_a: 1.0, species_b: 2.0})
+            },
         )
         concs = system._global_defect_concs(1.0)
         c_a = concs[system.defect_species[0].charge_states[0]]
@@ -984,7 +1012,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (2.0, [(species_a, 1.0), (species_b, 2.0)])},
+            element_pools={"X": ElementPool(target=2.0, members={species_a: 1.0, species_b: 2.0})},
         )
         with self.assertRaises(ValueError):
             system._global_defect_concs(1.0)
@@ -1005,7 +1033,11 @@ class TestDefectSystemElementPools(unittest.TestCase):
                 dos=self.dos,
                 volume=100,
                 temperature=300,
-                element_pools={"X": (target, [(species_a, 1.0), (species_b, 2.0)])},
+                element_pools={
+                    "X": ElementPool(
+                        target=target, members={species_a: 1.0, species_b: 2.0}
+                    )
+                },
             )
             concs = system._global_defect_concs(1.0)
             c_a = concs[system.defect_species[0].charge_states[0]]
@@ -1031,8 +1063,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "Mg": (8.0, [(sp_mgo, 1.0), (sp_mgi, 1.0)]),
-                "O": (5.0, [(sp_mgo, 1.0), (sp_oi, 1.0)]),
+                "Mg": ElementPool(target=8.0, members={sp_mgo: 1.0, sp_mgi: 1.0}),
+                "O": ElementPool(target=5.0, members={sp_mgo: 1.0, sp_oi: 1.0}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -1054,7 +1086,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (5.0, [(species, 1.0)])},
+            element_pools={"Mg": ElementPool(target=5.0, members={species: 1.0})},
         )
         with self.assertRaises(ValueError) as ctx:
             system._global_defect_concs(1.0)
@@ -1074,8 +1106,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (5.0, [("S", 1.0)]),
-                "Y": (1.0, [("S", 1.0)]),
+                "X": ElementPool(target=5.0, members={"S": 1.0}),
+                "Y": ElementPool(target=1.0, members={"S": 1.0}),
             },
         )
         with self.assertRaises(ElementPoolError) as ctx:
@@ -1107,9 +1139,9 @@ class TestDefectSystemElementPools(unittest.TestCase):
         concs = base._global_defect_concs(e_fermi)
         c0 = sum(concs[cs] for cs in base.defect_species[0].charge_states)
 
-        at_target = build(element_pools={"X": (c0, [("S", 1.0)])})
-        above = build(element_pools={"X": (2 * c0, [("S", 1.0)])})
-        below = build(element_pools={"X": (0.5 * c0, [("S", 1.0)])})
+        at_target = build(element_pools={"X": ElementPool(target=c0, members={"S": 1.0})})
+        above = build(element_pools={"X": ElementPool(target=2 * c0, members={"S": 1.0})})
+        below = build(element_pools={"X": ElementPool(target=0.5 * c0, members={"S": 1.0})})
 
         self.assertAlmostEqual(
             at_target.element_chemical_potential_shifts()["X"], 0.0, places=6
@@ -1137,7 +1169,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=temperature,
-            element_pools={"X": (target, [("S", 1.0)])},
+            element_pools={"X": ElementPool(target=target, members={"S": 1.0})},
             occupancy_warning_threshold=None,
         )
         delta_mu = system.element_chemical_potential_shifts()["X"]
@@ -1181,8 +1213,8 @@ class TestDefectSystemElementPools(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "Mg": (8.0, [("Mg_O", 1.0), ("Mg_i", 1.0)]),
-                "O": (5.0, [("Mg_O", 1.0), ("O_i", 1.0)]),
+                "Mg": ElementPool(target=8.0, members={"Mg_O": 1.0, "Mg_i": 1.0}),
+                "O": ElementPool(target=5.0, members={"Mg_O": 1.0, "O_i": 1.0}),
             },
             occupancy_warning_threshold=None,
         )
@@ -1204,7 +1236,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (0.0, [("S", 1.0)])},
+            element_pools={"X": ElementPool(target=0.0, members={"S": 1.0})},
             occupancy_warning_threshold=None,
         )
         self.assertEqual(
@@ -1230,9 +1262,9 @@ class TestDefectSystemElementPools(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "A": (1e-3, [("Sa", 1.0)]),
-                "B": (0.0, [("Sb", 1.0)]),
-                "C": (2e-3, [("Sc", 1.0)]),
+                "A": ElementPool(target=1e-3, members={"Sa": 1.0}),
+                "B": ElementPool(target=0.0, members={"Sb": 1.0}),
+                "C": ElementPool(target=2e-3, members={"Sc": 1.0}),
             },
             occupancy_warning_threshold=None,
         )
@@ -1256,7 +1288,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (5.0, [("S", 1.0)])},
+            element_pools={"X": ElementPool(target=5.0, members={"S": 1.0})},
             occupancy_warning_threshold=None,
         )
         with self.assertRaises(ElementPoolError):
@@ -1297,8 +1329,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (4 * u, [("P", 1.0), ("Q", 1.0)]),
-                "Y": (2 * u, [("Q", 1.0)]),
+                "X": ElementPool(target=4 * u, members={"P": 1.0, "Q": 1.0}),
+                "Y": ElementPool(target=2 * u, members={"Q": 1.0}),
             },
         )
         return system, 4 * u, 2 * u
@@ -1325,7 +1357,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (target, [("P", 1.0)])},
+            element_pools={"X": ElementPool(target=target, members={"P": 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1365,8 +1397,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "Mg": (8.0, [("A", 1.0), ("B", 1.0)]),
-                "O": (5.0, [("A", 1.0), ("C", 1.0)]),
+                "Mg": ElementPool(target=8.0, members={"A": 1.0, "B": 1.0}),
+                "O": ElementPool(target=5.0, members={"A": 1.0, "C": 1.0}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -1387,7 +1419,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (0.5, [("S", 1.0)])},
+            element_pools={"X": ElementPool(target=0.5, members={"S": 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1410,7 +1442,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"Mg": (target, [("Mg", 1.0)])},
+            element_pools={"Mg": ElementPool(target=target, members={"Mg": 1.0})},
         )
         e_fermi, _ = system.get_sc_fermi()
         self.assertTrue(np.isfinite(e_fermi))
@@ -1431,7 +1463,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (5.0, [("S", 1.0)])},
+            element_pools={"X": ElementPool(target=5.0, members={"S": 1.0})},
         )
         with self.assertRaises(ElementPoolError) as ctx:
             system.get_sc_fermi()
@@ -1452,7 +1484,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=30,
-            element_pools={"X": (target, [("S", 1.0)])},
+            element_pools={"X": ElementPool(target=target, members={"S": 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1482,8 +1514,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
                         volume=100,
                         temperature=300,
                         element_pools={
-                            "X": (target_x, [("A", 1.0), ("B", 1.0)]),
-                            "Y": (target_y, [("A", 1.0), ("C", 1.0)]),
+                            "X": ElementPool(target=target_x, members={"A": 1.0, "B": 1.0}),
+                            "Y": ElementPool(target=target_y, members={"A": 1.0, "C": 1.0}),
                         },
                     )
                     concs = system._global_defect_concs(1.0)
@@ -1519,8 +1551,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (3.0, [("A", 1.0), ("B", 1.0)]),
-                "Y": (target_y, [("B", 1.0), ("C", 1.0)]),
+                "X": ElementPool(target=3.0, members={"A": 1.0, "B": 1.0}),
+                "Y": ElementPool(target=target_y, members={"B": 1.0, "C": 1.0}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -1547,9 +1579,9 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (targets["X"], [("A", 1.0), ("B", 1.0)]),
-                "Y": (targets["Y"], [("A", 1.0), ("C", 1.0)]),
-                "Z": (targets["Z"], [("C", 1.0), ("D", 1.0)]),
+                "X": ElementPool(target=targets["X"], members={"A": 1.0, "B": 1.0}),
+                "Y": ElementPool(target=targets["Y"], members={"A": 1.0, "C": 1.0}),
+                "Z": ElementPool(target=targets["Z"], members={"C": 1.0, "D": 1.0}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -1583,8 +1615,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (target_x, [("P", 2.0), ("Q", 1.0)]),
-                "Y": (target_y, [("Q", 0.5)]),
+                "X": ElementPool(target=target_x, members={"P": 2.0, "Q": 1.0}),
+                "Y": ElementPool(target=target_y, members={"Q": 0.5}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -1626,8 +1658,10 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
                             volume=100,
                             temperature=300,
                             element_pools={
-                                "X": (target_x, [("A", 1.0), ("B", stoich_b)]),
-                                "Y": (target_y, [("A", 1.0), ("C", 1.0)]),
+                                "X": ElementPool(
+                                    target=target_x, members={"A": 1.0, "B": stoich_b}
+                                ),
+                                "Y": ElementPool(target=target_y, members={"A": 1.0, "C": 1.0}),
                             },
                         )
                         concs = system._global_defect_concs(1.0)
@@ -1664,7 +1698,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (3.0, [("A", 1.0), ("B", 1.0)])},
+            element_pools={"X": ElementPool(target=3.0, members={"A": 1.0, "B": 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1690,8 +1724,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (3.0, [("A", 1.0), ("B", 1.0)]),
-                "Y": (1.0, [("B", 1.0)]),
+                "X": ElementPool(target=3.0, members={"A": 1.0, "B": 1.0}),
+                "Y": ElementPool(target=1.0, members={"B": 1.0}),
             },
         )
         with self.assertRaises(ValueError) as ctx:
@@ -1720,7 +1754,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"X": (0.3, [("A", 1.0), ("B", 1.0), ("C", 1.0)])},
+            element_pools={"X": ElementPool(target=0.3, members={"A": 1.0, "B": 1.0, "C": 1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1744,7 +1778,9 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": (-(0.1 + 0.2), [("O_i", 1.0), ("V_O", -1.0)])},
+            element_pools={
+                "dO": ElementPool(target=-(0.1 + 0.2), members={"O_i": 1.0, "V_O": -1.0})
+            },
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1774,7 +1810,11 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
                     dos=self.dos,
                     volume=100,
                     temperature=300,
-                    element_pools={"dO": (target, [("O_i", 1.0), ("V_O", -1.0)])},
+                    element_pools={
+                        "dO": ElementPool(
+                            target=target, members={"O_i": 1.0, "V_O": -1.0}
+                        )
+                    },
                 )
                 concs = system._global_defect_concs(1.0)
                 content = self.species_content(system, concs)
@@ -1800,7 +1840,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": (target, [("O_i", 1.0), ("V_O", -1.0)])},
+            element_pools={"dO": ElementPool(target=target, members={"O_i": 1.0, "V_O": -1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1826,7 +1866,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": (-20.0, [("O_i", 1.0), ("V_O", -1.0)])},
+            element_pools={"dO": ElementPool(target=-20.0, members={"O_i": 1.0, "V_O": -1.0})},
         )
         with self.assertRaises(ElementPoolError) as ctx:
             system._global_defect_concs(1.0)
@@ -1854,8 +1894,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "dO": (0.0, [("O_i", 1.0), ("V_O", -1.0)]),
-                "Y": (target_y, [("O_i", 1.0), ("M", 1.0)]),
+                "dO": ElementPool(target=0.0, members={"O_i": 1.0, "V_O": -1.0}),
+                "Y": ElementPool(target=target_y, members={"O_i": 1.0, "M": 1.0}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -1884,7 +1924,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": (0.0, [("O_i", 1.0), ("V_O", -1.0)])},
+            element_pools={"dO": ElementPool(target=0.0, members={"O_i": 1.0, "V_O": -1.0})},
         )
         concs = system._global_defect_concs(1.0)
         content = self.species_content(system, concs)
@@ -1907,8 +1947,8 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
             volume=100,
             temperature=300,
             element_pools={
-                "X": (target_x, [("P", 1.0), ("Q", 1.0)]),
-                "Y": (target_y, [("Q", 1.0)]),
+                "X": ElementPool(target=target_x, members={"P": 1.0, "Q": 1.0}),
+                "Y": ElementPool(target=target_y, members={"Q": 1.0}),
             },
         )
         concs = system._global_defect_concs(1.0)
@@ -2167,8 +2207,8 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"cation": (4.0, [self.species_a, "B"])},
-            element_pools={"X": (0.3, [(self.species_c, 1.0)])},
+            site_pools={"cation": SitePool(n_sites=4.0, species=[self.species_a, "B"])},
+            element_pools={"X": ElementPool(target=0.3, members={self.species_c: 1.0})},
         )
 
     @staticmethod
@@ -2188,11 +2228,17 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         )
         self.assertEqual(
             as_dict["element_pools"],
-            {"X": {"target": 0.3, "members": [{"species": "C", "stoichiometry": 1.0}]}},
+            {"X": {"target": 0.3, "members": {"C": 1.0}}},
         )
         reloaded = DefectSystem.from_dict(json.loads(json.dumps(as_dict)))
-        self.assertEqual(reloaded.site_pools, {"cation": (4.0, ["A", "B"])})
-        self.assertEqual(reloaded.element_pools, {"X": (0.3, [("C", 1.0)])})
+        self.assertEqual(
+            reloaded.site_pools,
+            {"cation": SitePool(n_sites=4.0, species=["A", "B"])},
+        )
+        self.assertEqual(
+            reloaded.element_pools,
+            {"X": ElementPool(target=0.3, members={"C": 1.0})},
+        )
         original = self._concs_by_name(system, 1.0)
         reloaded_totals = self._concs_by_name(reloaded, 1.0)
         self.assertEqual(set(original), set(reloaded_totals))
@@ -2204,8 +2250,14 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         reloaded = DefectSystem.from_dict(
             yaml.safe_load(yaml.safe_dump(system.as_dict()))
         )
-        self.assertEqual(reloaded.site_pools, {"cation": (4.0, ["A", "B"])})
-        self.assertEqual(reloaded.element_pools, {"X": (0.3, [("C", 1.0)])})
+        self.assertEqual(
+            reloaded.site_pools,
+            {"cation": SitePool(n_sites=4.0, species=["A", "B"])},
+        )
+        self.assertEqual(
+            reloaded.element_pools,
+            {"X": ElementPool(target=0.3, members={"C": 1.0})},
+        )
         original = self._concs_by_name(system, 1.0)
         reloaded_totals = self._concs_by_name(reloaded, 1.0)
         for name, total in original.items():
@@ -2281,13 +2333,17 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
             dos=self.dos,
             volume=100,
             temperature=300,
-            site_pools={"shared": (6.0, [self.species_a, "C"])},
-            element_pools={"dX": (0.0, [(self.species_a, 1.0), ("C", -2.0)])},
+            site_pools={"shared": SitePool(n_sites=6.0, species=[self.species_a, "C"])},
+            element_pools={"dX": ElementPool(target=0.0, members={self.species_a: 1.0, "C": -2.0})},
         )
         reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
-        self.assertEqual(reloaded.site_pools, {"shared": (6.0, ["A", "C"])})
         self.assertEqual(
-            reloaded.element_pools, {"dX": (0.0, [("A", 1.0), ("C", -2.0)])}
+            reloaded.site_pools,
+            {"shared": SitePool(n_sites=6.0, species=["A", "C"])},
+        )
+        self.assertEqual(
+            reloaded.element_pools,
+            {"dX": ElementPool(target=0.0, members={"A": 1.0, "C": -2.0})},
         )
 
     def test_numpy_convergence_tolerance_is_yaml_safe(self):
@@ -2340,8 +2396,10 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
             volume=np.float64(100.0),
             temperature=np.float64(300.0),
             convergence_tolerance=np.float64(1e-8),
-            site_pools={"p": (np.float64(4.0), ["Z"])},
-            element_pools={"X": (np.float64(0.5), [("Z", np.float64(1.0))])},
+            site_pools={"p": SitePool(n_sites=np.float64(4.0), species=["Z"])},
+            element_pools={
+                "X": ElementPool(target=np.float64(0.5), members={"Z": np.float64(1.0)})
+            },
         )
         yaml.safe_dump(system.as_dict())
 
@@ -2560,7 +2618,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
                 dos=self.dos,
                 volume=100,
                 temperature=300,
-                site_pools={"shared": (1.0, ["A", "B"])},
+                site_pools={"shared": SitePool(n_sites=1.0, species=["A", "B"])},
                 fixed_concentrations={"A": 0.7, "B": 0.5},
             )
 
@@ -2635,7 +2693,9 @@ class TestDiluteLimitWarning(unittest.TestCase):
             charge_states=[DefectChargeState(charge=0, energy=0.2, degeneracy=1)],
         )
         system = self._make_system(
-            [a, b], site_pools={"shared": (4.0, [a, b])}, occupancy_warning_threshold=None
+            [a, b],
+            site_pools={"shared": SitePool(n_sites=4.0, species=[a, b])},
+            occupancy_warning_threshold=None,
         )
         e_fermi = system.get_sc_fermi()[0]
         fractions = system._site_occupancy_fractions(e_fermi)
@@ -2779,7 +2839,7 @@ class TestDiluteLimitWarning(unittest.TestCase):
         )
         system = self._make_system(
             [species],
-            site_pools={"shared": (10.0, [species])},
+            site_pools={"shared": SitePool(n_sites=10.0, species=[species])},
             occupancy_warning_threshold=0.01,
         )
         with warnings.catch_warnings(record=True) as records:
@@ -2816,7 +2876,9 @@ class TestDiluteLimitWarning(unittest.TestCase):
     def test_zero_site_pool_rejected_at_construction(self):
         species = self._saturating_species("S")
         with self.assertRaises(ValueError):
-            self._make_system([species], site_pools={"shared": (0.0, [species])})
+            self._make_system(
+                [species], site_pools={"shared": SitePool(n_sites=0.0, species=[species])}
+            )
 
 
 if __name__ == "__main__":

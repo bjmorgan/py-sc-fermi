@@ -19,15 +19,9 @@ from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 from py_sc_fermi.pools import (
-    ElementPools,
-    ElementPoolsInput,
-    ElementPoolsResolved,
-    SitePools,
-    SitePoolsInput,
-    _element_pools_as_dict,
-    _normalise_element_pools,
-    _normalise_site_pools,
-    _site_pools_as_dict,
+    ElementPool,
+    ResolvedElementPool,
+    SitePool,
 )
 from py_sc_fermi.warnings import DiluteLimitWarning
 
@@ -76,36 +70,34 @@ class DefectSystem:
           will be solved for.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV. If not specified, uses scipy's default.
-        site_pools (SitePoolsInput | None, optional):
-          Mapping of pool name -> (total sites in that pool, list of the
-          DefectSpecies sharing those sites, each given as an object or by
-          name). References are reduced to species names at construction,
-          so `site_pools` on the constructed system contains names only.
+        site_pools (dict[str, SitePool] | None, optional):
+          Mapping of pool name to a `SitePool` (its total site count and the
+          species sharing those sites, each given as a `DefectSpecies` object
+          or by name and reduced to names by `SitePool`).
           By default (None), every DefectSpecies gets its own implicit
           exclusion group of `nsites` sites, so its charge states already
           compete with each other via Langmuir statistics; `site_pools` is
           only needed when several species must share one physical site
           budget.
-        element_pools (ElementPoolsInput | None, optional):
-          Mapping of element name -> (target content, list of
-          (species, stoichiometry) pairs). Constrains the total amount of
-          an element supplied by the listed species: the chemical
+        element_pools (dict[str, ElementPool] | None, optional):
+          Mapping of element name to an `ElementPool` (its `target` content
+          and `{species: stoichiometry}` members). Constrains the total amount
+          of an element supplied by the member species: the chemical
           potentials are solved so that
           ``sum_i stoichiometry_i * concentration_i`` equals the target
           for every constrained element (a fixed-budget / closed-system
           constraint, as distinct from a fixed thermodynamic chemical
           potential). Each species may be given as a `DefectSpecies`
           object or by name, and one species may appear in several pools.
-          References are reduced to species names at construction.
           The target is a content per unit cell on the same scale as the
           concentrations: fixed-concentration states count against it, and
           the remainder is distributed across the variable states. Mixed
           stoichiometry signs make the constraint a net balance, so a
           target of zero pins exact stoichiometry (e.g.
-          ``{"dO": (0.0, [("O_i", 1.0), ("V_O", -1.0)])}``) and a negative
-          target an off-stoichiometry deficiency; a scan can cross zero
-          continuously. An `ElementPoolError` is raised if a target is
-          unreachable (beyond the achievable content) or inconsistent with
+          ``{"dO": ElementPool(target=0.0, members={"O_i": 1.0, "V_O": -1.0})}``)
+          and a negative target an off-stoichiometry deficiency; a scan can
+          cross zero continuously. An `ElementPoolError` is raised if a target
+          is unreachable (beyond the achievable content) or inconsistent with
           the fixed concentrations. Defaults to None (no element
           constraints). See `py_sc_fermi.element_pools` for the solver.
         vbm_shift (float, optional): a temperature-dependent shift of the
@@ -187,8 +179,8 @@ class DefectSystem:
         volume: float,
         temperature: float,
         convergence_tolerance: float | None = None,
-        site_pools: SitePoolsInput | None = None,
-        element_pools: ElementPoolsInput | None = None,
+        site_pools: dict[str, SitePool] | None = None,
+        element_pools: dict[str, ElementPool] | None = None,
         vbm_shift: float = 0.0,
         cbm_shift: float = 0.0,
         formation_energy_corrections: dict[DefectChargeState, float] | None = None,
@@ -213,8 +205,8 @@ class DefectSystem:
             defect_species, formation_energy_corrections or {}
         )
 
-        self.site_pools: SitePools = _normalise_site_pools(site_pools)
-        self.element_pools: ElementPools = _normalise_element_pools(element_pools)
+        self.site_pools: dict[str, SitePool] = dict(site_pools or {})
+        self.element_pools: dict[str, ElementPool] = dict(element_pools or {})
 
         self._validate_pools()
         self._apply_fixed_concentrations(fixed_concentrations or {})
@@ -298,9 +290,8 @@ class DefectSystem:
 
         Raises:
             ValueError: if two roster species share a name, a pool references
-                a species not in the roster, a pool lists a species more than
-                once, a species appears in more than one site pool, or a site
-                pool has a non-positive site count.
+                a species not in the roster, a site pool lists a species more
+                than once, or a species appears in more than one site pool.
         """
         name_counts = Counter(ds.name for ds in self.defect_species)
         duplicates = sorted(name for name, count in name_counts.items() if count > 1)
@@ -312,14 +303,10 @@ class DefectSystem:
 
         roster = set(name_counts)
         site_pool_of: dict[str, str] = {}
-        for pool_name, (n_pool_sites, members) in self.site_pools.items():
-            if not (n_pool_sites > 0):
-                raise ValueError(
-                    f"site pool '{pool_name}' must have n_sites > 0; "
-                    f"got {n_pool_sites}."
-                )
-            self._check_pool_members("site pool", pool_name, members, roster)
-            for name in members:
+        for pool_name, pool in self.site_pools.items():
+            self._check_unknown_species("site pool", pool_name, pool.species, roster)
+            self._check_duplicate_species("site pool", pool_name, pool.species)
+            for name in pool.species:
                 first = site_pool_of.setdefault(name, pool_name)
                 if first != pool_name:
                     raise ValueError(
@@ -327,28 +314,31 @@ class DefectSystem:
                         f"'{pool_name}'; a species may belong to at most one "
                         "site pool"
                     )
-        for element, (_, pool_list) in self.element_pools.items():
-            member_names = [name for name, _ in pool_list]
-            self._check_pool_members("element pool", element, member_names, roster)
+        for element, element_pool in self.element_pools.items():
+            self._check_unknown_species(
+                "element pool", element, list(element_pool.members), roster
+            )
 
     @staticmethod
-    def _check_pool_members(
+    def _check_unknown_species(
         kind: str, pool_name: str, members: list[str], roster: set[str]
     ) -> None:
-        """Check one pool's species references against the roster names.
-
-        Raises:
-            ValueError: if a member name is not in `roster`, or a member
-                appears more than once.
-        """
+        """Raise if any member name is not in ``roster``."""
         unknown = sorted(set(members) - roster)
         if unknown:
             raise ValueError(
                 f"{kind} '{pool_name}' references species not in "
                 f"defect_species: {', '.join(unknown)}"
             )
-        member_counts = Counter(members)
-        repeated = sorted(name for name, count in member_counts.items() if count > 1)
+
+    @staticmethod
+    def _check_duplicate_species(
+        kind: str, pool_name: str, members: list[str]
+    ) -> None:
+        """Raise if any member name appears more than once (site pools only)."""
+        repeated = sorted(
+            name for name, count in Counter(members).items() if count > 1
+        )
         if repeated:
             raise ValueError(
                 f"{kind} '{pool_name}' lists species more than once: "
@@ -463,17 +453,21 @@ class DefectSystem:
                     )
         if self.site_pools:
             lines.append("\n  site pools:")
-            for pool_name, (n, species_names) in self.site_pools.items():
+            for pool_name, pool in self.site_pools.items():
                 lines.append(
-                    f"    {pool_name}: {n:.4g} sites  \u2192  [{', '.join(species_names)}]"
+                    f"    {pool_name}: {pool.n_sites:.4g} sites  \u2192  "
+                    f"[{', '.join(pool.species)}]"
                 )
         if self.element_pools:
             lines.append("\n  element pools:")
-            for elem, (n, pool_list) in self.element_pools.items():
+            for elem, element_pool in self.element_pools.items():
                 sp_names = ", ".join(
-                    f"{name} \u00d7{stoich:g}" for name, stoich in pool_list
+                    f"{name} \u00d7{stoich:g}"
+                    for name, stoich in element_pool.members.items()
                 )
-                lines.append(f"    {elem}: {n:.4g} per cell  \u2192  [{sp_names}]")
+                lines.append(
+                    f"    {elem}: {element_pool.target:.4g} per cell  \u2192  [{sp_names}]"
+                )
         return "\n".join(lines)
 
     @property
@@ -586,10 +580,10 @@ class DefectSystem:
         """
         specs: list[tuple[str, float, list[DefectSpecies]]] = []
         pooled_species: set[DefectSpecies] = set()
-        for pool_name, (n_pool, species_list) in self.site_pools.items():
-            sp_objs = [self._resolve_species(name) for name in species_list]
+        for pool_name, pool in self.site_pools.items():
+            sp_objs = [self._resolve_species(name) for name in pool.species]
             pooled_species.update(sp_objs)
-            specs.append((pool_name, n_pool, sp_objs))
+            specs.append((pool_name, pool.n_sites, sp_objs))
         for sp in self.defect_species:
             if sp not in pooled_species:
                 specs.append((sp.name, sp.nsites, [sp]))
@@ -615,35 +609,41 @@ class DefectSystem:
             groups.append(self._build_group(n_sites, species, e_fermi, fixed_concs))
         return groups, fixed_concs
 
-    def _resolve_element_pools(self) -> ElementPoolsResolved:
+    def _resolve_element_pools(self) -> dict[str, ResolvedElementPool]:
         """Resolve string species references in `element_pools` to DefectSpecies."""
         return {
-            elem: (target, [(self._resolve_species(name), stoich) for name, stoich in pool_list])
-            for elem, (target, pool_list) in self.element_pools.items()
+            elem: ResolvedElementPool(
+                target=pool.target,
+                members={
+                    self._resolve_species(name): stoich
+                    for name, stoich in pool.members.items()
+                },
+            )
+            for elem, pool in self.element_pools.items()
         }
 
     @staticmethod
     def _stoichiometry_lookup(
-        pools: ElementPoolsResolved,
+        pools: dict[str, ResolvedElementPool],
     ) -> dict[DefectSpecies, dict[str, float]]:
         """Map each species to {element: stoichiometry} for every element
         pool it participates in."""
         lookup: dict[DefectSpecies, dict[str, float]] = {}
-        for elem, (_, pool_list) in pools.items():
-            for sp, stoich in pool_list:
+        for elem, pool in pools.items():
+            for sp, stoich in pool.members.items():
                 lookup.setdefault(sp, {})[elem] = stoich
         return lookup
 
     @staticmethod
     def _remaining_element_targets(
-        pools: ElementPoolsResolved,
+        pools: dict[str, ResolvedElementPool],
     ) -> dict[str, float]:
         """For each element pool, the target content still to be supplied by
         variable-concentration states, after subtracting fixed contributions."""
         remaining: dict[str, float] = {}
-        for elem, (target, pool_list) in pools.items():
+        for elem, pool in pools.items():
             committed = 0.0
-            for sp, stoich in pool_list:
+            for sp, stoich in pool.members.items():
                 if sp.fixed_concentration is not None:
                     committed += stoich * sp.fixed_concentration
                 else:
@@ -652,7 +652,7 @@ class DefectSystem:
                         for cs in sp.charge_states
                         if cs.fixed_concentration is not None
                     )
-            rem = target - committed
+            rem = pool.target - committed
             # Float summation of fixed contributions does not land exactly
             # on a target they are meant to meet (0.1 + 0.2 != 0.3): treat
             # a remainder within rounding distance of the committed total
@@ -688,7 +688,7 @@ class DefectSystem:
         elements: list[str],
         stoich: dict[DefectSpecies, dict[str, float]],
         remaining: dict[str, float],
-        pools: ElementPoolsResolved,
+        pools: dict[str, ResolvedElementPool],
     ) -> np.ndarray:
         """Solve for one chemical potential `mu_X` per element pool such
         that the total content of each pooled element, summed over every
@@ -704,13 +704,13 @@ class DefectSystem:
             group_data,
             elements,
             np.array([remaining[e] for e in elements]),
-            [pools[e][0] for e in elements],
+            [pools[e].target for e in elements],
         )
 
     def _solve_element_pools(
         self,
         groups: list[_ExclusionGroup],
-        pools: ElementPoolsResolved,
+        pools: dict[str, ResolvedElementPool],
         elements: list[str],
         stoich: dict[DefectSpecies, dict[str, float]],
     ) -> tuple[np.ndarray, list[str], set[DefectSpecies]]:
@@ -759,7 +759,7 @@ class DefectSystem:
         }
         for e in elements:
             if remaining[e] < 0.0 and e not in balance_capable:
-                target, _ = pools[e]
+                target = pools[e].target
                 raise ElementPoolError(
                     f"Element pool '{e}': fixed-concentration states "
                     f"contribute {target - remaining[e]:.3e}, exceeding "
@@ -858,14 +858,11 @@ class DefectSystem:
             DefectSystem: DefectSystem corresponding to the provided dictionary.
         """
         site_pools = {
-            name: (pool["n_sites"], list(pool["species"]))
+            name: SitePool.from_dict(pool)
             for name, pool in dictionary.get("site_pools", {}).items()
         }
         element_pools = {
-            element: (
-                pool["target"],
-                [(m["species"], m["stoichiometry"]) for m in pool["members"]],
-            )
+            element: ElementPool.from_dict(pool)
             for element, pool in dictionary.get("element_pools", {}).items()
         }
         return cls(
@@ -1156,9 +1153,9 @@ class DefectSystem:
         """
         concs = self._global_defect_concs(e_fermi)
         pool_sites = {
-            name: n_sites
-            for n_sites, members in self.site_pools.values()
-            for name in members
+            name: pool.n_sites
+            for pool in self.site_pools.values()
+            for name in pool.species
         }
         return {
             str(ds.name): float(
@@ -1250,7 +1247,7 @@ class DefectSystem:
         ``element_pools`` are included only when non-empty; each pool is
         serialised as a mapping with named fields, species referenced by name
         (a site pool as ``{"n_sites", "species"}``; an element pool as
-        ``{"target", "members": [{"species", "stoichiometry"}]}``).
+        ``{"target", "members": {species: stoichiometry}}``).
 
         The serialised formation energies already include any corrections
         applied at construction (``vbm_shift``, ``cbm_shift``,
@@ -1273,11 +1270,14 @@ class DefectSystem:
         if self.convergence_tolerance is not None:
             defect_system_dict["convergence_tolerance"] = float(self.convergence_tolerance)
         if self.site_pools:
-            defect_system_dict["site_pools"] = _site_pools_as_dict(self.site_pools)
+            defect_system_dict["site_pools"] = {
+                name: pool.as_dict() for name, pool in self.site_pools.items()
+            }
         if self.element_pools:
-            defect_system_dict["element_pools"] = _element_pools_as_dict(
-                self.element_pools
-            )
+            defect_system_dict["element_pools"] = {
+                element: pool.as_dict()
+                for element, pool in self.element_pools.items()
+            }
         return defect_system_dict
 
 
@@ -1299,10 +1299,12 @@ class DefectSystemFactory:
         volume (float): volume of the unit cell in Angstroms cubed.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV, passed to every `DefectSystem` built by `at()`.
-        site_pools (SitePoolsInput | None, optional):
-          passed to every `DefectSystem` built by `at()`.
-        element_pools (ElementPoolsInput | None, optional):
-          passed to every `DefectSystem` built by `at()`. Defaults to None.
+        site_pools (dict[str, SitePool] | None, optional):
+          a mapping of pool name to a `SitePool`, passed to every
+          `DefectSystem` built by `at()`.
+        element_pools (dict[str, ElementPool] | None, optional):
+          a mapping of element name to an `ElementPool`, passed to every
+          `DefectSystem` built by `at()`. Defaults to None.
         vbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the valence-band-maximum shift (in eV) at
           that temperature. Defaults to None (no shift).
@@ -1327,8 +1329,8 @@ class DefectSystemFactory:
         dos: DOS,
         volume: float,
         convergence_tolerance: float | None = None,
-        site_pools: SitePoolsInput | None = None,
-        element_pools: ElementPoolsInput | None = None,
+        site_pools: dict[str, SitePool] | None = None,
+        element_pools: dict[str, ElementPool] | None = None,
         vbm_shift_fn: Callable[[float], float] | None = None,
         cbm_shift_fn: Callable[[float], float] | None = None,
         formation_energy_correction_fns: (

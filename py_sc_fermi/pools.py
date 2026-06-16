@@ -1,31 +1,20 @@
-"""Pool data shapes, reference normalisation, and serialisation for
-``DefectSystem`` site and element pools.
+"""Pool classes for ``DefectSystem`` site and element constraints.
 
-These describe how pools are accepted from the caller (each species given
-as a ``DefectSpecies`` object or by name), how they are stored on a
-``DefectSystem`` (references reduced to names), and how they serialise to
-JSON/YAML. The element-pool chemical-potential solver is in
-``py_sc_fermi.element_pools``.
+``SitePool`` and ``ElementPool`` are the input and stored form of a pool: each
+accepts its species as ``DefectSpecies`` objects or by name and reduces them to
+names, and each serialises to JSON/YAML via ``as_dict``/``from_dict``.
+``ResolvedElementPool`` is the internal solve-time form, with names resolved
+back to roster ``DefectSpecies``. The element-pool chemical-potential solver is
+in ``py_sc_fermi.element_pools``.
 """
 
 from __future__ import annotations
 
 import math
-from typing import TypeAlias, TypedDict
+from dataclasses import dataclass
+from typing import TypedDict
 
 from py_sc_fermi.defect_species import DefectSpecies
-
-# Pools as accepted by the constructor: each species given as a DefectSpecies
-# object or by its name.
-SitePoolsInput: TypeAlias = dict[str, tuple[float, list[DefectSpecies | str]]]
-ElementPoolsInput: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies | str, float]]]]
-
-# Pools as stored on a DefectSystem: references reduced to names.
-SitePools: TypeAlias = dict[str, tuple[float, list[str]]]
-ElementPools: TypeAlias = dict[str, tuple[float, list[tuple[str, float]]]]
-
-# Element pools with names resolved back to roster DefectSpecies (solve time).
-ElementPoolsResolved: TypeAlias = dict[str, tuple[float, list[tuple[DefectSpecies, float]]]]
 
 
 class SerialisedSitePool(TypedDict):
@@ -35,18 +24,11 @@ class SerialisedSitePool(TypedDict):
     species: list[str]
 
 
-class SerialisedElementMember(TypedDict):
-    """JSON/YAML form of one (species, stoichiometry) member of an element pool."""
-
-    species: str
-    stoichiometry: float
-
-
 class SerialisedElementPool(TypedDict):
     """JSON/YAML form of one element pool: a target content and its members."""
 
     target: float
-    members: list[SerialisedElementMember]
+    members: dict[str, float]
 
 
 def _species_name(species: DefectSpecies | str) -> str:
@@ -86,6 +68,15 @@ class SitePool:
 
     def __repr__(self) -> str:
         return f"SitePool(n_sites={self._n_sites!r}, species={self._species!r})"
+
+    def as_dict(self) -> SerialisedSitePool:
+        """JSON/YAML-safe mapping: ``{"n_sites", "species"}`` (species by name)."""
+        return {"n_sites": float(self._n_sites), "species": list(self._species)}
+
+    @classmethod
+    def from_dict(cls, d: SerialisedSitePool) -> SitePool:
+        """Reconstruct a ``SitePool`` from ``as_dict`` output."""
+        return cls(n_sites=d["n_sites"], species=list(d["species"]))
 
 
 class ElementPool:
@@ -131,46 +122,29 @@ class ElementPool:
     def __repr__(self) -> str:
         return f"ElementPool(target={self._target!r}, members={self._members!r})"
 
-
-def _normalise_site_pools(site_pools: SitePoolsInput | None) -> SitePools:
-    """Reduce every site-pool species reference to a species name."""
-    if not site_pools:
-        return {}
-    return {
-        pool_name: (n_sites, [_species_name(sp) for sp in species_list])
-        for pool_name, (n_sites, species_list) in site_pools.items()
-    }
-
-
-def _normalise_element_pools(element_pools: ElementPoolsInput | None) -> ElementPools:
-    """Reduce every element-pool species reference to a species name."""
-    if not element_pools:
-        return {}
-    return {
-        element: (target, [(_species_name(sp), stoich) for sp, stoich in pool_list])
-        for element, (target, pool_list) in element_pools.items()
-    }
-
-
-def _site_pools_as_dict(site_pools: SitePools) -> dict[str, SerialisedSitePool]:
-    """Serialise stored site pools to JSON/YAML-safe mappings."""
-    return {
-        pool_name: {"n_sites": float(n_sites), "species": list(species_names)}
-        for pool_name, (n_sites, species_names) in site_pools.items()
-    }
-
-
-def _element_pools_as_dict(
-    element_pools: ElementPools,
-) -> dict[str, SerialisedElementPool]:
-    """Serialise stored element pools to JSON/YAML-safe mappings."""
-    return {
-        element: {
-            "target": float(target),
-            "members": [
-                {"species": name, "stoichiometry": float(stoich)}
-                for name, stoich in pool_list
-            ],
+    def as_dict(self) -> SerialisedElementPool:
+        """JSON/YAML-safe mapping: ``{"target", "members": {name: stoich}}``."""
+        return {
+            "target": float(self._target),
+            "members": {name: float(stoich) for name, stoich in self._members.items()},
         }
-        for element, (target, pool_list) in element_pools.items()
-    }
+
+    @classmethod
+    def from_dict(cls, d: SerialisedElementPool) -> ElementPool:
+        """Reconstruct an ``ElementPool`` from ``as_dict`` output."""
+        return cls(
+            target=d["target"],
+            members={name: stoich for name, stoich in d["members"].items()},
+        )
+
+
+@dataclass(frozen=True)
+class ResolvedElementPool:
+    """An element pool with names resolved to roster ``DefectSpecies``.
+
+    Built internally by ``DefectSystem._resolve_element_pools`` from a validated
+    ``ElementPool``; carries no validation of its own.
+    """
+
+    target: float
+    members: dict[DefectSpecies, float]
