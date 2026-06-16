@@ -578,5 +578,18 @@ class TestDefectSpecies(unittest.TestCase):
             defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
 
 
+class TestDefectSpeciesHashability(unittest.TestCase):
+    def test_defect_species_is_hashable(self):
+        # Load-bearing: ElementPool accepts DefectSpecies as member keys, and the
+        # solver keys dict[DefectSpecies, float] / set[DefectSpecies] on them.
+        # Adding a value __eq__ without a matching __hash__ would break those;
+        # this fails loudly here rather than mysteriously inside a pool dict.
+        cs = Mock(spec=DefectChargeState)
+        cs.charge = 0
+        sp = DefectSpecies(name="V_O", nsites=2, charge_states=[cs])
+        self.assertEqual(hash(sp), hash(sp))
+        self.assertEqual({sp: 1}[sp], 1)
+
+
 if __name__ == "__main__":
     unittest.main()
