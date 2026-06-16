@@ -53,6 +53,40 @@ def _species_name(species: DefectSpecies | str) -> str:
     return species.name if isinstance(species, DefectSpecies) else species
 
 
+class SitePool:
+    """A named site budget shared by several defect species.
+
+    Args:
+        n_sites: total number of sites in this pool. Must be > 0.
+        species: the defect species sharing the pool, each given as a
+            ``DefectSpecies`` or by name. Stored reduced to names.
+    """
+
+    def __init__(self, n_sites: float, species: list[str | DefectSpecies]):
+        if not (n_sites > 0):
+            raise ValueError(f"SitePool n_sites must be > 0; got {n_sites}.")
+        self._n_sites = n_sites
+        self._species: list[str] = [_species_name(s) for s in species]
+
+    @property
+    def n_sites(self) -> float:
+        """Total number of sites in the pool."""
+        return self._n_sites
+
+    @property
+    def species(self) -> list[str]:
+        """The pooled species, by name."""
+        return list(self._species)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SitePool):
+            return NotImplemented
+        return self._n_sites == other._n_sites and self._species == other._species
+
+    def __repr__(self) -> str:
+        return f"SitePool(n_sites={self._n_sites!r}, species={self._species!r})"
+
+
 def _normalise_site_pools(site_pools: SitePoolsInput | None) -> SitePools:
     """Reduce every site-pool species reference to a species name."""
     if not site_pools:
