@@ -11,6 +11,7 @@ in ``py_sc_fermi.element_pools``.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from dataclasses import dataclass
 from typing import TypedDict
 
@@ -120,7 +121,7 @@ class ElementPool:
         # dict(zip(...)) below collapses them and loses the evidence. from_dict
         # skips this: a serialised dict[str, float] is already unique by name.
         names = [_species_name(s) for s in members]
-        duplicates = sorted({n for n in names if names.count(n) > 1})
+        duplicates = sorted(n for n, count in Counter(names).items() if count > 1)
         if duplicates:
             raise ValueError(
                 "ElementPool members resolve to the same species name: "
