@@ -18,7 +18,7 @@ from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
-from py_sc_fermi.pool_data import (
+from py_sc_fermi.pools import (
     ElementPools,
     ElementPoolsInput,
     ElementPoolsResolved,
