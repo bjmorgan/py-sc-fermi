@@ -40,9 +40,13 @@ class SitePool:
     """A named site budget shared by several defect species.
 
     Args:
-        n_sites: total number of sites in this pool. Must be > 0.
+        n_sites: total number of sites in this pool. Must be finite and > 0.
         species: the defect species sharing the pool, each given as a
-            ``DefectSpecies`` or by name. Stored reduced to names.
+            ``DefectSpecies`` or by name (reduced to names). Must be non-empty.
+
+    Raises:
+        ValueError: if ``n_sites`` is not finite and positive, or ``species``
+            is empty.
     """
 
     def __init__(self, n_sites: float, species: list[str | DefectSpecies]):
@@ -55,8 +59,12 @@ class SitePool:
         ``from_dict`` (whose serialised species are already names), so both
         construct through the same validation.
         """
-        if not (n_sites > 0):
-            raise ValueError(f"SitePool n_sites must be > 0; got {n_sites}.")
+        if not math.isfinite(n_sites) or n_sites <= 0:
+            raise ValueError(
+                f"SitePool n_sites must be finite and > 0; got {n_sites}."
+            )
+        if not species:
+            raise ValueError("SitePool must list at least one species.")
         self._n_sites = n_sites
         self._species: list[str] = species
 
@@ -95,12 +103,22 @@ class ElementPool:
 
     Args:
         target: the element content the pool is solved to (per unit cell). May
-            be negative (intrinsic off-stoichiometry); only NaN/inf are rejected.
+            be negative (intrinsic off-stoichiometry); must be finite.
         members: mapping of each supplying species (a ``DefectSpecies`` or its
-            name) to its stoichiometry for this element. Stored keyed by name.
+            name, reduced to names) to its stoichiometry for this element. Must
+            be non-empty, with finite stoichiometries.
+
+    Raises:
+        ValueError: if ``target`` or any member stoichiometry is non-finite,
+            ``members`` is empty, or two members resolve to the same species
+            name.
     """
 
     def __init__(self, target: float, members: dict[str | DefectSpecies, float]):
+        # Reject two references that reduce to the same name (an object and its
+        # own name, or two DefectSpecies sharing a name) here, before the
+        # dict(zip(...)) below collapses them and loses the evidence. from_dict
+        # skips this: a serialised dict[str, float] is already unique by name.
         names = [_species_name(s) for s in members]
         duplicates = sorted({n for n in names if names.count(n) > 1})
         if duplicates:
@@ -114,11 +132,22 @@ class ElementPool:
         """Validate and store a pool whose members are already keyed by name.
 
         Shared by ``__init__`` (after it reduces its references to names) and by
-        ``from_dict`` (whose serialised members are already names), so both
-        construct through the same validation.
+        ``from_dict`` (whose serialised members are already names), so both run
+        the same finiteness and non-empty checks. (The duplicate-name guard is
+        ``__init__``-only -- see the comment there.)
         """
         if not math.isfinite(target):
             raise ValueError(f"ElementPool target must be finite; got {target}.")
+        if not members:
+            raise ValueError("ElementPool must have at least one member species.")
+        non_finite = sorted(
+            name for name, stoich in members.items() if not math.isfinite(stoich)
+        )
+        if non_finite:
+            raise ValueError(
+                "ElementPool member stoichiometries must be finite; non-finite "
+                f"for: {', '.join(non_finite)}."
+            )
         self._target = target
         self._members: dict[str, float] = members
 
@@ -155,12 +184,14 @@ class ElementPool:
         return pool
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ResolvedElementPool:
     """An element pool with names resolved to roster ``DefectSpecies``.
 
     Built internally by ``DefectSystem._resolve_element_pools`` from a validated
-    ``ElementPool``; carries no validation of its own.
+    ``ElementPool``; carries no validation of its own. Equality is by identity
+    (``eq=False``) -- it is built once and never compared by value, and a
+    synthesised value ``__hash__`` over its ``dict`` field would raise.
     """
 
     target: float

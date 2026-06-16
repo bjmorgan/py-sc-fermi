@@ -2873,13 +2873,6 @@ class TestDiluteLimitWarning(unittest.TestCase):
         )
         self.assertNotIn("occupancy_warning_threshold", system.as_dict())
 
-    def test_zero_site_pool_rejected_at_construction(self):
-        species = self._saturating_species("S")
-        with self.assertRaises(ValueError):
-            self._make_system(
-                [species], site_pools={"shared": SitePool(n_sites=0.0, species=[species])}
-            )
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,12 +26,24 @@ class TestSitePool(unittest.TestCase):
         self.assertEqual(pool.species, ["A"])
 
     def test_rejects_zero_n_sites(self):
-        with self.assertRaisesRegex(ValueError, "n_sites must be > 0"):
+        with self.assertRaisesRegex(ValueError, "n_sites must be finite and > 0"):
             SitePool(n_sites=0.0, species=["A"])
 
     def test_rejects_negative_n_sites(self):
-        with self.assertRaisesRegex(ValueError, "n_sites must be > 0"):
+        with self.assertRaisesRegex(ValueError, "n_sites must be finite and > 0"):
             SitePool(n_sites=-1.0, species=["A"])
+
+    def test_rejects_non_finite_n_sites(self):
+        for bad in (math.inf, math.nan):
+            with self.assertRaisesRegex(ValueError, "n_sites must be finite and > 0"):
+                SitePool(n_sites=bad, species=["A"])
+
+    def test_rejects_empty_species(self):
+        with self.assertRaisesRegex(ValueError, "at least one species"):
+            SitePool(n_sites=1.0, species=[])
+
+    def test_not_equal_to_foreign_type(self):
+        self.assertNotEqual(SitePool(n_sites=1.0, species=["A"]), object())
 
     def test_equality_by_value(self):
         self.assertEqual(
@@ -73,6 +85,18 @@ class TestElementPool(unittest.TestCase):
     def test_two_distinct_objects_sharing_a_name_raise(self):
         with self.assertRaisesRegex(ValueError, "resolve to the same species name: A"):
             ElementPool(target=1.0, members={_species("A"): 1.0, _species("A"): -1.0})
+
+    def test_rejects_non_finite_stoichiometry(self):
+        for bad in (math.nan, math.inf):
+            with self.assertRaisesRegex(ValueError, "stoichiometries must be finite"):
+                ElementPool(target=1.0, members={"A": bad})
+
+    def test_rejects_empty_members(self):
+        with self.assertRaisesRegex(ValueError, "at least one member"):
+            ElementPool(target=1.0, members={})
+
+    def test_not_equal_to_foreign_type(self):
+        self.assertNotEqual(ElementPool(target=1.0, members={"A": 1.0}), object())
 
     def test_equality_by_value(self):
         self.assertEqual(
