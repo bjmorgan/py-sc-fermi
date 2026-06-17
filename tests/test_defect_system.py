@@ -40,6 +40,13 @@ test_vasprun_filename = os.path.join(
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
 
+def semiconducting_dos(bandgap: float = 2.0, nelect: int = 10) -> DOS:
+    """A DOS with an empty gap, so a (narrowing) scissor has room to move the
+    conduction block. Mirrors the shared edos grid (-5..5, 101 points)."""
+    edos = np.linspace(-5.0, 5.0, 101)
+    dos = np.where((edos <= 0) | (edos >= bandgap), 1.0, 0.0)
+    return DOS(dos=dos, edos=edos, bandgap=bandgap, nelect=nelect)
+
 
 class TestDefectSystemInit(unittest.TestCase):
     def test_defect_system_is_initialised(self):
@@ -1961,12 +1968,7 @@ class TestDefectSystemElementPoolConvergence(unittest.TestCase):
 
 class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
     def setUp(self):
-        self.dos = DOS(
-            dos=np.ones(101),
-            edos=np.linspace(-5.0, 5.0, 101),
-            bandgap=2.0,
-            nelect=10,
-        )
+        self.dos = semiconducting_dos(bandgap=2.0, nelect=10)
         self.cs0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
         self.cs1 = DefectChargeState(charge=1, energy=1.5, degeneracy=2)
         self.species = DefectSpecies("V_O", nsites=1, charge_states=[self.cs0, self.cs1])
@@ -2043,15 +2045,55 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._make_system(formation_energy_corrections={unknown_cs: 0.1})
 
+    def test_cbm_shift_moves_carriers(self):
+        base = self._make_system()
+        shifted = self._make_system(cbm_shift=0.5)  # delta_gap = +0.5 (widen)
+        self.assertAlmostEqual(shifted.dos.bandgap, base.dos.bandgap + 0.5)
+        p_base, n_base = base.dos.carrier_concentrations(1.0, 600.0)
+        p_sh, n_sh = shifted.dos.carrier_concentrations(1.0, 600.0)
+        self.assertAlmostEqual(p_sh, p_base)   # valence untouched
+        self.assertLess(n_sh, n_base)          # widening drops electrons
+
+    def test_vbm_shift_rigid_moves_carriers_not_formation_energies(self):
+        base = self._make_system()
+        shifted = self._make_system(vbm_shift=0.5)  # rigid default; delta_gap = -0.5
+        self.assertAlmostEqual(shifted.dos.bandgap, base.dos.bandgap - 0.5)
+        self.assertEqual(shifted.defect_species[0].charge_states[0].energy, 1.0)
+        self.assertEqual(shifted.defect_species[0].charge_states[1].energy, 1.5)
+        _, n_base = base.dos.carrier_concentrations(1.0, 600.0)
+        _, n_sh = shifted.dos.carrier_concentrations(1.0, 600.0)
+        self.assertGreater(n_sh, n_base)       # narrowing raises electrons
+
+    def test_vbm_shift_non_rigid_moves_carriers_and_formation_energies(self):
+        base = self._make_system()
+        shifted = self._make_system(vbm_shift=0.5, rigid_shift=False)  # delta_gap = -0.5
+        self.assertAlmostEqual(shifted.dos.bandgap, base.dos.bandgap - 0.5)
+        self.assertAlmostEqual(shifted.defect_species[0].charge_states[0].energy, 1.0)
+        self.assertAlmostEqual(shifted.defect_species[0].charge_states[1].energy, 1.5 - 0.5)
+        _, n_base = base.dos.carrier_concentrations(1.0, 600.0)
+        _, n_sh = shifted.dos.carrier_concentrations(1.0, 600.0)
+        self.assertGreater(n_sh, n_base)
+
+    def test_equal_shifts_leave_carriers_but_shift_formation_energies_when_non_rigid(self):
+        base = self._make_system()
+        shifted = self._make_system(vbm_shift=0.3, cbm_shift=0.3, rigid_shift=False)
+        self.assertEqual(shifted.dos.bandgap, base.dos.bandgap)  # delta_gap = 0, no scissor
+        self.assertEqual(
+            shifted.dos.carrier_concentrations(1.0, 600.0),
+            base.dos.carrier_concentrations(1.0, 600.0),
+        )
+        self.assertAlmostEqual(shifted.defect_species[0].charge_states[1].energy, 1.5 - 0.3)
+
+    def test_repr_reports_scissored_gap_without_double_count(self):
+        system = self._make_system(vbm_shift=0.05, cbm_shift=-0.02)  # delta_gap = -0.07
+        self.assertAlmostEqual(system.dos.bandgap, 1.93)
+        self.assertIn("1.93 eV", repr(system))
+        self.assertNotIn("1.86", repr(system))  # the old double-counted value
+
 
 class TestDefectSystemFactory(unittest.TestCase):
     def setUp(self):
-        self.dos = DOS(
-            dos=np.ones(101),
-            edos=np.linspace(-5.0, 5.0, 101),
-            bandgap=2.0,
-            nelect=10,
-        )
+        self.dos = semiconducting_dos(bandgap=2.0, nelect=10)
         self.cs0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
         self.cs1 = DefectChargeState(charge=1, energy=1.5, degeneracy=2)
         self.species = DefectSpecies("V_O", nsites=1, charge_states=[self.cs0, self.cs1])
@@ -2153,17 +2195,18 @@ class TestDefectSystemReport(unittest.TestCase):
     def test_report_shows_single_corrected_bandgap_value(self):
         system = DefectSystem(
             defect_species=[self.species],
-            dos=self.dos,
+            dos=semiconducting_dos(bandgap=2.0, nelect=10),
             volume=100,
             temperature=300,
             vbm_shift=0.05,
             cbm_shift=-0.02,
+            occupancy_warning_threshold=None,
         )
         with patch("sys.stdout", new=StringIO()):
             output = system.report()
         self.assertIn("1.93", output)
         self.assertNotIn("→", output)
-        self.assertEqual(system.dos._bandgap, 2.0)
+        self.assertAlmostEqual(system.dos.bandgap, 1.93)  # DOS scissored once
 
 
 class TestDefectSystemPoolSerialisation(unittest.TestCase):
@@ -2301,7 +2344,7 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         acceptor = DefectSpecies("Acc", nsites=2, charge_states=acceptor_states)
         system = DefectSystem(
             defect_species=[donor, acceptor],
-            dos=self.dos,
+            dos=semiconducting_dos(bandgap=2.0, nelect=10),
             volume=100,
             temperature=300,
             vbm_shift=0.1,
@@ -2364,7 +2407,7 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         # promoting it to np.float64. The whole-system dict must stay YAML-safe.
         system = DefectSystem(
             defect_species=[self.species_a, self.species_b],
-            dos=self.dos,
+            dos=semiconducting_dos(bandgap=2.0, nelect=10),
             volume=100,
             temperature=300,
             vbm_shift=np.float64(0.1),

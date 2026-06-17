@@ -190,6 +190,9 @@ class DefectSystem:
     ):
         self.volume = volume
         self.dos = dos
+        delta_gap = cbm_shift - vbm_shift
+        if delta_gap != 0.0:
+            self.dos = self.dos.scissored(delta_gap)
         self.temperature = temperature
         self.convergence_tolerance = convergence_tolerance
         self.vbm_shift = vbm_shift
@@ -424,7 +427,9 @@ class DefectSystem:
         return DefectSystem._charge_state_fixed_total(species)
 
     def __repr__(self) -> str:
-        bandgap = self.dos.bandgap + (self.cbm_shift - self.vbm_shift)
+        # The scissor already baked (cbm_shift - vbm_shift) into self.dos at
+        # construction; reading dos.bandgap directly avoids double-counting it.
+        bandgap = self.dos.bandgap
         bandgap_str = f"{bandgap:.3g} eV"
 
         lines = [
