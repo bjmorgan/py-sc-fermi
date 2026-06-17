@@ -102,16 +102,19 @@ class DefectSystem:
           constraints). See `py_sc_fermi.element_pools` for the solver.
         vbm_shift (float, optional): a temperature-dependent shift of the
           valence-band maximum, in eV, evaluated by the caller for this
-          system's `temperature`. Used (with `cbm_shift`) to compute the
-          effective band gap shown by `__repr__`/`report`, and (when
-          `rigid_shift=True`, the default) added to every variable-concentration
-          charge state's formation energy as `-charge * vbm_shift`. Defaults
-          to 0.0 (no shift).
+          system's `temperature`. The DOS is scissored at construction so the
+          band gap (and hence the carrier concentrations from the Fermi-Dirac
+          integration) changes by `cbm_shift - vbm_shift`; with the VBM pinned
+          at E=0, `vbm_shift` narrows the gap. Separately, when
+          `rigid_shift=False`, `-charge * vbm_shift` is added to every
+          variable-concentration charge state's formation energy. Also sets the
+          effective band gap shown by `__repr__`/`report`. Defaults to 0.0.
         cbm_shift (float, optional): a temperature-dependent shift of the
           conduction-band minimum, in eV, evaluated by the caller for this
-          system's `temperature`. Used with `vbm_shift` to compute the
-          effective band gap shown by `__repr__`/`report`. Defaults to 0.0
-          (no shift).
+          system's `temperature`. Enters only through the DOS scissor: the band
+          gap changes by `cbm_shift - vbm_shift`, moving the conduction block
+          (and the carrier concentrations) and setting the effective band gap
+          shown by `__repr__`/`report`. Defaults to 0.0 (no shift).
         formation_energy_corrections (dict[DefectChargeState, float] | None, optional):
           per-charge-state formation-energy corrections (in eV), evaluated by
           the caller for this system's `temperature`. Keying by the
@@ -120,14 +123,14 @@ class DefectSystem:
           metastable `DefectChargeState`s that share a formal charge. Every
           key must be one of the `DefectChargeState`s in `defect_species`.
           Defaults to None (no per-state corrections).
-        rigid_shift (bool, optional): if True (the default), the band
-          structure and defect levels are assumed to move together as a
-          rigid body, so `vbm_shift`/`cbm_shift` only affect the displayed
-          band gap and every variable-concentration charge state not covered
-          by `formation_energy_corrections` is left unchanged. If False, the
-          defect levels are fixed in absolute energy while the band edges
-          move, so such charge states have their formation energy shifted by
-          `-charge * vbm_shift`.
+        rigid_shift (bool, optional): gates only the formation-energy channel;
+          the DOS scissor from `vbm_shift`/`cbm_shift` is applied regardless. If
+          True (the default), the band structure and defect levels are assumed
+          to move together as a rigid body, so every variable-concentration
+          charge state not covered by `formation_energy_corrections` is left
+          unchanged. If False, the defect levels are fixed in absolute energy
+          while the band edges move, so such charge states have their formation
+          energy shifted by `-charge * vbm_shift`.
         fixed_concentrations (dict[str, float] | None, optional): mapping of
           species name -> fixed total concentration (per unit cell). Each
           named species has its total concentration fixed at the given value,
