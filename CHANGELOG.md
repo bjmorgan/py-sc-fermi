@@ -95,20 +95,25 @@
   They now fail fast at construction with a clear message.
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
-  and `cbm_shift` are pre-evaluated shifts (in eV) used to compute the
-  effective band gap shown by `__repr__`/`report`; `formation_energy_corrections`
-  is a `dict[DefectChargeState, float]` of per-charge-state formation-energy
+  and `cbm_shift` are pre-evaluated shifts (in eV) that scissor the DOS at
+  construction: the conduction block is rigidly moved so the band gap changes
+  by `cbm_shift - vbm_shift` (the VBM is pinned at E=0), which changes the
+  carrier concentrations from the Fermi-Dirac integration and the
+  self-consistent Fermi level, as well as the effective band gap shown by
+  `__repr__`/`report`. The new `DOS.scissored(delta_gap)` performs this shift
+  and returns a new `DOS`. `formation_energy_corrections` is a
+  `dict[DefectChargeState, float]` of per-charge-state formation-energy
   corrections, keyed by the `DefectChargeState` objects themselves so that
   metastable states sharing a formal charge can be corrected independently. If
-  `rigid_shift` is True (the default), the band structure and defect levels
-  are assumed to move together as a rigid body, so `vbm_shift`/`cbm_shift`
-  only affect the displayed band gap and any variable-concentration charge
-  state not covered by `formation_energy_corrections` is unchanged; if False,
-  such charge states have their formation energy shifted by
-  `-charge * vbm_shift`. `DefectSystem` is an immutable, fixed-temperature snapshot:
-  corrections are applied once at construction to copies of `defect_species`,
-  the caller's objects are never modified, and `report()`/`as_dict()`/
-  `from_dict()` always agree.
+  `rigid_shift` is True (the default), the band structure and defect levels are
+  assumed to move together as a rigid body, so any variable-concentration
+  charge state not covered by `formation_energy_corrections` is unchanged; if
+  False, such charge states have their formation energy shifted by
+  `-charge * vbm_shift`. The DOS scissor and the formation-energy channel are
+  independent. `DefectSystem` is an immutable, fixed-temperature snapshot:
+  corrections are applied once at construction to copies of `defect_species`
+  (and to a private scissored DOS), the caller's objects are never modified,
+  and `report()`/`as_dict()`/`from_dict()` always agree.
 - Added `DefectSystemFactory`, for building `DefectSystem` snapshots at a
   series of temperatures from temperature-dependent `vbm_shift_fn`,
   `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
