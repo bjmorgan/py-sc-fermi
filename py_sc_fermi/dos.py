@@ -280,3 +280,44 @@ class DOS:
             1.0
             + np.exp((self.edos[self._n0_integration_idx :] - e_fermi) / (kboltz * temperature))
         )
+
+    def scissored(self, delta_gap: float, tol: float = 1e-8) -> DOS:
+        """Return a copy of this ``DOS`` with the band gap rigidly changed by
+        ``delta_gap`` eV.
+
+        The valence band is held at the E = 0 reference and the conduction block
+        is shifted by exactly ``delta_gap``; a single zero-density point is placed
+        one grid spacing below the new conduction-band minimum so the band-edge
+        onset is discretised exactly as before. The gap interior is not re-gridded,
+        as it carries no density.
+
+        Args:
+            delta_gap: change in band gap (eV); positive widens, negative narrows.
+            tol: density threshold for locating the conduction-band minimum.
+
+        Returns:
+            DOS: a new ``DOS`` with gap ``bandgap + delta_gap``; the valence band
+            and ``nelect`` are unchanged.
+
+        Raises:
+            ValueError: if no conduction states are found, or if narrowing would
+                shrink the gap below the grid resolution and clip occupied states.
+        """
+        if delta_gap == 0.0:
+            return DOS(self._dos.copy(), self._edos.copy(), self._bandgap,
+                       self._nelect, spin_polarised=False)
+        conduction = np.flatnonzero((self._dos > tol) & (self._edos > self._bandgap / 2.0))
+        if conduction.size == 0:
+            raise ValueError("no conduction states found above mid-gap; cannot scissor.")
+        cbm = int(conduction[0])
+        h = self._edos[cbm] - self._edos[cbm - 1]      # band-edge spacing to preserve
+        onset = self._edos[cbm] + delta_gap - h        # single zero point below the new CBM
+        m = int(np.searchsorted(self._edos[:cbm], onset))
+        if np.any(self._dos[m:cbm] > tol):             # narrowing past the grid resolution
+            raise ValueError(
+                f"scissor of {delta_gap:+g} eV narrows the gap below the grid "
+                f"resolution and would clip occupied states."
+            )
+        edos = np.concatenate([self._edos[:m], [onset], self._edos[cbm:] + delta_gap])
+        dos = np.concatenate([self._dos[:m], [0.0], self._dos[cbm:]])
+        return DOS(dos, edos, self._bandgap + delta_gap, self._nelect, spin_polarised=False)
