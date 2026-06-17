@@ -2158,6 +2158,12 @@ class TestDefectSystemFactory(unittest.TestCase):
             low.defect_species[0].charge_states[1].energy,
             high.defect_species[0].charge_states[1].energy,
         )
+        # The DOS scissor must rebind, not mutate the shared base DOS: each
+        # snapshot gets its own gap (delta_gap = -vbm_shift), and the factory's
+        # base DOS is left untouched. In-place mutation would corrupt sweeps.
+        self.assertAlmostEqual(low.dos.bandgap, 1.8)
+        self.assertAlmostEqual(high.dos.bandgap, 1.6)
+        self.assertAlmostEqual(factory.dos.bandgap, 2.0)
 
 
 class TestDefectSystemReport(unittest.TestCase):
