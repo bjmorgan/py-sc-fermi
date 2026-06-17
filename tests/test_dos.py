@@ -316,6 +316,14 @@ class TestDOSScissored(unittest.TestCase):
             dos.scissored(0.5)
         self.assertIn("no conduction states", str(ctx.exception))
 
+    def test_scissor_gapless_dos_raises(self):
+        # A metal (zero gap) has no gap to scissor; scissoring would otherwise
+        # fabricate one silently, which is meaningless for a semiconductor tool.
+        dos = DOS(dos=np.ones(101), edos=np.linspace(-5.0, 5.0, 101), bandgap=0.0, nelect=10)
+        with self.assertRaises(ValueError) as ctx:
+            dos.scissored(0.5)
+        self.assertIn("gapless", str(ctx.exception))
+
     def test_valence_and_nelect_unchanged(self):
         wide = self.dos.scissored(1.0)
         self.assertEqual(wide.nelect, self.dos.nelect)
@@ -325,6 +333,31 @@ class TestDOSScissored(unittest.TestCase):
         p0, _ = self.dos.carrier_concentrations(self.ef, self.T)
         pw, _ = wide.carrier_concentrations(self.ef, self.T)
         np.testing.assert_allclose(pw, p0)
+
+    def test_shift_is_exact_not_snapped_to_grid(self):
+        # 0.37 eV is not a multiple of the 0.1 eV grid spacing: the conduction
+        # block must move by exactly 0.37, not snap to a grid point.
+        delta = 0.37
+        wide = self.dos.scissored(delta)
+        self.assertAlmostEqual(wide.bandgap, self.bandgap + delta)
+        orig_cond_edos = self.dos.edos[self._cbm :]
+        np.testing.assert_allclose(wide.edos[-orig_cond_edos.size :], orig_cond_edos + delta)
+
+    def test_spin_polarised_input_scissors_via_summed_total(self):
+        # A spin-polarised DOS is summed to a total in __init__; scissoring must
+        # operate on that total and return a non-spin-polarised DOS. The
+        # spin_polarised=False on the return is load-bearing: propagating True
+        # would re-sum the already-1D total in __init__.
+        channel = np.where((self.edos <= 0) | (self.edos >= self.bandgap), 0.5, 0.0)
+        spin_dos = DOS(
+            dos=np.array([channel, channel]), edos=self.edos,
+            bandgap=self.bandgap, nelect=10, spin_polarised=True,
+        )
+        wide = spin_dos.scissored(1.0)
+        self.assertFalse(wide.spin_polarised)
+        self.assertAlmostEqual(wide.bandgap, 3.0)
+        # the summed total matches scissoring the equivalent non-spin DOS
+        np.testing.assert_allclose(wide.dos, self.dos.scissored(1.0).dos)
 
 
 if __name__ == "__main__":
