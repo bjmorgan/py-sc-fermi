@@ -2366,6 +2366,24 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         for name, total in original.items():
             self.assertAlmostEqual(reloaded_totals[name], total, places=8)
 
+    def test_scissor_round_trips_without_double_application(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=semiconducting_dos(bandgap=2.0, nelect=10),
+            volume=100,
+            temperature=300,
+            vbm_shift=0.1,
+            cbm_shift=-0.2,  # delta_gap = -0.3
+            occupancy_warning_threshold=None,
+        )
+        self.assertAlmostEqual(system.dos.bandgap, 1.7)  # scissored exactly once
+        reloaded = DefectSystem.from_dict(json.loads(json.dumps(system.as_dict())))
+        self.assertAlmostEqual(reloaded.dos.bandgap, system.dos.bandgap)
+        np.testing.assert_allclose(
+            reloaded.dos.carrier_concentrations(1.0, 300.0),
+            system.dos.carrier_concentrations(1.0, 300.0),
+        )
+
     def test_multi_member_pools_round_trip_faithfully(self):
         # A multi-member element pool with asymmetric, opposite-sign
         # stoichiometries, and a species (A) that belongs to both a site pool

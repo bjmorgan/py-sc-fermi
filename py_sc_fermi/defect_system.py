@@ -1254,11 +1254,13 @@ class DefectSystem:
         (a site pool as ``{"n_sites", "species"}``; an element pool as
         ``{"target", "members": {species: stoichiometry}}``).
 
-        The serialised formation energies already include any corrections
-        applied at construction (``vbm_shift``, ``cbm_shift``,
-        ``formation_energy_corrections``, ``rigid_shift``); those constructor
-        parameters are deliberately not round-tripped, since re-applying a
-        baked correction on load would double-count it.
+        The serialised DOS and formation energies already include any
+        corrections applied at construction: ``vbm_shift``/``cbm_shift`` are
+        baked into the DOS as a band-gap scissor, and (under
+        ``rigid_shift=False``) ``vbm_shift`` plus any
+        ``formation_energy_corrections`` are baked into the formation energies.
+        Those constructor parameters are deliberately not round-tripped, since
+        re-applying a baked correction on load would double-count it.
 
         Returns:
             dict: dictionary representation of the ``DefectSystem``.
