@@ -2168,12 +2168,7 @@ class TestDefectSystemFactory(unittest.TestCase):
 
 class TestDefectSystemReport(unittest.TestCase):
     def setUp(self):
-        self.dos = DOS(
-            dos=np.ones(101),
-            edos=np.linspace(-5.0, 5.0, 101),
-            bandgap=2.0,
-            nelect=10,
-        )
+        self.dos = semiconducting_dos(bandgap=2.0, nelect=10)
         self.species = DefectSpecies(
             "V_O",
             nsites=1,
@@ -2201,7 +2196,7 @@ class TestDefectSystemReport(unittest.TestCase):
     def test_report_shows_single_corrected_bandgap_value(self):
         system = DefectSystem(
             defect_species=[self.species],
-            dos=semiconducting_dos(bandgap=2.0, nelect=10),
+            dos=self.dos,
             volume=100,
             temperature=300,
             vbm_shift=0.05,
