@@ -359,6 +359,16 @@ class TestDOSScissored(unittest.TestCase):
         # the summed total matches scissoring the equivalent non-spin DOS
         np.testing.assert_allclose(wide.dos, self.dos.scissored(1.0).dos)
 
+    def test_scissor_matches_a_fermi_level_shift_for_electrons(self):
+        # The electron magnitude after a delta scissor equals the base DOS at a
+        # Fermi level lowered by delta. This pins the band-edge onset point -- the
+        # one part of the reshaping the array and direction tests do not cover.
+        # (Equals doped's scissor_dos, cross-checked once against doped 2.4.7.)
+        for delta in (1.0, -1.0):
+            _, n = self.dos.scissored(delta).carrier_concentrations(self.ef, self.T)
+            _, n_ref = self.dos.carrier_concentrations(self.ef - delta, self.T)
+            np.testing.assert_allclose(n, n_ref, rtol=1e-9)
+
 
 if __name__ == "__main__":
     unittest.main()
