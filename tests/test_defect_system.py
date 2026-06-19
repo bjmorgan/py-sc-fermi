@@ -958,6 +958,38 @@ class TestDefectSystemElementPools(unittest.TestCase):
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, 5.0, places=6)
 
+    def test_element_chemical_potential_shift_sign_follows_content(self):
+        # The reported shift is a real chemical potential, and its sign is
+        # physical, not a convention: a higher chemical potential means more
+        # interstitials and fewer vacancies of the element. A symmetric
+        # interstitial/vacancy pair has zero unconstrained net content, so a
+        # positive target (net element added) must raise the chemical potential
+        # (delta_mu > 0) and a negative target (net element removed) must lower
+        # it (delta_mu < 0). The concentrations are pinned by the target either
+        # way, so this sign is the one thing they cannot reveal.
+        interstitial = DefectSpecies(
+            "X_i", nsites=1000,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        vacancy = DefectSpecies(
+            "V_X", nsites=1000,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+
+        def shift(target):
+            return DefectSystem(
+                defect_species=[interstitial, vacancy],
+                dos=self.dos,
+                volume=100,
+                temperature=300,
+                element_pools={
+                    "X": ElementPool(target=target, members={"X_i": 1.0, "V_X": -1.0})
+                },
+            ).element_chemical_potential_shifts()["X"]
+
+        self.assertGreater(shift(0.5), 0.0)
+        self.assertLess(shift(-0.5), 0.0)
+
     def test_element_pool_can_reference_species_by_name(self):
         target = 5.0
         system = DefectSystem(
