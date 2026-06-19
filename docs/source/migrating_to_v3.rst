@@ -33,13 +33,11 @@ lower and more physical population than the unbounded dilute expression. If a
 v2 calculation placed a defect at a substantial fraction of its sites, expect
 v3 to report a lower concentration for it.
 
-The two models diverge smoothly with occupancy; there is no level below which
-they are guaranteed to agree. py-sc-fermi emits a ``DiluteLimitWarning`` when a
-solved occupancy exceeds ``DefectSystem.occupancy_warning_threshold`` (1% by
-default, and adjustable). It is a heuristic prompt to check a result by hand,
-not a boundary below which the models agree. High occupancy is also where
-py-sc-fermi's dilute, non-interacting-defect assumption is increasingly worth
-questioning.
+The difference grows smoothly with occupancy, with no threshold below which the
+two models agree. py-sc-fermi raises a ``DiluteLimitWarning`` once a solved
+occupancy exceeds ``DefectSystem.occupancy_warning_threshold`` (1% by default,
+and adjustable): a prompt to review the result and check whether the
+dilute / lattice-gas defect model holds for your system.
 
 
 Breaking API changes
@@ -150,9 +148,9 @@ temperature, evaluated at each snapshot:
 Frozen defects (anneal and quench)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To model populations set at a high annealing temperature and frozen in as the
-material cools, solve at the annealing temperature, take the totals to hold
-fixed, and re-solve at the quenched temperature with those totals fixed.
+To model defect populations set at a high annealing temperature and frozen in
+as the material cools, solve at the annealing temperature, take the totals to
+hold fixed, and re-solve at the quenched temperature with those totals fixed.
 ``fixed_concentrations`` holds each named species' total (per unit cell) while
 its charge states re-equilibrate:
 
@@ -166,11 +164,14 @@ its charge states re-equilibrate:
 
     # quench: freeze chosen species' totals, re-solve at the lower temperature
     frozen = {name: totals[name] for name in frozen_species}
-    quenched = factory.at(
-        quenched_temperature,
-        fixed_concentrations=frozen,
-        dos=quench_dos,   # optional, if the DOS differs at the quenched temperature
-    )
+    quenched = factory.at(quenched_temperature, fixed_concentrations=frozen)
+
+Temperature-dependent band edges need no special handling here: set
+``vbm_shift_fn`` and ``cbm_shift_fn`` on the factory (as above) and they are
+evaluated at every snapshot, so the quench gets its own band-edge correction
+automatically. Pass ``dos=`` to ``at()`` only when the quench needs a genuinely
+different density of states, for example a custom electronic structure rather
+than a rigid band-edge shift.
 
 Also new
 ~~~~~~~~
