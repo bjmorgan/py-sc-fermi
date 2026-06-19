@@ -135,8 +135,13 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.q_tot(2), 0)
 
     def test_as_dict(self):
-        self.defect_system.dos = DOS.from_vasprun(test_vasprun_filename, nelect=12)
-        defect_dict = self.defect_system.as_dict()
+        system = DefectSystem(
+            defect_species=self.defect_system.defect_species,
+            volume=100,
+            dos=DOS.from_vasprun(test_vasprun_filename, nelect=12),
+            temperature=298,
+        )
+        defect_dict = system.as_dict()
         self.assertEqual(defect_dict["volume"], 100)
         self.assertEqual(defect_dict["temperature"], 298)
 
@@ -291,7 +296,6 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.defect_species[1].nsites = 1
         self.defect_system.defect_species[0].name = "v_O"
         self.defect_system.defect_species[1].name = "O_i"
-        self.defect_system.volume = 100
 
         expected_dict = {
             "Fermi Energy": 1.0,
@@ -316,11 +320,17 @@ class TestDefectSystem(unittest.TestCase):
 
 
     def test__repr__(self):
-        self.defect_system.defect_species = []
-        self.defect_system.dos.nelect = 100
-        self.defect_system.dos.bandgap = 0.1
+        dos = Mock(spec=DOS)
+        dos.nelect = 100
+        dos.bandgap = 0.1
+        system = DefectSystem(
+            defect_species=[],
+            volume=100,
+            dos=dos,
+            temperature=298,
+        )
         self.assertEqual(
-            str(self.defect_system).strip(),
+            str(system).strip(),
             "DefectSystem\n"
             "  bandgap:     0.1 eV    nelect: 100\n"
             "  volume:      100 Å³    temperature: 298 K\n"
