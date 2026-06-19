@@ -146,6 +146,25 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.site_pools, {})
         self.assertEqual(self.defect_system.element_pools, {})
 
+    def test_occupancy_warning_threshold_setter_validates(self):
+        with self.assertRaises(ValueError):
+            self.defect_system.occupancy_warning_threshold = 1.5
+
+    def test_setting_threshold_re_arms_warning(self):
+        self.defect_system._occupancy_warning_emitted = True
+        self.defect_system.occupancy_warning_threshold = 0.5
+        self.assertFalse(self.defect_system._occupancy_warning_emitted)
+
+        self.defect_system._occupancy_warning_emitted = True
+        self.defect_system.occupancy_warning_threshold = 0.5
+        self.assertTrue(self.defect_system._occupancy_warning_emitted)
+
+    def test_occupancy_warning_threshold_is_settable(self):
+        self.defect_system.occupancy_warning_threshold = 0.5
+        self.assertEqual(self.defect_system.occupancy_warning_threshold, 0.5)
+        self.defect_system.occupancy_warning_threshold = None
+        self.assertIsNone(self.defect_system.occupancy_warning_threshold)
+
     def test_total_defect_charge_contributions(self):
         cs_pos = DefectChargeState(charge=1, fixed_concentration=2)
         cs_neg = DefectChargeState(charge=-1, fixed_concentration=3)
