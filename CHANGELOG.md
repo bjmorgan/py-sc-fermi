@@ -36,6 +36,14 @@
   `SitePool(n_sites=..., species=[...])` and
   `ElementPool(target=..., members={...})`, both importable from
   `py_sc_fermi.pools`.
+- `DefectSystem`'s physical public attributes (`volume`, `dos`, `temperature`,
+  `convergence_tolerance`, `vbm_shift`, `cbm_shift`, `rigid_shift`,
+  `defect_species`, `site_pools`, `element_pools`) are now read-only; rebinding
+  any of them after construction raises `AttributeError`, enforcing the
+  documented immutable-snapshot contract. Construct a new `DefectSystem` (or use
+  `DefectSystemFactory.at(...)`) for a different temperature, DOS, or correction
+  set. `occupancy_warning_threshold`, a non-physical reporting preference, stays
+  settable and validates on assignment.
 
 ### Improvements
 
