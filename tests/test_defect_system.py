@@ -118,6 +118,44 @@ class TestDefectSystem(unittest.TestCase):
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
+    def test_public_attributes_are_read_only(self):
+        new_values = {
+            "volume": 1.0,
+            "dos": Mock(spec=DOS),
+            "temperature": 1.0,
+            "convergence_tolerance": 1.0,
+            "vbm_shift": 1.0,
+            "cbm_shift": 1.0,
+            "rigid_shift": False,
+            "defect_species": [],
+            "site_pools": {},
+            "element_pools": {},
+        }
+        for name, value in new_values.items():
+            with self.subTest(attribute=name):
+                with self.assertRaises(AttributeError):
+                    setattr(self.defect_system, name, value)
+
+    def test_public_attribute_reads_return_constructed_values(self):
+        self.assertEqual(self.defect_system.volume, 100)
+        self.assertEqual(self.defect_system.temperature, 298)
+        self.assertIsNone(self.defect_system.convergence_tolerance)
+        self.assertEqual(self.defect_system.vbm_shift, 0.0)
+        self.assertEqual(self.defect_system.cbm_shift, 0.0)
+        self.assertTrue(self.defect_system.rigid_shift)
+        self.assertEqual(self.defect_system.site_pools, {})
+        self.assertEqual(self.defect_system.element_pools, {})
+
+    def test_occupancy_warning_threshold_setter_validates(self):
+        with self.assertRaises(ValueError):
+            self.defect_system.occupancy_warning_threshold = 1.5
+
+    def test_occupancy_warning_threshold_is_settable(self):
+        self.defect_system.occupancy_warning_threshold = 0.5
+        self.assertEqual(self.defect_system.occupancy_warning_threshold, 0.5)
+        self.defect_system.occupancy_warning_threshold = None
+        self.assertIsNone(self.defect_system.occupancy_warning_threshold)
+
     def test_total_defect_charge_contributions(self):
         cs_pos = DefectChargeState(charge=1, fixed_concentration=2)
         cs_neg = DefectChargeState(charge=-1, fixed_concentration=3)
@@ -135,8 +173,13 @@ class TestDefectSystem(unittest.TestCase):
         self.assertEqual(self.defect_system.q_tot(2), 0)
 
     def test_as_dict(self):
-        self.defect_system.dos = DOS.from_vasprun(test_vasprun_filename, nelect=12)
-        defect_dict = self.defect_system.as_dict()
+        system = DefectSystem(
+            defect_species=self.defect_system.defect_species,
+            volume=100,
+            dos=DOS.from_vasprun(test_vasprun_filename, nelect=12),
+            temperature=298,
+        )
+        defect_dict = system.as_dict()
         self.assertEqual(defect_dict["volume"], 100)
         self.assertEqual(defect_dict["temperature"], 298)
 
@@ -291,7 +334,6 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system.defect_species[1].nsites = 1
         self.defect_system.defect_species[0].name = "v_O"
         self.defect_system.defect_species[1].name = "O_i"
-        self.defect_system.volume = 100
 
         expected_dict = {
             "Fermi Energy": 1.0,
@@ -316,11 +358,17 @@ class TestDefectSystem(unittest.TestCase):
 
 
     def test__repr__(self):
-        self.defect_system.defect_species = []
-        self.defect_system.dos.nelect = 100
-        self.defect_system.dos.bandgap = 0.1
+        dos = Mock(spec=DOS)
+        dos.nelect = 100
+        dos.bandgap = 0.1
+        system = DefectSystem(
+            defect_species=[],
+            volume=100,
+            dos=dos,
+            temperature=298,
+        )
         self.assertEqual(
-            str(self.defect_system).strip(),
+            str(system).strip(),
             "DefectSystem\n"
             "  bandgap:     0.1 eV    nelect: 100\n"
             "  volume:      100 Å³    temperature: 298 K\n"
@@ -2928,6 +2976,29 @@ class TestDiluteLimitWarning(unittest.TestCase):
             system.concentration_dict()
             system.get_sc_fermi()
         self.assertEqual(len(self._dilute_warnings(records)), 1)
+
+    def test_changing_threshold_re_arms_warning_for_next_solve(self):
+        # The once-per-instance guard silences repeat warnings for a solved
+        # system. Changing the threshold re-arms it so the next solve warns
+        # again; re-setting the same value leaves it silent.
+        system = self._make_system([self._saturating_species("S")])
+
+        with warnings.catch_warnings(record=True) as first:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(first)), 1)
+
+        system.occupancy_warning_threshold = 0.5
+        with warnings.catch_warnings(record=True) as after_change:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(after_change)), 1)
+
+        system.occupancy_warning_threshold = 0.5
+        with warnings.catch_warnings(record=True) as after_same:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(self._dilute_warnings(after_same), [])
 
     def test_threshold_absent_from_as_dict(self):
         system = self._make_system(

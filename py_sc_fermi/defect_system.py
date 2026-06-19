@@ -165,12 +165,14 @@ class DefectSystem:
           is not ``None`` or a finite fraction in (0, 1].
 
     Note:
-        `DefectSystem` is an immutable, fixed-temperature snapshot:
-        `vbm_shift`, `cbm_shift`, `formation_energy_corrections`,
-        `rigid_shift`, and `fixed_concentrations` are applied once at
-        construction to copies of `defect_species` -- the objects passed in
-        (including any `formation_energy_corrections` keys) are never modified,
-        even temporarily. To build `DefectSystem`s at several temperatures from
+        `DefectSystem` is a fixed-temperature snapshot whose physical public
+        attributes are read-only once constructed: rebinding any of them raises
+        `AttributeError`. `vbm_shift`, `cbm_shift`,
+        `formation_energy_corrections`, `rigid_shift`, and
+        `fixed_concentrations` are applied once at construction to copies of
+        `defect_species` -- the objects passed in (including any
+        `formation_energy_corrections` keys) are never modified, even
+        temporarily. To build `DefectSystem`s at several temperatures from
         temperature-dependent shift/correction functions, see
         `DefectSystemFactory`.
     """
@@ -191,32 +193,94 @@ class DefectSystem:
         fixed_concentrations: dict[str, float] | None = None,
         occupancy_warning_threshold: float | None = 0.01,
     ):
-        self.volume = volume
-        self.dos = dos
+        self._volume = volume
+        self._dos = dos
         delta_gap = cbm_shift - vbm_shift
         if delta_gap != 0.0:
-            self.dos = self.dos.scissored(delta_gap)
-        self.temperature = temperature
-        self.convergence_tolerance = convergence_tolerance
-        self.vbm_shift = vbm_shift
-        self.cbm_shift = cbm_shift
-        self.rigid_shift = rigid_shift
-        self.occupancy_warning_threshold = self._validate_occupancy_warning_threshold(
+            self._dos = self._dos.scissored(delta_gap)
+        self._temperature = temperature
+        self._convergence_tolerance = convergence_tolerance
+        self._vbm_shift = vbm_shift
+        self._cbm_shift = cbm_shift
+        self._rigid_shift = rigid_shift
+        self._occupancy_warning_threshold = self._validate_occupancy_warning_threshold(
             occupancy_warning_threshold
         )
         self._occupancy_warning_emitted = False
 
-        self.defect_species = copy.deepcopy(defect_species)
+        self._defect_species = copy.deepcopy(defect_species)
         self._apply_formation_energy_corrections(
             defect_species, formation_energy_corrections or {}
         )
 
-        self.site_pools: dict[str, SitePool] = dict(site_pools or {})
-        self.element_pools: dict[str, ElementPool] = dict(element_pools or {})
+        self._site_pools: dict[str, SitePool] = dict(site_pools or {})
+        self._element_pools: dict[str, ElementPool] = dict(element_pools or {})
 
         self._validate_pools()
         self._apply_fixed_concentrations(fixed_concentrations or {})
         self._validate_fixed_concentrations()
+
+    @property
+    def volume(self) -> float:
+        return self._volume
+
+    @property
+    def dos(self) -> DOS:
+        return self._dos
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
+
+    @property
+    def convergence_tolerance(self) -> float | None:
+        return self._convergence_tolerance
+
+    @property
+    def vbm_shift(self) -> float:
+        return self._vbm_shift
+
+    @property
+    def cbm_shift(self) -> float:
+        return self._cbm_shift
+
+    @property
+    def rigid_shift(self) -> bool:
+        return self._rigid_shift
+
+    @property
+    def defect_species(self) -> list[DefectSpecies]:
+        return self._defect_species
+
+    @property
+    def site_pools(self) -> dict[str, SitePool]:
+        return self._site_pools
+
+    @property
+    def element_pools(self) -> dict[str, ElementPool]:
+        return self._element_pools
+
+    @property
+    def occupancy_warning_threshold(self) -> float | None:
+        return self._occupancy_warning_threshold
+
+    @occupancy_warning_threshold.setter
+    def occupancy_warning_threshold(self, value: float | None) -> None:
+        """Set the dilute-limit warning threshold.
+
+        Validates ``value`` (see ``__init__``) and, when it differs from the
+        current threshold, re-arms the once-per-instance dilute-limit warning
+        so the next solve re-evaluates site occupancy against the new
+        threshold.
+
+        Raises:
+            ValueError: if ``value`` is not ``None`` or a finite fraction in
+                (0, 1].
+        """
+        validated = self._validate_occupancy_warning_threshold(value)
+        if validated != self._occupancy_warning_threshold:
+            self._occupancy_warning_emitted = False
+        self._occupancy_warning_threshold = validated
 
     @staticmethod
     def _validate_occupancy_warning_threshold(value: float | None) -> float | None:
