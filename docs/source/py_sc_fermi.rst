@@ -33,6 +33,30 @@ py\_sc\_fermi.dos module
    :undoc-members:
    :show-inheritance:
 
+py\_sc\_fermi.pools module
+--------------------------
+
+.. automodule:: py_sc_fermi.pools
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+py\_sc\_fermi.element\_pools module
+-----------------------------------
+
+.. automodule:: py_sc_fermi.element_pools
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+py\_sc\_fermi.warnings module
+-----------------------------
+
+.. automodule:: py_sc_fermi.warnings
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
