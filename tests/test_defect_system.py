@@ -150,15 +150,6 @@ class TestDefectSystem(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.defect_system.occupancy_warning_threshold = 1.5
 
-    def test_setting_threshold_re_arms_warning(self):
-        self.defect_system._occupancy_warning_emitted = True
-        self.defect_system.occupancy_warning_threshold = 0.5
-        self.assertFalse(self.defect_system._occupancy_warning_emitted)
-
-        self.defect_system._occupancy_warning_emitted = True
-        self.defect_system.occupancy_warning_threshold = 0.5
-        self.assertTrue(self.defect_system._occupancy_warning_emitted)
-
     def test_occupancy_warning_threshold_is_settable(self):
         self.defect_system.occupancy_warning_threshold = 0.5
         self.assertEqual(self.defect_system.occupancy_warning_threshold, 0.5)
@@ -2985,6 +2976,29 @@ class TestDiluteLimitWarning(unittest.TestCase):
             system.concentration_dict()
             system.get_sc_fermi()
         self.assertEqual(len(self._dilute_warnings(records)), 1)
+
+    def test_changing_threshold_re_arms_warning_for_next_solve(self):
+        # The once-per-instance guard silences repeat warnings for a solved
+        # system. Changing the threshold re-arms it so the next solve warns
+        # again; re-setting the same value leaves it silent.
+        system = self._make_system([self._saturating_species("S")])
+
+        with warnings.catch_warnings(record=True) as first:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(first)), 1)
+
+        system.occupancy_warning_threshold = 0.5
+        with warnings.catch_warnings(record=True) as after_change:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(len(self._dilute_warnings(after_change)), 1)
+
+        system.occupancy_warning_threshold = 0.5
+        with warnings.catch_warnings(record=True) as after_same:
+            warnings.simplefilter("always")
+            system.get_sc_fermi()
+        self.assertEqual(self._dilute_warnings(after_same), [])
 
     def test_threshold_absent_from_as_dict(self):
         system = self._make_system(
