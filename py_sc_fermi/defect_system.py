@@ -165,12 +165,14 @@ class DefectSystem:
           is not ``None`` or a finite fraction in (0, 1].
 
     Note:
-        `DefectSystem` is an immutable, fixed-temperature snapshot:
-        `vbm_shift`, `cbm_shift`, `formation_energy_corrections`,
-        `rigid_shift`, and `fixed_concentrations` are applied once at
-        construction to copies of `defect_species` -- the objects passed in
-        (including any `formation_energy_corrections` keys) are never modified,
-        even temporarily. To build `DefectSystem`s at several temperatures from
+        `DefectSystem` is a fixed-temperature snapshot whose physical public
+        attributes are read-only once constructed: rebinding any of them raises
+        `AttributeError`. `vbm_shift`, `cbm_shift`,
+        `formation_energy_corrections`, `rigid_shift`, and
+        `fixed_concentrations` are applied once at construction to copies of
+        `defect_species` -- the objects passed in (including any
+        `formation_energy_corrections` keys) are never modified, even
+        temporarily. To build `DefectSystem`s at several temperatures from
         temperature-dependent shift/correction functions, see
         `DefectSystemFactory`.
     """
