@@ -26,16 +26,6 @@
   `ValueError`. Names key `concentration_dict` and `defect_species_by_name`, so
   duplicates were already ambiguous -- this now fails loudly at construction
   rather than silently.
-- `DefectSystem` and `DefectSystemFactory` now take `site_pools` as a
-  `dict[str, SitePool]` and `element_pools` as a `dict[str, ElementPool]`,
-  replacing the previous positional `(n_sites, species)` and
-  `(target, members)` tuples. Element-pool members are now a
-  `{species: stoichiometry}` mapping rather than a list of pairs, and the
-  serialised element-pool `members` field (in `as_dict`/`from_dict`) is
-  correspondingly a mapping. Construct pools as
-  `SitePool(n_sites=..., species=[...])` and
-  `ElementPool(target=..., members={...})`, both importable from
-  `py_sc_fermi.pools`.
 - `DefectSystem`'s physical public attributes (`volume`, `dos`, `temperature`,
   `convergence_tolerance`, `vbm_shift`, `cbm_shift`, `rigid_shift`,
   `defect_species`, `site_pools`, `element_pools`) are now read-only; rebinding
