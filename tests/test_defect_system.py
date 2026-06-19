@@ -118,6 +118,34 @@ class TestDefectSystem(unittest.TestCase):
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
+    def test_public_attributes_are_read_only(self):
+        new_values = {
+            "volume": 1.0,
+            "dos": Mock(spec=DOS),
+            "temperature": 1.0,
+            "convergence_tolerance": 1.0,
+            "vbm_shift": 1.0,
+            "cbm_shift": 1.0,
+            "rigid_shift": False,
+            "defect_species": [],
+            "site_pools": {},
+            "element_pools": {},
+        }
+        for name, value in new_values.items():
+            with self.subTest(attribute=name):
+                with self.assertRaises(AttributeError):
+                    setattr(self.defect_system, name, value)
+
+    def test_public_attribute_reads_return_constructed_values(self):
+        self.assertEqual(self.defect_system.volume, 100)
+        self.assertEqual(self.defect_system.temperature, 298)
+        self.assertIsNone(self.defect_system.convergence_tolerance)
+        self.assertEqual(self.defect_system.vbm_shift, 0.0)
+        self.assertEqual(self.defect_system.cbm_shift, 0.0)
+        self.assertTrue(self.defect_system.rigid_shift)
+        self.assertEqual(self.defect_system.site_pools, {})
+        self.assertEqual(self.defect_system.element_pools, {})
+
     def test_total_defect_charge_contributions(self):
         cs_pos = DefectChargeState(charge=1, fixed_concentration=2)
         cs_neg = DefectChargeState(charge=-1, fixed_concentration=3)
