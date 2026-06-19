@@ -36,8 +36,8 @@ v3 to report a lower concentration for it.
 The two models diverge smoothly with occupancy; there is no level below which
 they are guaranteed to agree. py-sc-fermi emits a ``DiluteLimitWarning`` when a
 solved occupancy exceeds ``DefectSystem.occupancy_warning_threshold`` (1% by
-default, and adjustable) -- a heuristic prompt to check a result by hand, not a
-boundary below which the models agree. High occupancy is also where
+default, and adjustable). It is a heuristic prompt to check a result by hand,
+not a boundary below which the models agree. High occupancy is also where
 py-sc-fermi's dilute, non-interacting-defect assumption is increasingly worth
 questioning.
 
@@ -105,7 +105,7 @@ A ``DefectSystem`` is an immutable snapshot at a fixed temperature. Its physical
 attributes (``temperature``, ``dos``, ``vbm_shift``, ``defect_species``, the
 pools, and the rest) can no longer be reassigned after construction; doing so
 raises ``AttributeError``. To compute at a different temperature, DOS, or
-correction set, construct a new ``DefectSystem`` -- or use
+correction set, construct a new ``DefectSystem``, or use
 ``DefectSystemFactory.at(...)``, which builds one snapshot per temperature.
 ``occupancy_warning_threshold``, a reporting preference rather than part of the
 physical system, remains settable.
