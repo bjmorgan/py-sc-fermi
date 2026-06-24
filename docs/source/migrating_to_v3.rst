@@ -173,6 +173,35 @@ automatically. Pass ``dos=`` to ``at()`` only when the quench needs a genuinely
 different density of states, for example a custom electronic structure rather
 than a rigid band-edge shift.
 
+Temperature-dependent formation-energy corrections
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``DefectSystemFactory`` accepts ``formation_energy_correction_fns``, a mapping
+from a ``DefectChargeState`` to an arbitrary function of temperature. The
+function is evaluated at each snapshot and the result is added to that charge
+state's formation energy. This is the natural place for corrections whose
+magnitude varies with temperature — for example, vibrational free-energy
+corrections from phonon calculations:
+
+.. code-block:: python
+
+    factory = DefectSystemFactory(
+        defect_species=defect_species,
+        dos=dos,
+        volume=volume,
+        formation_energy_correction_fns={
+            v_o_2plus: lambda T: vibrational_free_energy(T),
+        },
+    )
+
+    results = {T: factory.at(T).concentration_dict() for T in temperatures}
+
+At each temperature the correction is re-evaluated and baked into the formation
+energy before the self-consistent Fermi level is solved. ``DefectSystem``
+itself (for a single temperature) accepts the pre-evaluated version as
+``formation_energy_corrections: dict[DefectChargeState, float]`` if you do not
+need a sweep.
+
 Also new
 ~~~~~~~~
 
@@ -180,5 +209,11 @@ Also new
   of states, shifting the carrier gap and the self-consistent Fermi level.
 - Metastable charge states, and Boltzmann-weighted effective formation energies
   for charges with more than one form.
+- ``DefectSystem.charge_state_concentration_dict(per_volume=True)`` returns
+  concentrations as ``{species_name: [(DefectChargeState, conc), ...]}``,
+  preserving every charge state as a separate entry. Unlike
+  ``concentration_dict(decomposed=True)``, which groups by formal charge and
+  sums metastable states that share one, this method lets you read the
+  individual concentration of each metastable configuration.
 - Site pools (a shared site budget across several species) and element pools (a
   target content for an element, solved through its chemical potential).

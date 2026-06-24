@@ -1202,6 +1202,39 @@ class DefectSystem:
                 decomp_concs[str(ds.name)] = by_charge
             return {**run_stats, **decomp_concs}
 
+    def charge_state_concentration_dict(
+        self,
+        per_volume: bool = True,
+    ) -> dict[str, list[tuple[DefectChargeState, float]]]:
+        """Return per-charge-state concentrations keyed by species name.
+
+        Unlike ``concentration_dict(decomposed=True)``, which groups charge
+        states by formal charge, this method preserves every ``DefectChargeState``
+        as a separate entry. That matters for metastable defects, where several
+        ``DefectChargeState`` objects share the same formal charge and would
+        otherwise be summed together.
+
+        Args:
+            per_volume (bool, optional): if True, return concentrations in units
+              of cm^-3, else returns concentration per unit cell. Defaults to True.
+
+        Returns:
+            dict[str, list[tuple[DefectChargeState, float]]]: mapping from
+            species name to a list of ``(DefectChargeState, concentration)``
+            pairs, one per charge state, in the same order as
+            ``DefectSpecies.charge_states``.
+        """
+        scale = 1e24 / self.volume if per_volume else 1
+        e_fermi = self.get_sc_fermi()[0]
+        cs_concs = self._global_defect_concs(e_fermi)
+        return {
+            ds.name: [
+                (cs, float(cs_concs.get(cs, 0.0) * scale))
+                for cs in ds.charge_states
+            ]
+            for ds in self.defect_species
+        }
+
     def _site_occupancy_fractions(self, e_fermi: float) -> dict[str, float]:
         """Return each ``DefectSpecies``' site occupancy as a fraction of the
         sites available to it, at an already-solved Fermi level.

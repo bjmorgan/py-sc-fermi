@@ -357,6 +357,44 @@ class TestDefectSystem(unittest.TestCase):
 
 
 
+    def test_charge_state_concentration_dict(self):
+        cs_v_O = DefectChargeState(charge=1, fixed_concentration=1)
+        cs_O_i = DefectChargeState(charge=-1, fixed_concentration=1)
+        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
+        self.defect_system.defect_species[0].charge_states = [cs_v_O]
+        self.defect_system.defect_species[1].charge_states = [cs_O_i]
+        self.defect_system.defect_species[0].fixed_concentration = None
+        self.defect_system.defect_species[1].fixed_concentration = None
+        self.defect_system.defect_species[0].nsites = 1
+        self.defect_system.defect_species[1].nsites = 1
+        self.defect_system.defect_species[0].name = "v_O"
+        self.defect_system.defect_species[1].name = "O_i"
+
+        result = self.defect_system.charge_state_concentration_dict()
+        self.assertEqual(list(result.keys()), ["v_O", "O_i"])
+        self.assertEqual(len(result["v_O"]), 1)
+        self.assertIs(result["v_O"][0][0], cs_v_O)
+        self.assertAlmostEqual(result["v_O"][0][1], 1e22)
+
+    def test_charge_state_concentration_dict_metastable(self):
+        # Two charge states at the same formal charge: must appear as separate entries.
+        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6)
+        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4)
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+
+        result = system.charge_state_concentration_dict(per_volume=False)
+        pairs = result["V_O"]
+        self.assertEqual(len(pairs), 2)
+        self.assertIs(pairs[0][0], system.defect_species[0].charge_states[0])
+        self.assertIs(pairs[1][0], system.defect_species[0].charge_states[1])
+        self.assertAlmostEqual(pairs[0][1], 0.6)
+        self.assertAlmostEqual(pairs[1][1], 0.4)
+
     def test__repr__(self):
         dos = Mock(spec=DOS)
         dos.nelect = 100
