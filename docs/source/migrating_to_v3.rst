@@ -185,8 +185,23 @@ corrections from phonon calculations:
 
 .. code-block:: python
 
+    # Keep a reference to the charge state so it can be used as a key below.
+    # Matching is by object identity, so this must be the same object passed
+    # into DefectSpecies. Giving it a name also makes it appear clearly in
+    # repr output and concentration results.
+    v_o_2plus = DefectChargeState(charge=2, energy=1.2, degeneracy=1, name="V_O_2+")
+
+    v_O = DefectSpecies(
+        name="V_O",
+        nsites=1,
+        charge_states=[
+            DefectChargeState(charge=0, energy=0.0, degeneracy=1, name="V_O_0"),
+            v_o_2plus,
+        ],
+    )
+
     factory = DefectSystemFactory(
-        defect_species=defect_species,
+        defect_species=[v_O],
         dos=dos,
         volume=volume,
         formation_energy_correction_fns={
@@ -201,6 +216,12 @@ energy before the self-consistent Fermi level is solved. ``DefectSystem``
 itself (for a single temperature) accepts the pre-evaluated version as
 ``formation_energy_corrections: dict[DefectChargeState, float]`` if you do not
 need a sweep.
+
+Named charge states also make the decomposed concentration output unambiguous.
+For the ``v_O`` species above, ``concentration_dict(decomposed=True)`` returns
+``{"V_O_0": ..., "V_O_2+": ...}`` rather than the generated ``"q+0"`` /
+``"q+2"`` fallback keys. The same keys appear in
+``charge_state_concentration_dict()``.
 
 Also new
 ~~~~~~~~

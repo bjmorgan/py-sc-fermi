@@ -1150,6 +1150,21 @@ class DefectSystem:
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
+    @staticmethod
+    def _cs_key(cs: DefectChargeState, all_charge_states: list[DefectChargeState]) -> str:
+        """Return a string key for ``cs`` within ``all_charge_states``.
+
+        Uses ``cs.name`` when set. Otherwise generates ``q{charge:+d}`` for a
+        unique charge, or ``q{charge:+d}_0``, ``q{charge:+d}_1``, … when several
+        unnamed states share the same formal charge (metastable configurations).
+        """
+        if cs.name is not None:
+            return cs.name
+        same_charge = [c for c in all_charge_states if c.charge == cs.charge]
+        if len(same_charge) == 1:
+            return f"q{cs.charge:+d}"
+        return f"q{cs.charge:+d}_{same_charge.index(cs)}"
+
     def concentration_dict(
         self,
         decomposed: bool = False,
@@ -1191,47 +1206,44 @@ class DefectSystem:
                 sum_concs[str(ds.name)] = float(total * scale)
             return {**run_stats, **sum_concs}
         else:
-            decomp_concs: dict[str, dict[int, float]] = {}
+            decomp_concs: dict[str, dict[str, float]] = {}
             for ds in self.defect_species:
-                by_charge: dict[int, float] = {}
-                for cs in ds.charge_states:
-                    if cs in cs_concs:
-                        by_charge[cs.charge] = (
-                            by_charge.get(cs.charge, 0.0) + float(cs_concs[cs] * scale)
-                        )
-                decomp_concs[str(ds.name)] = by_charge
+                by_cs: dict[str, float] = {
+                    self._cs_key(cs, ds.charge_states): float(cs_concs.get(cs, 0.0) * scale)
+                    for cs in ds.charge_states
+                }
+                decomp_concs[str(ds.name)] = by_cs
             return {**run_stats, **decomp_concs}
 
     def charge_state_concentration_dict(
         self,
         per_volume: bool = True,
-    ) -> dict[str, list[tuple[DefectChargeState, float]]]:
-        """Return per-charge-state concentrations keyed by species name.
+    ) -> dict[str, dict[str, float]]:
+        """Return per-charge-state concentrations keyed by species name and charge-state key.
 
-        Unlike ``concentration_dict(decomposed=True)``, which groups charge
-        states by formal charge, this method preserves every ``DefectChargeState``
-        as a separate entry. That matters for metastable defects, where several
-        ``DefectChargeState`` objects share the same formal charge and would
-        otherwise be summed together.
+        Every ``DefectChargeState`` appears as a separate entry, so metastable
+        configurations that share a formal charge are never summed (unlike
+        ``concentration_dict(decomposed=True)``). The inner key for each charge
+        state is ``cs.name`` when set, otherwise a generated label: ``q+2`` for
+        an unambiguous charge, or ``q+1_0`` / ``q+1_1`` … when several unnamed
+        states share the same formal charge.
 
         Args:
             per_volume (bool, optional): if True, return concentrations in units
               of cm^-3, else returns concentration per unit cell. Defaults to True.
 
         Returns:
-            dict[str, list[tuple[DefectChargeState, float]]]: mapping from
-            species name to a list of ``(DefectChargeState, concentration)``
-            pairs, one per charge state, in the same order as
-            ``DefectSpecies.charge_states``.
+            dict[str, dict[str, float]]: mapping from species name to a dict of
+            ``{charge_state_key: concentration}``, one entry per charge state.
         """
         scale = 1e24 / self.volume if per_volume else 1
         e_fermi = self.get_sc_fermi()[0]
         cs_concs = self._global_defect_concs(e_fermi)
         return {
-            ds.name: [
-                (cs, float(cs_concs.get(cs, 0.0) * scale))
+            ds.name: {
+                self._cs_key(cs, ds.charge_states): float(cs_concs.get(cs, 0.0) * scale)
                 for cs in ds.charge_states
-            ]
+            }
             for ds in self.defect_species
         }
 
