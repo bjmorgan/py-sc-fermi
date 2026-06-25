@@ -27,12 +27,6 @@ input_string_spin = (
     "0\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 )
 test_data_dir = "dummy_inputs/"
-test_yaml_filename = os.path.join(
-    os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
-)
-test_exception_yaml_filename = os.path.join(
-    os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
-)
 test_vasprun_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml"
 )
