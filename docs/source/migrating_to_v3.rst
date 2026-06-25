@@ -70,6 +70,32 @@ Because the charge states are a list, a single species may now hold several
 states with the same formal charge, which is how v3 represents metastable
 defects.
 
+``concentration_dict(decomposed=True)`` keys by string, not charge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The inner dict returned by ``concentration_dict(decomposed=True)`` previously
+mapped formal charge (``int``) to concentration. It now maps a string key to
+concentration, with one entry per ``DefectChargeState`` rather than one per
+formal charge. For an unnamed charge state the key is generated: ``"q+2"`` for
+a unique charge, or ``"q+1_0"`` / ``"q+1_1"`` when several unnamed states share
+a formal charge. Named states (see :ref:`new-name-attribute`) use their name
+directly.
+
+.. code-block:: python
+
+    # v2 / old v3
+    conc_2plus = result["V_O"][2]
+
+    # v3: unnamed state → generated key
+    conc_2plus = result["V_O"]["q+2"]
+
+    # v3: named state → name as key
+    conc_2plus = result["V_O"]["V_O_2+"]
+
+The new ``DefectSystem.charge_state_concentration_dict()`` method uses the same
+key scheme and is the recommended way to retrieve per-charge-state
+concentrations, especially for metastable defects.
+
 The legacy SC-Fermi input format has been removed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -223,6 +249,8 @@ For the ``v_O`` species above, ``concentration_dict(decomposed=True)`` returns
 ``"q+2"`` fallback keys. The same keys appear in
 ``charge_state_concentration_dict()``.
 
+.. _new-name-attribute:
+
 Also new
 ~~~~~~~~
 
@@ -230,11 +258,13 @@ Also new
   of states, shifting the carrier gap and the self-consistent Fermi level.
 - Metastable charge states, and Boltzmann-weighted effective formation energies
   for charges with more than one form.
+- ``DefectChargeState`` accepts an optional ``name`` string. Named states use
+  their name as the key in ``concentration_dict(decomposed=True)`` and
+  ``charge_state_concentration_dict()``; unnamed states get a generated key
+  such as ``"q+2"`` or ``"q+1_0"`` / ``"q+1_1"`` for metastable pairs.
 - ``DefectSystem.charge_state_concentration_dict(per_volume=True)`` returns
-  concentrations as ``{species_name: [(DefectChargeState, conc), ...]}``,
-  preserving every charge state as a separate entry. Unlike
-  ``concentration_dict(decomposed=True)``, which groups by formal charge and
-  sums metastable states that share one, this method lets you read the
-  individual concentration of each metastable configuration.
+  ``{species_name: {key: conc}}``, one entry per ``DefectChargeState``.
+  Unlike ``concentration_dict(decomposed=True)``, metastable states that share
+  a formal charge appear as separate entries rather than being summed.
 - Site pools (a shared site budget across several species) and element pools (a
   target content for an element, solved through its chemical potential).
