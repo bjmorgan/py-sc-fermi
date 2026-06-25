@@ -203,5 +203,7 @@ class DefectChargeState:
         name_part = f", name={self.name}" if self.name is not None else ""
         if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}{name_part}"
-        else:
-            return f"q={self.charge:+2}, [c]={self.fixed_concentration}, deg={self.degeneracy}{name_part}"
+        return (
+            f"q={self.charge:+2}, [c]={self.fixed_concentration},"
+            f" deg={self.degeneracy}{name_part}"
+        )
