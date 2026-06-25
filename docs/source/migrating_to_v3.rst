@@ -103,7 +103,7 @@ The ``py_sc_fermi.inputs`` module (``InputSet``), the ``sc_fermi_solve``
 command-line tool, and ``DefectChargeState.from_string`` /
 ``DefectSpecies._from_list_of_strings`` have been removed, together with support
 for reading the FORTRAN SC-Fermi text input files. Build the objects directly in
-Python, from a dictionary with ``from_dict``, or from a ``.yaml`` file; the
+Python or from a dictionary with ``from_dict``; the
 tutorial shows each route.
 
 ``n_trial_steps`` has been removed

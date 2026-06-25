@@ -135,8 +135,7 @@ class DefectSpecies:
     @classmethod
     def from_dict(cls, d: dict) -> DefectSpecies:
         """return a ``DefectSpecies`` object from a dictionary containing the defect
-        species data. Primarily for use defining a full ``DefectSystem`` from a
-        .yaml file.
+        species data, as produced by ``as_dict``.
 
         Args:
             defect_species_dict (dict): dictionary containing the defect species

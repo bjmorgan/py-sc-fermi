@@ -13,7 +13,7 @@
 - Removed `py_sc_fermi.inputs` (`InputSet`) and the `sc_fermi_solve` CLI tool,
   dropping support for reading the legacy SC-Fermi text input-file format.
   `DefectSystem`/`DefectSpecies`/`DefectChargeState` should now be constructed
-  directly, via `from_dict`, or from a `.yaml` file.
+  directly or via `from_dict`.
 - Removed `DefectChargeState.from_string` and
   `DefectSpecies._from_list_of_strings`, which existed solely to support the
   removed text input-file format.
