@@ -2443,6 +2443,21 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         for name, total in original.items():
             self.assertAlmostEqual(reloaded_totals[name], total, places=8)
 
+    def test_round_trip_preserves_charge_state_names(self):
+        cs_named = DefectChargeState(charge=0, energy=1.0, degeneracy=1, name="V_O_0")
+        cs_unnamed = DefectChargeState(charge=2, energy=0.5, degeneracy=1)
+        species = DefectSpecies("V_O", nsites=1, charge_states=[cs_named, cs_unnamed])
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        reloaded = DefectSystem.from_dict(system.as_dict())
+        reloaded_states = reloaded.defect_species[0].charge_states
+        self.assertEqual(reloaded_states[0].name, "V_O_0")
+        self.assertIsNone(reloaded_states[1].name)
+
     def test_system_without_pools_emits_neither_key(self):
         system = DefectSystem(
             defect_species=[self.species_a],

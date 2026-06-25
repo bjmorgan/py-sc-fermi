@@ -69,7 +69,7 @@ class DefectSpecies:
         """site degeneracy of this ``DefectSpecies`` in the unit cell.
 
         Returns:
-            int: site degeneracy fot ``DefectSpecies``
+            int: site degeneracy for ``DefectSpecies``
         """
         return self._nsites
 
@@ -173,7 +173,6 @@ class DefectSpecies:
             list[DefectChargeState]: all variable charge‐states of this species,
             sorted from lowest to highest formation energy at e_fermi.
         """
-        # variable_conc_charge_states() now returns list[DefectChargeState]
         return sorted(
             self.variable_conc_charge_states(),
             key=lambda st: st.get_formation_energy(e_fermi),
