@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
 
 import numpy as np
 from scipy.constants import physical_constants
@@ -136,7 +137,7 @@ class DefectChargeState:
             dict: dictionary representation of the ``DefectChargeState``
         """
 
-        defect_dict = {
+        defect_dict: dict[str, Any] = {
             "degeneracy": float(self.degeneracy),
             "energy": float(self.energy) if self.energy is not None else None,
             "charge": int(self.charge),
