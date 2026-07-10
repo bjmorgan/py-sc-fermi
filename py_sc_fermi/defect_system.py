@@ -1159,7 +1159,7 @@ class DefectSystem:
         cs_concs = self._global_defect_concs(e_fermi)
         return {
             ds.name: {
-                cs.name: float(cs_concs.get(cs, 0.0) * scale)
+                cs.name: float(cs_concs[cs] * scale)
                 for cs in ds.charge_states
             }
             for ds in self.defect_species
@@ -1214,7 +1214,7 @@ class DefectSystem:
             cs_concs = self._global_defect_concs(e_fermi)
             sum_concs = {}
             for ds in self.defect_species:
-                total = sum(cs_concs.get(cs, 0.0) for cs in ds.charge_states)
+                total = sum(cs_concs[cs] for cs in ds.charge_states)
                 sum_concs[ds.name] = float(total * scale)
             return {**run_stats, **sum_concs}
         else:
@@ -1274,7 +1274,7 @@ class DefectSystem:
         }
         return {
             str(ds.name): float(
-                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+                sum(concs[cs] for cs in ds.charge_states)
                 / pool_sites.get(ds.name, ds.nsites)
             )
             for ds in self.defect_species
