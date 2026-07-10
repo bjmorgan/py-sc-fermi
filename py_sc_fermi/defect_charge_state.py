@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
 
 import numpy as np
 from scipy.constants import physical_constants
@@ -18,6 +19,11 @@ class DefectChargeState:
          degeneracy (float): degeneracy of this charge state
          energy (float): formation energy at E[Fermi] = 0
          fixed_concentration (float): fixed concentration per unit cell
+         name (str | None): optional label for this charge state. Useful for
+           distinguishing metastable configurations that share a formal charge
+           (e.g. ``"V_O_2+_tet"`` vs ``"V_O_2+_oct"``). When set, this label
+           is used as the key in ``DefectSystem.charge_state_concentration_dict``
+           and ``concentration_dict(decomposed=True)``.
     """
 
     def __init__(
@@ -26,6 +32,7 @@ class DefectChargeState:
         degeneracy: float = 1,
         energy: float | None = None,
         fixed_concentration: float | None = None,
+        name: str | None = None,
     ):
         if energy is None and fixed_concentration is None:
             raise ValueError(
@@ -38,6 +45,7 @@ class DefectChargeState:
         self._degeneracy = degeneracy
         self._energy = energy
         self._fixed_concentration = fixed_concentration
+        self._name = name
 
     @property
     def energy(self) -> float | None:
@@ -67,6 +75,15 @@ class DefectChargeState:
         return self._degeneracy
 
     @property
+    def name(self) -> str | None:
+        """Optional label for this charge state.
+
+        Returns:
+            str | None: name if set, else ``None``
+        """
+        return self._name
+
+    @property
     def fixed_concentration(self) -> float | None:
         """fixed concentration of this ``DefectChargeState`` or ``None`` if the
         concentration is free to vary.
@@ -88,7 +105,7 @@ class DefectChargeState:
             DefectChargeState: object described by `dictionary`
         """
 
-        valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
+        valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration", "name"]
         unrecognised_keys = set(dictionary.keys()) - set(valid_keys)
         if unrecognised_keys:
             warnings.warn(
@@ -97,17 +114,20 @@ class DefectChargeState:
                 stacklevel=2,
             )
 
+        name = dictionary.get("name", None)
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
                 charge=dictionary["charge"],
                 fixed_concentration=dictionary["fixed_concentration"],
+                name=name,
             )
         else:
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
                 energy=dictionary["energy"],
                 charge=dictionary["charge"],
+                name=name,
             )
 
     def as_dict(self) -> dict:
@@ -117,7 +137,7 @@ class DefectChargeState:
             dict: dictionary representation of the ``DefectChargeState``
         """
 
-        defect_dict = {
+        defect_dict: dict[str, Any] = {
             "degeneracy": float(self.degeneracy),
             "energy": float(self.energy) if self.energy is not None else None,
             "charge": int(self.charge),
@@ -126,6 +146,8 @@ class DefectChargeState:
             defect_dict.update(
                 {"fixed_concentration": float(self.fixed_concentration)}
             )
+        if self.name is not None:
+            defect_dict["name"] = self.name
 
         return defect_dict
 
@@ -179,7 +201,10 @@ class DefectChargeState:
         return concentration
 
     def __repr__(self) -> str:
+        name_part = f", name={self.name}" if self.name is not None else ""
         if self.fixed_concentration is None:
-            return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
-        else:
-            return f"q={self.charge:+2}, [c]={self.fixed_concentration}, deg={self.degeneracy}"
+            return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}{name_part}"
+        return (
+            f"q={self.charge:+2}, [c]={self.fixed_concentration},"
+            f" deg={self.degeneracy}{name_part}"
+        )

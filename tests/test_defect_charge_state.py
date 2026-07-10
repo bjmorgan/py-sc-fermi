@@ -208,6 +208,26 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
             DefectChargeState.from_dict(dictionary)
 
 
+    def test_name_defaults_to_none(self):
+        cs = DefectChargeState(charge=1, energy=0.5)
+        self.assertIsNone(cs.name)
+
+    def test_name_round_trips_through_dict(self):
+        cs = DefectChargeState(charge=2, energy=1.2, degeneracy=1, name="V_O_2+")
+        d = cs.as_dict()
+        self.assertEqual(d["name"], "V_O_2+")
+        cs2 = DefectChargeState.from_dict(d)
+        self.assertEqual(cs2.name, "V_O_2+")
+
+    def test_name_absent_from_dict_when_none(self):
+        cs = DefectChargeState(charge=1, energy=0.5)
+        self.assertNotIn("name", cs.as_dict())
+
+    def test_from_dict_without_name_gives_none(self):
+        cs = DefectChargeState.from_dict({"charge": 1, "energy": 0.5, "degeneracy": 1})
+        self.assertIsNone(cs.name)
+
+
 class TestDefectChargeStateRepr(unittest.TestCase):
 
     def setUp(self):
@@ -222,6 +242,10 @@ class TestDefectChargeStateRepr(unittest.TestCase):
         self.assertEqual(
             str(self.defect_charge_state), "q=+1, e=0.1234, deg=2",
         )
+
+    def test_repr_with_name(self):
+        cs = DefectChargeState(charge=1, energy=0.1234, degeneracy=2, name="V_O_1+")
+        self.assertEqual(str(cs), "q=+1, e=0.1234, deg=2, name=V_O_1+")
 
 
 if __name__ == "__main__":

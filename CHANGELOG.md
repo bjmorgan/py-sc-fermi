@@ -13,7 +13,7 @@
 - Removed `py_sc_fermi.inputs` (`InputSet`) and the `sc_fermi_solve` CLI tool,
   dropping support for reading the legacy SC-Fermi text input-file format.
   `DefectSystem`/`DefectSpecies`/`DefectChargeState` should now be constructed
-  directly, via `from_dict`, or from a `.yaml` file.
+  directly or via `from_dict`.
 - Removed `DefectChargeState.from_string` and
   `DefectSpecies._from_list_of_strings`, which existed solely to support the
   removed text input-file format.
@@ -26,6 +26,14 @@
   `ValueError`. Names key `concentration_dict` and `defect_species_by_name`, so
   duplicates were already ambiguous -- this now fails loudly at construction
   rather than silently.
+- `concentration_dict(decomposed=True)` now keys the inner dict by string
+  rather than charge integer, with one entry per `DefectChargeState`. Named
+  states use their `name`; unnamed states get a generated key such as `"q+2"`
+  for a unique charge or `"q+1_0"` / `"q+1_1"` for metastable pairs.
+  Previously, states sharing a formal charge were summed into a single entry.
+  Code that indexed the old dict by charge integer (e.g. `result["V_O"][2]`)
+  must be updated to use the string key (e.g. `result["V_O"]["q+2"]` or
+  `result["V_O"]["V_O_2+"]` for a named state).
 - `DefectSystem`'s physical public attributes (`volume`, `dos`, `temperature`,
   `convergence_tolerance`, `vbm_shift`, `cbm_shift`, `rigid_shift`,
   `defect_species`, `site_pools`, `element_pools`) are now read-only; rebinding
@@ -37,6 +45,19 @@
 
 ### Improvements
 
+- Added an optional `name: str | None` attribute to `DefectChargeState`.
+  Named states use their name as the key in `concentration_dict(decomposed=True)`
+  and `charge_state_concentration_dict()`; unnamed states get a generated key.
+  Names appear in `__repr__` and round-trip through `as_dict` / `from_dict`.
+- Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
+  returns `{species_name: {key: conc}}` with one entry per `DefectChargeState`.
+  Unlike `concentration_dict(decomposed=True)`, metastable states sharing a
+  formal charge appear as separate entries rather than being summed, making it
+  the recommended method for inspecting per-state concentrations.
+- Added `DefectSystemFactory` support for `formation_energy_correction_fns`:
+  a `dict[DefectChargeState, Callable[[float], float]]` of temperature-dependent
+  formation-energy corrections (e.g. vibrational free-energy contributions),
+  evaluated at each snapshot temperature.
 - `DefectSpecies.get_formation_energies`, `get_transition_level_and_energy`,
   and `tl_profile` now correctly support multiple `DefectChargeState`s sharing
   a formal charge (metastable defects, see above): each charge is represented
