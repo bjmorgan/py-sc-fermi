@@ -1150,26 +1150,53 @@ class DefectSystem:
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
+    def _per_charge_state_concs(
+        self, e_fermi: float, scale: float
+    ) -> dict[str, dict[str, float]]:
+        """Per-species, per-charge-state concentrations at ``e_fermi``,
+        multiplied by ``scale``, keyed by species name then charge-state name.
+        """
+        cs_concs = self._global_defect_concs(e_fermi)
+        return {
+            ds.name: {
+                cs.name: float(cs_concs[cs] * scale)
+                for cs in ds.charge_states
+            }
+            for ds in self.defect_species
+        }
+
     def concentration_dict(
         self,
         decomposed: bool = False,
         per_volume: bool = True,
     ) -> dict[str, Any]:
-        """Returns a dictionary of the properties of the ``DefectSystem`` object
-        after solving for the self-consistent Fermi energy.
+        """Returns a dictionary of solved Fermi energy, carrier concentrations,
+        and defect concentrations for this ``DefectSystem``.
+
+        The returned dict always contains ``"Fermi Energy"``, ``"p0"``
+        (holes), and ``"n0"`` (electrons). Each defect species then
+        contributes one or more additional keys:
+
+        - ``decomposed=False`` (default): one key per species, mapping to
+          its total concentration (sum over all charge states).
+        - ``decomposed=True``: one key per species, mapping to a nested
+          ``dict[str, float]`` with one entry per ``DefectChargeState``,
+          keyed by ``cs.name`` (an explicit name, or the charge-derived
+          default such as ``"q+2"``).
+
+        Use ``charge_state_concentration_dict()`` when you want per-charge-state
+        concentrations without the ``"Fermi Energy"``/``"p0"``/``"n0"`` metadata.
 
         Args:
-            decomposed (bool, optional): if True, return a dictionary in which the
-              concentration of each ``DefectChargeState`` is given explicitly,
-              rather than as a sum over all ``DefectChargeState`` objects in the
-              each ``DefectSpecies``. Defaults to False.
+            decomposed (bool, optional): if True, return per-charge-state
+              concentrations in a nested dict keyed by charge-state name.
+              Defaults to False.
             per_volume (bool, optional): if True, return concentrations in units
               of cm^-3, else returns concentration per unit cell. Defaults to True.
 
         Returns:
-            dict[str, Any]: dictionary specifying the Fermi Energy,
-            hole concentration (``"p0"``), electron concentration
-            (``"n0"``), temperature, and the defect concentrations.
+            dict[str, Any]: dictionary with ``"Fermi Energy"``, ``"p0"``,
+            ``"n0"``, and one entry per defect species.
         """
         if per_volume:
             scale = 1e24 / self.volume
@@ -1183,24 +1210,40 @@ class DefectSystem:
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
-        cs_concs = self._global_defect_concs(e_fermi)
         if not decomposed:
+            cs_concs = self._global_defect_concs(e_fermi)
             sum_concs = {}
             for ds in self.defect_species:
-                total = sum(cs_concs.get(cs, 0.0) for cs in ds.charge_states)
-                sum_concs[str(ds.name)] = float(total * scale)
+                total = sum(cs_concs[cs] for cs in ds.charge_states)
+                sum_concs[ds.name] = float(total * scale)
             return {**run_stats, **sum_concs}
         else:
-            decomp_concs: dict[str, dict[int, float]] = {}
-            for ds in self.defect_species:
-                by_charge: dict[int, float] = {}
-                for cs in ds.charge_states:
-                    if cs in cs_concs:
-                        by_charge[cs.charge] = (
-                            by_charge.get(cs.charge, 0.0) + float(cs_concs[cs] * scale)
-                        )
-                decomp_concs[str(ds.name)] = by_charge
-            return {**run_stats, **decomp_concs}
+            return {**run_stats, **self._per_charge_state_concs(e_fermi, scale)}
+
+    def charge_state_concentration_dict(
+        self,
+        per_volume: bool = True,
+    ) -> dict[str, dict[str, float]]:
+        """Return per-charge-state concentrations keyed by species name and
+        charge-state name.
+
+        Every ``DefectChargeState`` appears as a separate entry, keyed by
+        ``cs.name`` (an explicit name, or the charge-derived default such as
+        ``"q+2"``). ``concentration_dict(decomposed=True)`` returns the same
+        per-species entries with the ``"Fermi Energy"``/``"p0"``/``"n0"``
+        metadata alongside them.
+
+        Args:
+            per_volume (bool, optional): if True, return concentrations in units
+              of cm^-3, else returns concentration per unit cell. Defaults to True.
+
+        Returns:
+            dict[str, dict[str, float]]: mapping from species name to a dict of
+            ``{charge_state_name: concentration}``, one entry per charge state.
+        """
+        scale = 1e24 / self.volume if per_volume else 1
+        e_fermi = self.get_sc_fermi()[0]
+        return self._per_charge_state_concs(e_fermi, scale)
 
     def _site_occupancy_fractions(self, e_fermi: float) -> dict[str, float]:
         """Return each ``DefectSpecies``' site occupancy as a fraction of the
@@ -1231,7 +1274,7 @@ class DefectSystem:
         }
         return {
             str(ds.name): float(
-                sum(concs.get(cs, 0.0) for cs in ds.charge_states)
+                sum(concs[cs] for cs in ds.charge_states)
                 / pool_sites.get(ds.name, ds.nsites)
             )
             for ds in self.defect_species
@@ -1385,10 +1428,12 @@ class DefectSystemFactory:
         cbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the conduction-band-minimum shift (in eV)
           at that temperature. Defaults to None (no shift).
-        formation_energy_correction_fns (dict[DefectChargeState, Callable] | None, optional):
-          per-charge-state functions of temperature returning a
-          formation-energy correction (in eV) at that temperature. Keys must
-          be `DefectChargeState`s in `defect_species`. Defaults to None.
+        formation_energy_correction_fns (dict[DefectChargeState, Callable[[float], float]] | None,
+          optional): per-charge-state temperature-dependent formation-energy
+          corrections. Each callable takes a temperature in K and returns a
+          correction in eV to add to that charge state's formation energy at
+          each snapshot. Keys must be `DefectChargeState` objects in
+          `defect_species`, matched by identity. Defaults to None.
         rigid_shift (bool, optional): passed to every `DefectSystem` built by
           `at()`. Defaults to True.
         occupancy_warning_threshold (float | None, optional): passed to every

@@ -8,6 +8,7 @@ py-sc-fermi
    :caption: contents
 
    installation
+   migrating_to_v3
    usage_notes
    tutorials
    FAQs

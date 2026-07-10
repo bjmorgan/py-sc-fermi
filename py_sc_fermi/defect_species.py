@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
+from collections.abc import Sequence
 
 import numpy as np
 from scipy.constants import physical_constants
@@ -18,10 +20,12 @@ class DefectSpecies:
            e.g. ``"V_O"`` might be used for an oxygen vacancy.
         nsites (int): Number of sites energetically degenerate sites where this
          defect can form in the unit cell (the site degeneracy).
-        charge_states (list[DefectChargeState]): A list of
-           ``DefectChargeState`` objects belonging to this defect species.
+        charge_states (Sequence[DefectChargeState]): the ``DefectChargeState``
+           objects belonging to this defect species, given as any sequence.
            Multiple charge states may share the same formal charge, to
-           represent metastable defect configurations.
+           represent metastable defect configurations; such states must be
+           given explicit, distinct names (charge-state names, including the
+           charge-derived defaults, must be unique within a species).
 
     """
 
@@ -29,11 +33,12 @@ class DefectSpecies:
         self,
         name: str,
         nsites: int,
-        charge_states: list[DefectChargeState],
+        charge_states: Sequence[DefectChargeState],
         fixed_concentration: float | None = None,
     ):
         """Instantiate a DefectSpecies object."""
 
+        charge_states = tuple(charge_states)
         if not charge_states:
             raise ValueError(
                 f"DefectSpecies '{name}' must have at least one charge state."
@@ -41,6 +46,15 @@ class DefectSpecies:
         if nsites <= 0:
             raise ValueError(
                 f"DefectSpecies '{name}' must have nsites > 0; got {nsites}."
+            )
+        name_counts = Counter(cs.name for cs in charge_states)
+        duplicates = sorted(n for n, count in name_counts.items() if count > 1)
+        if duplicates:
+            raise ValueError(
+                f"DefectSpecies '{name}' has duplicate charge-state names: "
+                f"{', '.join(duplicates)}. Charge-state names must be unique "
+                "within a species; metastable states sharing a formal charge "
+                "must be given explicit names."
             )
         self._name = name
         self._nsites = nsites
@@ -69,21 +83,42 @@ class DefectSpecies:
         """site degeneracy of this ``DefectSpecies`` in the unit cell.
 
         Returns:
-            int: site degeneracy fot ``DefectSpecies``
+            int: site degeneracy for ``DefectSpecies``
         """
         return self._nsites
 
     @property
     def charge_states(
         self,
-    ) -> list[DefectChargeState]:
+    ) -> tuple[DefectChargeState, ...]:
         """
 
         Returns:
-            list[DefectChargeState]: list of ``DefectChargeState`` objects that
-            comprise this ``DefectSpecies``
+            tuple[DefectChargeState, ...]: the ``DefectChargeState`` objects
+            that comprise this ``DefectSpecies``
         """
         return self._charge_states
+
+    def charge_state_by_name(self, name: str) -> DefectChargeState:
+        """Return the ``DefectChargeState`` in this species with the given name.
+
+        Args:
+            name (str): name of the ``DefectChargeState`` to return.
+
+        Returns:
+            DefectChargeState: the charge state where ``cs.name == name``.
+
+        Raises:
+            ValueError: if no charge state in this species has that name.
+        """
+        for cs in self._charge_states:
+            if cs.name == name:
+                return cs
+        available = ", ".join(cs.name for cs in self._charge_states)
+        raise ValueError(
+            f"DefectSpecies '{self.name}' has no charge state named '{name}'; "
+            f"available: {available}"
+        )
 
     @property
     def charges(self) -> list[int]:
@@ -135,17 +170,16 @@ class DefectSpecies:
     @classmethod
     def from_dict(cls, d: dict) -> DefectSpecies:
         """return a ``DefectSpecies`` object from a dictionary containing the defect
-        species data. Primarily for use defining a full ``DefectSystem`` from a
-        .yaml file.
+        species data, as produced by ``as_dict``.
 
         Args:
-            defect_species_dict (dict): dictionary containing the defect species
-               data.
+            d (dict): dictionary containing the defect species data.
 
         Raises:
             ValueError: if the dictionary specifies no charge states, or if any
                of the specified ``DefectChargeState`` objects have no fixed
-               concentration and no formation energy
+               concentration and no formation energy; or if two charge states
+               in the dictionary resolve to the same name.
 
         Returns:
             DefectSpecies: as specified by the provided dictionary
@@ -174,7 +208,6 @@ class DefectSpecies:
             list[DefectChargeState]: all variable charge‐states of this species,
             sorted from lowest to highest formation energy at e_fermi.
         """
-        # variable_conc_charge_states() now returns list[DefectChargeState]
         return sorted(
             self.variable_conc_charge_states(),
             key=lambda st: st.get_formation_energy(e_fermi),

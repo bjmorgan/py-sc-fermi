@@ -208,6 +208,39 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
             DefectChargeState.from_dict(dictionary)
 
 
+    def test_name_defaults_to_charge_string(self):
+        self.assertEqual(DefectChargeState(charge=2, energy=0.5).name, "q+2")
+        self.assertEqual(DefectChargeState(charge=-1, energy=0.5).name, "q-1")
+        self.assertEqual(DefectChargeState(charge=0, energy=0.5).name, "q+0")
+
+    def test_explicit_name_overrides_default(self):
+        cs = DefectChargeState(charge=2, energy=1.2, name="V_O_2+")
+        self.assertEqual(cs.name, "V_O_2+")
+
+    def test_name_round_trips_through_dict(self):
+        cs = DefectChargeState(charge=2, energy=1.2, degeneracy=1, name="V_O_2+")
+        d = cs.as_dict()
+        self.assertEqual(d["name"], "V_O_2+")
+        cs2 = DefectChargeState.from_dict(d)
+        self.assertEqual(cs2.name, "V_O_2+")
+
+    def test_as_dict_omits_defaulted_name(self):
+        cs = DefectChargeState(charge=1, energy=0.5)
+        self.assertNotIn("name", cs.as_dict())
+
+    def test_from_dict_without_name_uses_charge_default(self):
+        cs = DefectChargeState.from_dict({"charge": 1, "energy": 0.5, "degeneracy": 1})
+        self.assertEqual(cs.name, "q+1")
+
+    def test_round_trip_preserves_energy_of_fixed_concentration_state(self):
+        cs = DefectChargeState(charge=1, energy=0.7, degeneracy=1, name="V_O_frozen")
+        cs.fix_concentration(0.01)
+        reloaded = DefectChargeState.from_dict(cs.as_dict())
+        self.assertEqual(reloaded.energy, 0.7)
+        self.assertEqual(reloaded.fixed_concentration, 0.01)
+        self.assertEqual(reloaded.name, "V_O_frozen")
+
+
 class TestDefectChargeStateRepr(unittest.TestCase):
 
     def setUp(self):
@@ -222,6 +255,10 @@ class TestDefectChargeStateRepr(unittest.TestCase):
         self.assertEqual(
             str(self.defect_charge_state), "q=+1, e=0.1234, deg=2",
         )
+
+    def test_repr_with_name(self):
+        cs = DefectChargeState(charge=1, energy=0.1234, degeneracy=2, name="V_O_1+")
+        self.assertEqual(str(cs), "q=+1, e=0.1234, deg=2, name=V_O_1+")
 
 
 if __name__ == "__main__":
