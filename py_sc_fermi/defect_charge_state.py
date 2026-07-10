@@ -19,11 +19,13 @@ class DefectChargeState:
          degeneracy (float): degeneracy of this charge state
          energy (float): formation energy at E[Fermi] = 0
          fixed_concentration (float): fixed concentration per unit cell
-         name (str | None): optional label for this charge state. Useful for
-           distinguishing metastable configurations that share a formal charge
-           (e.g. ``"V_O_2+_tet"`` vs ``"V_O_2+_oct"``). When set, this label
-           is used as the key in ``DefectSystem.charge_state_concentration_dict``
-           and ``concentration_dict(decomposed=True)``.
+         name (str | None): identifying label for this charge state, used as
+           the key in ``DefectSystem.charge_state_concentration_dict`` and
+           ``concentration_dict(decomposed=True)``. Defaults to the charge
+           string (e.g. ``"q+2"``). Metastable configurations sharing a formal
+           charge must be given explicit names (e.g. ``"V_O_2+_tet"`` vs
+           ``"V_O_2+_oct"``), since names must be unique within a
+           ``DefectSpecies``.
     """
 
     def __init__(
@@ -75,13 +77,16 @@ class DefectChargeState:
         return self._degeneracy
 
     @property
-    def name(self) -> str | None:
-        """Optional label for this charge state.
+    def name(self) -> str:
+        """Identifying label for this charge state.
 
         Returns:
-            str | None: name if set, else ``None``
+            str: the explicit name if one was set, otherwise the
+            charge-derived default (e.g. ``"q+2"``).
         """
-        return self._name
+        if self._name is not None:
+            return self._name
+        return f"q{self._charge:+d}"
 
     @property
     def fixed_concentration(self) -> float | None:
@@ -146,8 +151,8 @@ class DefectChargeState:
             defect_dict.update(
                 {"fixed_concentration": float(self.fixed_concentration)}
             )
-        if self.name is not None:
-            defect_dict["name"] = self.name
+        if self._name is not None:
+            defect_dict["name"] = self._name
 
         return defect_dict
 
@@ -201,7 +206,7 @@ class DefectChargeState:
         return concentration
 
     def __repr__(self) -> str:
-        name_part = f", name={self.name}" if self.name is not None else ""
+        name_part = f", name={self._name}" if self._name is not None else ""
         if self.fixed_concentration is None:
             return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}{name_part}"
         return (

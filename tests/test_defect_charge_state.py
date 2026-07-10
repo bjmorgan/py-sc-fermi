@@ -208,9 +208,14 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
             DefectChargeState.from_dict(dictionary)
 
 
-    def test_name_defaults_to_none(self):
-        cs = DefectChargeState(charge=1, energy=0.5)
-        self.assertIsNone(cs.name)
+    def test_name_defaults_to_charge_string(self):
+        self.assertEqual(DefectChargeState(charge=2, energy=0.5).name, "q+2")
+        self.assertEqual(DefectChargeState(charge=-1, energy=0.5).name, "q-1")
+        self.assertEqual(DefectChargeState(charge=0, energy=0.5).name, "q+0")
+
+    def test_explicit_name_overrides_default(self):
+        cs = DefectChargeState(charge=2, energy=1.2, name="V_O_2+")
+        self.assertEqual(cs.name, "V_O_2+")
 
     def test_name_round_trips_through_dict(self):
         cs = DefectChargeState(charge=2, energy=1.2, degeneracy=1, name="V_O_2+")
@@ -219,13 +224,13 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
         cs2 = DefectChargeState.from_dict(d)
         self.assertEqual(cs2.name, "V_O_2+")
 
-    def test_name_absent_from_dict_when_none(self):
+    def test_as_dict_omits_defaulted_name(self):
         cs = DefectChargeState(charge=1, energy=0.5)
         self.assertNotIn("name", cs.as_dict())
 
-    def test_from_dict_without_name_gives_none(self):
+    def test_from_dict_without_name_uses_charge_default(self):
         cs = DefectChargeState.from_dict({"charge": 1, "energy": 0.5, "degeneracy": 1})
-        self.assertIsNone(cs.name)
+        self.assertEqual(cs.name, "q+1")
 
 
 class TestDefectChargeStateRepr(unittest.TestCase):

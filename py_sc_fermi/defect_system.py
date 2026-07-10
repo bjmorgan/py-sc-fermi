@@ -1154,12 +1154,13 @@ class DefectSystem:
     def _cs_key(cs: DefectChargeState, all_charge_states: list[DefectChargeState]) -> str:
         """Return a string key for ``cs`` within ``all_charge_states``.
 
-        Uses ``cs.name`` when set. Otherwise generates ``q{charge:+d}`` for a
-        unique charge, or ``q{charge:+d}_0``, ``q{charge:+d}_1``, … when several
-        unnamed states share the same formal charge (metastable configurations).
+        Uses ``cs._name`` when explicitly set. Otherwise generates
+        ``q{charge:+d}`` for a unique charge, or ``q{charge:+d}_0``,
+        ``q{charge:+d}_1``, … when several unnamed states share the same
+        formal charge (metastable configurations).
         """
-        if cs.name is not None:
-            return cs.name
+        if cs._name is not None:
+            return cs._name
         same_charge = [c for c in all_charge_states if c.charge == cs.charge]
         if len(same_charge) == 1:
             return f"q{cs.charge:+d}"
