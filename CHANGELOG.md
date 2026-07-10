@@ -13,7 +13,7 @@
 - Removed `py_sc_fermi.inputs` (`InputSet`) and the `sc_fermi_solve` CLI tool,
   dropping support for reading the legacy SC-Fermi text input-file format.
   `DefectSystem`/`DefectSpecies`/`DefectChargeState` should now be constructed
-  directly, via `from_dict`, or from a `.yaml` file.
+  directly or via `from_dict`.
 - Removed `DefectChargeState.from_string` and
   `DefectSpecies._from_list_of_strings`, which existed solely to support the
   removed text input-file format.
@@ -26,6 +26,15 @@
   `ValueError`. Names key `concentration_dict` and `defect_species_by_name`, so
   duplicates were already ambiguous -- this now fails loudly at construction
   rather than silently.
+- `concentration_dict(decomposed=True)` now keys the inner dict by charge-state
+  name rather than charge integer, with one entry per `DefectChargeState`.
+  `DefectChargeState.name` defaults to the charge string (`"q+2"`, `"q-1"`,
+  `"q+0"`); metastable states sharing a formal charge must be given explicit
+  names, and duplicate names within a species raise `ValueError` at
+  construction. Previously, states sharing a formal charge were summed into a
+  single entry. Code that indexed the old dict by charge integer
+  (e.g. `result["V_O"][2]`) must be updated to use the name
+  (e.g. `result["V_O"]["q+2"]`, or `result["V_O"]["V_O_2+"]` for a named state).
 - `DefectSystem`'s physical public attributes (`volume`, `dos`, `temperature`,
   `convergence_tolerance`, `vbm_shift`, `cbm_shift`, `rigid_shift`,
   `defect_species`, `site_pools`, `element_pools`) are now read-only; rebinding
@@ -37,6 +46,20 @@
 
 ### Improvements
 
+- `DefectChargeState` has a `name` attribute, used as the key in
+  `concentration_dict(decomposed=True)` and
+  `charge_state_concentration_dict()`. It defaults to the charge string
+  (`"q+2"`); explicit names are required for metastable states sharing a
+  formal charge, and must be unique within a species. Explicit names appear
+  in `__repr__` and round-trip through `as_dict` / `from_dict`.
+- Added `DefectSpecies.charge_state_by_name`, mirroring
+  `DefectSystem.defect_species_by_name`; raises `ValueError` listing the
+  available names when no charge state matches.
+- Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
+  returns `{species_name: {charge_state_name: conc}}` with one entry per
+  `DefectChargeState`. It returns the same per-species entries as
+  `concentration_dict(decomposed=True)`, without the
+  `"Fermi Energy"`/`"p0"`/`"n0"` metadata.
 - `DefectSpecies.get_formation_energies`, `get_transition_level_and_energy`,
   and `tl_profile` now correctly support multiple `DefectChargeState`s sharing
   a formal charge (metastable defects, see above): each charge is represented
@@ -115,7 +138,9 @@
 - Added `DefectSystemFactory`, for building `DefectSystem` snapshots at a
   series of temperatures from temperature-dependent `vbm_shift_fn`,
   `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
-  temperature, the latter keyed by `DefectChargeState`). `factory.at(T,
+  temperature; the latter a `dict[DefectChargeState, Callable[[float], float]]`
+  of temperature-dependent formation-energy corrections, e.g. vibrational
+  free-energy contributions). `factory.at(T,
   **overrides)` evaluates these functions at `T` and returns an independent
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.

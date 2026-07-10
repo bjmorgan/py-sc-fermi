@@ -27,12 +27,6 @@ input_string_spin = (
     "0\n12\n0.1\n298\n1\nv_O 1 1\n 1 1 1\n1\nO_i 1e+22\n1\nO_i 1 1e+22\n"
 )
 test_data_dir = "dummy_inputs/"
-test_yaml_filename = os.path.join(
-    os.path.dirname(__file__), test_data_dir, "defect_system.yaml"
-)
-test_exception_yaml_filename = os.path.join(
-    os.path.dirname(__file__), test_data_dir, "bad_yaml.yaml"
-)
 test_vasprun_filename = os.path.join(
     os.path.dirname(__file__), test_data_dir, "vasprun_nsp.xml"
 )
@@ -345,12 +339,13 @@ class TestDefectSystem(unittest.TestCase):
         result_dict = self.defect_system.concentration_dict()
         self.assertEqual(result_dict, expected_dict)
 
+        # unnamed states -> charge-default names "q+1", "q-1"
         expected_decomposed_dict = {
             "Fermi Energy": 1.0,
             "p0": 1.0e22,
             "n0": 1.0e22,
-            "v_O": {1: 1.0e22},
-            "O_i": {-1: 1.0e22}
+            "v_O": {"q+1": 1.0e22},
+            "O_i": {"q-1": 1.0e22}
         }
         result_decomposed_dict = self.defect_system.concentration_dict(decomposed=True)
         self.assertEqual(result_decomposed_dict, expected_decomposed_dict)
@@ -372,14 +367,25 @@ class TestDefectSystem(unittest.TestCase):
 
         result = self.defect_system.charge_state_concentration_dict()
         self.assertEqual(list(result.keys()), ["v_O", "O_i"])
-        self.assertEqual(len(result["v_O"]), 1)
-        self.assertIs(result["v_O"][0][0], cs_v_O)
-        self.assertAlmostEqual(result["v_O"][0][1], 1e22)
+        # unnamed state at charge +1 -> charge-default name "q+1"
+        self.assertAlmostEqual(result["v_O"]["q+1"], 1e22)
 
-    def test_charge_state_concentration_dict_metastable(self):
-        # Two charge states at the same formal charge: must appear as separate entries.
-        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6)
-        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4)
+    def test_charge_state_concentration_dict_named(self):
+        cs_v_O = DefectChargeState(charge=1, fixed_concentration=1, name="v_O_1+")
+        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
+        self.defect_system.defect_species[0].charge_states = [cs_v_O]
+        self.defect_system.defect_species[0].fixed_concentration = None
+        self.defect_system.defect_species[0].nsites = 1
+        self.defect_system.defect_species[0].name = "v_O"
+
+        result = self.defect_system.charge_state_concentration_dict()
+        self.assertIn("v_O_1+", result["v_O"])
+        self.assertAlmostEqual(result["v_O"]["v_O_1+"], 1e22)
+
+    def test_charge_state_concentration_dict_metastable_named(self):
+        # Named metastable states use their names as keys.
+        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6, name="V_O_tet")
+        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4, name="V_O_oct")
         ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
         dos = Mock(spec=DOS)
         dos.bandgap = 1.0
@@ -388,12 +394,57 @@ class TestDefectSystem(unittest.TestCase):
         system.get_sc_fermi = Mock(return_value=[0.5, {}])
 
         result = system.charge_state_concentration_dict(per_volume=False)
-        pairs = result["V_O"]
-        self.assertEqual(len(pairs), 2)
-        self.assertIs(pairs[0][0], system.defect_species[0].charge_states[0])
-        self.assertIs(pairs[1][0], system.defect_species[0].charge_states[1])
-        self.assertAlmostEqual(pairs[0][1], 0.6)
-        self.assertAlmostEqual(pairs[1][1], 0.4)
+        self.assertAlmostEqual(result["V_O"]["V_O_tet"], 0.6)
+        self.assertAlmostEqual(result["V_O"]["V_O_oct"], 0.4)
+
+    def test_decomposed_concentration_dict_does_not_sum_metastable_states(self):
+        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6, name="V_O_a")
+        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4, name="V_O_b")
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+
+        result = system.concentration_dict(decomposed=True, per_volume=False)["V_O"]
+        self.assertEqual(set(result), {"V_O_a", "V_O_b"})
+        self.assertAlmostEqual(result["V_O_a"], 0.6)
+        self.assertAlmostEqual(result["V_O_b"], 0.4)
+
+    def test_metastable_boltzmann_concentration_ratio(self):
+        # Two variable-concentration states sharing a charge: their solved
+        # concentrations must keep the Boltzmann ratio exp(-(E_a - E_b) / kT).
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="V_O_a")
+        cs_b = DefectChargeState(charge=0, energy=1.2, name="V_O_b")
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+
+        result = system.charge_state_concentration_dict(per_volume=False)["V_O"]
+        ratio = result["V_O_a"] / result["V_O_b"]
+        expected = np.exp((1.2 - 1.0) / (kboltz * 300))
+        self.assertAlmostEqual(ratio / expected, 1.0, places=8)
+
+    def test_decomposed_dict_agrees_with_charge_state_concentration_dict(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="V_O_a")
+        cs_b = DefectChargeState(charge=0, energy=1.2, name="V_O_b")
+        cs_c = DefectChargeState(charge=2, energy=0.5)
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b, cs_c])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+
+        decomposed = system.concentration_dict(decomposed=True, per_volume=False)
+        per_state = system.charge_state_concentration_dict(per_volume=False)
+        self.assertEqual(decomposed["V_O"], per_state["V_O"])
 
     def test__repr__(self):
         dos = Mock(spec=DOS)
@@ -659,8 +710,8 @@ class TestDefectSystemSitePools(unittest.TestCase):
             "F",
             nsites=10,
             charge_states=[
-                DefectChargeState(charge=0, fixed_concentration=0.1),
-                DefectChargeState(charge=0, fixed_concentration=0.2),
+                DefectChargeState(charge=0, fixed_concentration=0.1, name="F_0_a"),
+                DefectChargeState(charge=0, fixed_concentration=0.2, name="F_0_b"),
             ],
             fixed_concentration=0.3,
         )
@@ -684,8 +735,8 @@ class TestDefectSystemSitePools(unittest.TestCase):
             "F",
             nsites=10,
             charge_states=[
-                DefectChargeState(charge=0, fixed_concentration=3.0),
-                DefectChargeState(charge=0, energy=-0.5, degeneracy=1),
+                DefectChargeState(charge=0, fixed_concentration=3.0, name="F_0_fixed"),
+                DefectChargeState(charge=0, energy=-0.5, degeneracy=1, name="F_0_var"),
             ],
             fixed_concentration=5.0,
         )
@@ -2130,8 +2181,8 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         self.assertEqual(self.cs1.energy, 1.5)
 
     def test_formation_energy_correction_distinguishes_metastable_states(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
         species = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
         system = DefectSystem(
             defect_species=[species],
@@ -2242,8 +2293,8 @@ class TestDefectSystemFactory(unittest.TestCase):
         self.assertEqual(system.convergence_tolerance, 1e-12)
 
     def test_at_with_formation_energy_correction_fns_per_charge_state(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
         species = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
         factory = DefectSystemFactory(
             defect_species=[species],
@@ -2424,6 +2475,21 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         reloaded_totals = self._concs_by_name(reloaded, 1.0)
         for name, total in original.items():
             self.assertAlmostEqual(reloaded_totals[name], total, places=8)
+
+    def test_round_trip_preserves_charge_state_names(self):
+        cs_named = DefectChargeState(charge=0, energy=1.0, degeneracy=1, name="V_O_0")
+        cs_unnamed = DefectChargeState(charge=2, energy=0.5, degeneracy=1)
+        species = DefectSpecies("V_O", nsites=1, charge_states=[cs_named, cs_unnamed])
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+        )
+        reloaded = DefectSystem.from_dict(system.as_dict())
+        reloaded_states = reloaded.defect_species[0].charge_states
+        self.assertEqual(reloaded_states[0].name, "V_O_0")
+        self.assertEqual(reloaded_states[1].name, "q+2")
 
     def test_system_without_pools_emits_neither_key(self):
         system = DefectSystem(
@@ -2674,8 +2740,8 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         self.assertIsNone(species.fixed_concentration)
 
     def test_fix_composes_with_formation_energy_corrections(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
         corrected = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
         acceptor = DefectSpecies(
             name="A",
