@@ -232,6 +232,14 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
         cs = DefectChargeState.from_dict({"charge": 1, "energy": 0.5, "degeneracy": 1})
         self.assertEqual(cs.name, "q+1")
 
+    def test_round_trip_preserves_energy_of_fixed_concentration_state(self):
+        cs = DefectChargeState(charge=1, energy=0.7, degeneracy=1, name="V_O_frozen")
+        cs.fix_concentration(0.01)
+        reloaded = DefectChargeState.from_dict(cs.as_dict())
+        self.assertEqual(reloaded.energy, 0.7)
+        self.assertEqual(reloaded.fixed_concentration, 0.01)
+        self.assertEqual(reloaded.name, "V_O_frozen")
+
 
 class TestDefectChargeStateRepr(unittest.TestCase):
 

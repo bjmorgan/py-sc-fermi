@@ -124,6 +124,7 @@ class DefectChargeState:
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
                 charge=dictionary["charge"],
+                energy=dictionary.get("energy"),
                 fixed_concentration=dictionary["fixed_concentration"],
                 name=name,
             )
