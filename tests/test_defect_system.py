@@ -677,8 +677,8 @@ class TestDefectSystemSitePools(unittest.TestCase):
             "F",
             nsites=10,
             charge_states=[
-                DefectChargeState(charge=0, fixed_concentration=0.1),
-                DefectChargeState(charge=0, fixed_concentration=0.2),
+                DefectChargeState(charge=0, fixed_concentration=0.1, name="F_0_a"),
+                DefectChargeState(charge=0, fixed_concentration=0.2, name="F_0_b"),
             ],
             fixed_concentration=0.3,
         )
@@ -702,8 +702,8 @@ class TestDefectSystemSitePools(unittest.TestCase):
             "F",
             nsites=10,
             charge_states=[
-                DefectChargeState(charge=0, fixed_concentration=3.0),
-                DefectChargeState(charge=0, energy=-0.5, degeneracy=1),
+                DefectChargeState(charge=0, fixed_concentration=3.0, name="F_0_fixed"),
+                DefectChargeState(charge=0, energy=-0.5, degeneracy=1, name="F_0_var"),
             ],
             fixed_concentration=5.0,
         )
@@ -2148,8 +2148,8 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         self.assertEqual(self.cs1.energy, 1.5)
 
     def test_formation_energy_correction_distinguishes_metastable_states(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
         species = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
         system = DefectSystem(
             defect_species=[species],
@@ -2260,8 +2260,8 @@ class TestDefectSystemFactory(unittest.TestCase):
         self.assertEqual(system.convergence_tolerance, 1e-12)
 
     def test_at_with_formation_energy_correction_fns_per_charge_state(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
         species = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
         factory = DefectSystemFactory(
             defect_species=[species],
@@ -2707,8 +2707,8 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         self.assertIsNone(species.fixed_concentration)
 
     def test_fix_composes_with_formation_energy_corrections(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
         corrected = DefectSpecies("X_i", nsites=1, charge_states=[cs_a, cs_b])
         acceptor = DefectSpecies(
             name="A",

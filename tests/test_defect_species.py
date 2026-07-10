@@ -62,6 +62,56 @@ class TestDefectSpeciesInit(unittest.TestCase):
                 DefectSpecies(name="V_O", nsites=bad, charge_states=[cs])
             self.assertIn("V_O", str(cm.exception))
 
+    def test_duplicate_explicit_names_raise(self):
+        cs_a = DefectChargeState(charge=1, energy=1.0, name="dup")
+        cs_b = DefectChargeState(charge=2, energy=2.0, name="dup")
+        with self.assertRaises(ValueError):
+            DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+
+    def test_unnamed_metastable_states_raise(self):
+        # Two unnamed states sharing a charge collide on the default name.
+        cs_a = DefectChargeState(charge=1, energy=1.0)
+        cs_b = DefectChargeState(charge=1, energy=1.4)
+        with self.assertRaisesRegex(ValueError, "q\\+1"):
+            DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+
+    def test_named_metastable_states_are_accepted(self):
+        cs_a = DefectChargeState(charge=1, energy=1.0, name="V_O_tet")
+        cs_b = DefectChargeState(charge=1, energy=1.4, name="V_O_oct")
+        species = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        self.assertEqual([cs.name for cs in species.charge_states], ["V_O_tet", "V_O_oct"])
+
+    def test_explicit_name_colliding_with_default_raises(self):
+        cs_a = DefectChargeState(charge=1, energy=1.0)              # name -> "q+1"
+        cs_b = DefectChargeState(charge=2, energy=2.0, name="q+1")  # collides
+        with self.assertRaises(ValueError):
+            DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+
+    def test_charge_state_by_name(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0)
+        cs_b = DefectChargeState(charge=2, energy=0.5, name="V_O_2+")
+        species = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        self.assertIs(species.charge_state_by_name("q+0"), cs_a)
+        self.assertIs(species.charge_state_by_name("V_O_2+"), cs_b)
+
+    def test_charge_state_by_name_raises_on_unknown(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0)
+        species = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a])
+        with self.assertRaises(ValueError):
+            species.charge_state_by_name("nope")
+
+    def test_from_dict_with_duplicate_charge_state_names_raises(self):
+        d = {
+            "name": "V_O",
+            "nsites": 1,
+            "charge_states": [
+                {"charge": 1, "energy": 1.0, "degeneracy": 1},
+                {"charge": 1, "energy": 1.4, "degeneracy": 1},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "q\\+1"):
+            DefectSpecies.from_dict(d)
+
 
 class TestDefectSpecies(unittest.TestCase):
     def setUp(self):
@@ -172,8 +222,8 @@ class TestDefectSpecies(unittest.TestCase):
         # two q=+1 states (a ground state at 0.5 eV and a metastable form at
         # 0.9 eV) must collapse to the lower-energy (0.5 eV) value, not
         # whichever is listed last.
-        cs_low = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_high = DefectChargeState(charge=1, energy=0.9, degeneracy=1)
+        cs_low = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="V_O_1+_ground")
+        cs_high = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="V_O_1+_metastable")
         cs_other = DefectChargeState(charge=0, energy=0.0, degeneracy=1)
         defect = DefectSpecies(
             name="V_O", nsites=1, charge_states=[cs_low, cs_high, cs_other]
@@ -183,8 +233,8 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertEqual(formation_energies[0], 0.0)
 
     def test_get_formation_energies_at_finite_temperature(self):
-        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1)
-        cs_b = DefectChargeState(charge=1, energy=0.6, degeneracy=2)
+        cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="V_O_1+_a")
+        cs_b = DefectChargeState(charge=1, energy=0.6, degeneracy=2, name="V_O_1+_b")
         defect = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
 
         temperature = 300.0
@@ -234,8 +284,8 @@ class TestDefectSpecies(unittest.TestCase):
             "V_O",
             nsites=1,
             charge_states=[
-                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
-                DefectChargeState(charge=1, energy=0.9, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="V_O_1+_ground"),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="V_O_1+_meta"),
                 DefectChargeState(charge=0, energy=2.0, degeneracy=1),
             ],
         )
@@ -416,8 +466,8 @@ class TestDefectSpecies(unittest.TestCase):
             "foo",
             1,
             charge_states=[
-                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
-                DefectChargeState(charge=1, energy=0.9, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="foo_1+_ground"),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="foo_1+_meta"),
                 DefectChargeState(charge=0, energy=2.0, degeneracy=1),
                 DefectChargeState(charge=-1, energy=2.0, degeneracy=1),
             ],
@@ -426,8 +476,8 @@ class TestDefectSpecies(unittest.TestCase):
             "foo",
             1,
             charge_states=[
-                DefectChargeState(charge=1, energy=0.9, degeneracy=1),
-                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="foo_1+_meta"),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="foo_1+_ground"),
                 DefectChargeState(charge=0, energy=2.0, degeneracy=1),
                 DefectChargeState(charge=-1, energy=2.0, degeneracy=1),
             ],

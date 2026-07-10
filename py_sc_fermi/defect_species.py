@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 
 import numpy as np
 from scipy.constants import physical_constants
@@ -21,7 +22,9 @@ class DefectSpecies:
         charge_states (list[DefectChargeState]): A list of
            ``DefectChargeState`` objects belonging to this defect species.
            Multiple charge states may share the same formal charge, to
-           represent metastable defect configurations.
+           represent metastable defect configurations; such states must be
+           given explicit, distinct names (charge-state names, including the
+           charge-derived defaults, must be unique within a species).
 
     """
 
@@ -41,6 +44,15 @@ class DefectSpecies:
         if nsites <= 0:
             raise ValueError(
                 f"DefectSpecies '{name}' must have nsites > 0; got {nsites}."
+            )
+        name_counts = Counter(cs.name for cs in charge_states)
+        duplicates = sorted(n for n, count in name_counts.items() if count > 1)
+        if duplicates:
+            raise ValueError(
+                f"DefectSpecies '{name}' has duplicate charge-state names: "
+                f"{', '.join(duplicates)}. Charge-state names must be unique "
+                "within a species; metastable states sharing a formal charge "
+                "must be given explicit names."
             )
         self._name = name
         self._nsites = nsites
@@ -84,6 +96,27 @@ class DefectSpecies:
             comprise this ``DefectSpecies``
         """
         return self._charge_states
+
+    def charge_state_by_name(self, name: str) -> DefectChargeState:
+        """Return the ``DefectChargeState`` in this species with the given name.
+
+        Args:
+            name (str): name of the ``DefectChargeState`` to return.
+
+        Returns:
+            DefectChargeState: the charge state where ``cs.name == name``.
+
+        Raises:
+            ValueError: if no charge state in this species has that name.
+        """
+        for cs in self._charge_states:
+            if cs.name == name:
+                return cs
+        available = ", ".join(cs.name for cs in self._charge_states)
+        raise ValueError(
+            f"DefectSpecies '{self.name}' has no charge state named '{name}'; "
+            f"available: {available}"
+        )
 
     @property
     def charges(self) -> list[int]:
