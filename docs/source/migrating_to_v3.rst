@@ -43,14 +43,14 @@ dilute / lattice-gas defect model holds for your system.
 Breaking API changes
 ---------------------
 
-Charge states are lists
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Charge states are an ordered collection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``DefectSpecies.charge_states`` is now a ``list[DefectChargeState]`` rather than
-a ``dict`` keyed by charge, and ``charge_state_concentrations`` returns a list
-of ``(DefectChargeState, concentration)`` pairs rather than a
+``DefectSpecies.charge_states`` is now a ``tuple[DefectChargeState, ...]``
+rather than a ``dict`` keyed by charge, and ``charge_state_concentrations``
+returns a list of ``(DefectChargeState, concentration)`` pairs rather than a
 ``{charge: concentration}`` dict. Construct a species with a list, and iterate
-that list directly:
+the returned collection directly:
 
 .. code-block:: python
 
@@ -66,9 +66,9 @@ that list directly:
     for charge_state in species.charge_states:   # was species.charge_states.values()
         ...
 
-Because the charge states are a list, a single species may now hold several
-states with the same formal charge, which is how v3 represents metastable
-defects.
+Because the charge states form an ordered collection, a single species may now
+hold several states with the same formal charge, which is how v3 represents
+metastable defects.
 
 ``concentration_dict(decomposed=True)`` keys by string, not charge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

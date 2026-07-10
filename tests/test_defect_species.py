@@ -100,6 +100,17 @@ class TestDefectSpeciesInit(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "available: q\\+0"):
             species.charge_state_by_name("nope")
 
+    def test_charge_states_collection_is_owned(self):
+        # The species owns its charge-state collection: neither mutating the
+        # constructor list afterwards nor the returned collection can bypass
+        # the name-uniqueness check.
+        states = [DefectChargeState(charge=0, energy=1.0)]
+        species = DefectSpecies(name="V_O", nsites=1, charge_states=states)
+        states.append(DefectChargeState(charge=0, energy=1.4))
+        self.assertEqual(len(species.charge_states), 1)
+        with self.assertRaises(AttributeError):
+            species.charge_states.append(DefectChargeState(charge=0, energy=1.4))
+
     def test_from_dict_with_duplicate_charge_state_names_raises(self):
         d = {
             "name": "V_O",
@@ -137,7 +148,7 @@ class TestDefectSpecies(unittest.TestCase):
 
     def test_charge_states_property(self):
         self.assertEqual(
-            self.defect_species.charge_states, self.defect_species._charge_states
+            self.defect_species.charge_states, tuple(self.defect_species._charge_states)
         )
 
     def test_fixed_concentration_property(self):

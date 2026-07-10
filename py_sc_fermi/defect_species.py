@@ -56,7 +56,7 @@ class DefectSpecies:
             )
         self._name = name
         self._nsites = nsites
-        self._charge_states = charge_states
+        self._charge_states = list(charge_states)
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration: float) -> None:
@@ -88,14 +88,14 @@ class DefectSpecies:
     @property
     def charge_states(
         self,
-    ) -> list[DefectChargeState]:
+    ) -> tuple[DefectChargeState, ...]:
         """
 
         Returns:
-            list[DefectChargeState]: list of ``DefectChargeState`` objects that
-            comprise this ``DefectSpecies``
+            tuple[DefectChargeState, ...]: the ``DefectChargeState`` objects
+            that comprise this ``DefectSpecies``
         """
-        return self._charge_states
+        return tuple(self._charge_states)
 
     def charge_state_by_name(self, name: str) -> DefectChargeState:
         """Return the ``DefectChargeState`` in this species with the given name.
