@@ -26,14 +26,15 @@
   `ValueError`. Names key `concentration_dict` and `defect_species_by_name`, so
   duplicates were already ambiguous -- this now fails loudly at construction
   rather than silently.
-- `concentration_dict(decomposed=True)` now keys the inner dict by string
-  rather than charge integer, with one entry per `DefectChargeState`. Named
-  states use their `name`; unnamed states get a generated key such as `"q+2"`
-  for a unique charge or `"q+1_0"` / `"q+1_1"` for metastable pairs.
-  Previously, states sharing a formal charge were summed into a single entry.
-  Code that indexed the old dict by charge integer (e.g. `result["V_O"][2]`)
-  must be updated to use the string key (e.g. `result["V_O"]["q+2"]` or
-  `result["V_O"]["V_O_2+"]` for a named state).
+- `concentration_dict(decomposed=True)` now keys the inner dict by charge-state
+  name rather than charge integer, with one entry per `DefectChargeState`.
+  `DefectChargeState.name` defaults to the charge string (`"q+2"`, `"q-1"`,
+  `"q+0"`); metastable states sharing a formal charge must be given explicit
+  names, and duplicate names within a species raise `ValueError` at
+  construction. Previously, states sharing a formal charge were summed into a
+  single entry. Code that indexed the old dict by charge integer
+  (e.g. `result["V_O"][2]`) must be updated to use the name
+  (e.g. `result["V_O"]["q+2"]`, or `result["V_O"]["V_O_2+"]` for a named state).
 - `DefectSystem`'s physical public attributes (`volume`, `dos`, `temperature`,
   `convergence_tolerance`, `vbm_shift`, `cbm_shift`, `rigid_shift`,
   `defect_species`, `site_pools`, `element_pools`) are now read-only; rebinding
@@ -45,15 +46,20 @@
 
 ### Improvements
 
-- Added an optional `name: str | None` attribute to `DefectChargeState`.
-  Named states use their name as the key in `concentration_dict(decomposed=True)`
-  and `charge_state_concentration_dict()`; unnamed states get a generated key.
-  Names appear in `__repr__` and round-trip through `as_dict` / `from_dict`.
+- `DefectChargeState` has a `name` attribute, used as the key in
+  `concentration_dict(decomposed=True)` and
+  `charge_state_concentration_dict()`. It defaults to the charge string
+  (`"q+2"`); explicit names are required for metastable states sharing a
+  formal charge, and must be unique within a species. Explicit names appear
+  in `__repr__` and round-trip through `as_dict` / `from_dict`.
+- Added `DefectSpecies.charge_state_by_name`, mirroring
+  `DefectSystem.defect_species_by_name`; raises `ValueError` listing the
+  available names when no charge state matches.
 - Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
-  returns `{species_name: {key: conc}}` with one entry per `DefectChargeState`.
-  Unlike `concentration_dict(decomposed=True)`, metastable states sharing a
-  formal charge appear as separate entries rather than being summed, making it
-  the recommended method for inspecting per-state concentrations.
+  returns `{species_name: {charge_state_name: conc}}` with one entry per
+  `DefectChargeState`. It returns the same per-species entries as
+  `concentration_dict(decomposed=True)`, without the
+  `"Fermi Energy"`/`"p0"`/`"n0"` metadata.
 - Added `DefectSystemFactory` support for `formation_energy_correction_fns`:
   a `dict[DefectChargeState, Callable[[float], float]]` of temperature-dependent
   formation-energy corrections (e.g. vibrational free-energy contributions),
