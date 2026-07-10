@@ -10,5 +10,8 @@ py_sc_fermi.egg-info
 build/
 dist/
 
+# Sphinx build output
+_build/
+
 # test artefacts
 .coverage
