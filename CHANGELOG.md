@@ -60,10 +60,6 @@
   `DefectChargeState`. It returns the same per-species entries as
   `concentration_dict(decomposed=True)`, without the
   `"Fermi Energy"`/`"p0"`/`"n0"` metadata.
-- Added `DefectSystemFactory` support for `formation_energy_correction_fns`:
-  a `dict[DefectChargeState, Callable[[float], float]]` of temperature-dependent
-  formation-energy corrections (e.g. vibrational free-energy contributions),
-  evaluated at each snapshot temperature.
 - `DefectSpecies.get_formation_energies`, `get_transition_level_and_energy`,
   and `tl_profile` now correctly support multiple `DefectChargeState`s sharing
   a formal charge (metastable defects, see above): each charge is represented
@@ -142,7 +138,9 @@
 - Added `DefectSystemFactory`, for building `DefectSystem` snapshots at a
   series of temperatures from temperature-dependent `vbm_shift_fn`,
   `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
-  temperature, the latter keyed by `DefectChargeState`). `factory.at(T,
+  temperature; the latter a `dict[DefectChargeState, Callable[[float], float]]`
+  of temperature-dependent formation-energy corrections, e.g. vibrational
+  free-energy contributions, keyed by `DefectChargeState`). `factory.at(T,
   **overrides)` evaluates these functions at `T` and returns an independent
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.

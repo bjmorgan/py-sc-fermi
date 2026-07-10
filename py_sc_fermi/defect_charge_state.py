@@ -139,6 +139,9 @@ class DefectChargeState:
     def as_dict(self) -> dict:
         """generate a dictionary representation of the ``DefectChargeState``
 
+        The ``name`` key is included only when an explicit name was set;
+        charge-derived default names are omitted and regenerated on load.
+
         Returns:
             dict: dictionary representation of the ``DefectChargeState``
         """

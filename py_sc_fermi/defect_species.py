@@ -171,13 +171,13 @@ class DefectSpecies:
         species data, as produced by ``as_dict``.
 
         Args:
-            defect_species_dict (dict): dictionary containing the defect species
-               data.
+            d (dict): dictionary containing the defect species data.
 
         Raises:
             ValueError: if the dictionary specifies no charge states, or if any
                of the specified ``DefectChargeState`` objects have no fixed
-               concentration and no formation energy
+               concentration and no formation energy; or if two charge states
+               in the dictionary resolve to the same name.
 
         Returns:
             DefectSpecies: as specified by the provided dictionary
