@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Sequence
 
 import numpy as np
 from scipy.constants import physical_constants
@@ -19,8 +20,8 @@ class DefectSpecies:
            e.g. ``"V_O"`` might be used for an oxygen vacancy.
         nsites (int): Number of sites energetically degenerate sites where this
          defect can form in the unit cell (the site degeneracy).
-        charge_states (list[DefectChargeState]): A list of
-           ``DefectChargeState`` objects belonging to this defect species.
+        charge_states (Sequence[DefectChargeState]): the ``DefectChargeState``
+           objects belonging to this defect species, given as any sequence.
            Multiple charge states may share the same formal charge, to
            represent metastable defect configurations; such states must be
            given explicit, distinct names (charge-state names, including the
@@ -32,7 +33,7 @@ class DefectSpecies:
         self,
         name: str,
         nsites: int,
-        charge_states: list[DefectChargeState],
+        charge_states: Sequence[DefectChargeState],
         fixed_concentration: float | None = None,
     ):
         """Instantiate a DefectSpecies object."""
@@ -56,7 +57,7 @@ class DefectSpecies:
             )
         self._name = name
         self._nsites = nsites
-        self._charge_states = list(charge_states)
+        self._charge_states = tuple(charge_states)
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration: float) -> None:
@@ -95,7 +96,7 @@ class DefectSpecies:
             tuple[DefectChargeState, ...]: the ``DefectChargeState`` objects
             that comprise this ``DefectSpecies``
         """
-        return tuple(self._charge_states)
+        return self._charge_states
 
     def charge_state_by_name(self, name: str) -> DefectChargeState:
         """Return the ``DefectChargeState`` in this species with the given name.
