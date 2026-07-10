@@ -38,6 +38,7 @@ class DefectSpecies:
     ):
         """Instantiate a DefectSpecies object."""
 
+        charge_states = tuple(charge_states)
         if not charge_states:
             raise ValueError(
                 f"DefectSpecies '{name}' must have at least one charge state."
@@ -57,7 +58,7 @@ class DefectSpecies:
             )
         self._name = name
         self._nsites = nsites
-        self._charge_states = tuple(charge_states)
+        self._charge_states = charge_states
         self._fixed_concentration = fixed_concentration
 
     def fix_concentration(self, concentration: float) -> None:

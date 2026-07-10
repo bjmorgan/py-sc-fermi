@@ -62,6 +62,13 @@ class TestDefectSpeciesInit(unittest.TestCase):
                 DefectSpecies(name="V_O", nsites=bad, charge_states=[cs])
             self.assertIn("V_O", str(cm.exception))
 
+    def test_construction_consumes_charge_states_once(self):
+        # A single-pass iterable must not be exhausted by validation before
+        # the states are stored.
+        states = (DefectChargeState(charge=q, energy=1.0) for q in (0, 1))
+        species = DefectSpecies(name="V_O", nsites=1, charge_states=states)
+        self.assertEqual([cs.charge for cs in species.charge_states], [0, 1])
+
     def test_duplicate_explicit_names_raise(self):
         cs_a = DefectChargeState(charge=1, energy=1.0, name="dup")
         cs_b = DefectChargeState(charge=2, energy=2.0, name="dup")
