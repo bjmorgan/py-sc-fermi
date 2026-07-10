@@ -97,7 +97,7 @@ class TestDefectSpeciesInit(unittest.TestCase):
     def test_charge_state_by_name_raises_on_unknown(self):
         cs_a = DefectChargeState(charge=0, energy=1.0)
         species = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a])
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "available: q\\+0"):
             species.charge_state_by_name("nope")
 
     def test_from_dict_with_duplicate_charge_state_names_raises(self):
