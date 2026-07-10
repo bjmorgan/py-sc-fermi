@@ -140,7 +140,7 @@
   `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
   temperature; the latter a `dict[DefectChargeState, Callable[[float], float]]`
   of temperature-dependent formation-energy corrections, e.g. vibrational
-  free-energy contributions, keyed by `DefectChargeState`). `factory.at(T,
+  free-energy contributions). `factory.at(T,
   **overrides)` evaluates these functions at `T` and returns an independent
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.
