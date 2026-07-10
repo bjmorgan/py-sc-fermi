@@ -339,7 +339,7 @@ class TestDefectSystem(unittest.TestCase):
         result_dict = self.defect_system.concentration_dict()
         self.assertEqual(result_dict, expected_dict)
 
-        # unnamed states → generated keys "q+1", "q-1"
+        # unnamed states -> charge-default names "q+1", "q-1"
         expected_decomposed_dict = {
             "Fermi Energy": 1.0,
             "p0": 1.0e22,
@@ -367,7 +367,7 @@ class TestDefectSystem(unittest.TestCase):
 
         result = self.defect_system.charge_state_concentration_dict()
         self.assertEqual(list(result.keys()), ["v_O", "O_i"])
-        # unnamed single state at charge +1 → generated key "q+1"
+        # unnamed state at charge +1 -> charge-default name "q+1"
         self.assertAlmostEqual(result["v_O"]["q+1"], 1e22)
 
     def test_charge_state_concentration_dict_named(self):
@@ -381,22 +381,6 @@ class TestDefectSystem(unittest.TestCase):
         result = self.defect_system.charge_state_concentration_dict()
         self.assertIn("v_O_1+", result["v_O"])
         self.assertAlmostEqual(result["v_O"]["v_O_1+"], 1e22)
-
-    def test_charge_state_concentration_dict_metastable(self):
-        # Two unnamed states at the same formal charge → disambiguated generated keys.
-        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6)
-        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4)
-        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
-        dos = Mock(spec=DOS)
-        dos.bandgap = 1.0
-        dos.nelect = 10
-        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
-        system.get_sc_fermi = Mock(return_value=[0.5, {}])
-
-        result = system.charge_state_concentration_dict(per_volume=False)
-        self.assertEqual(set(result["V_O"].keys()), {"q+0_0", "q+0_1"})
-        self.assertAlmostEqual(result["V_O"]["q+0_0"], 0.6)
-        self.assertAlmostEqual(result["V_O"]["q+0_1"], 0.4)
 
     def test_charge_state_concentration_dict_metastable_named(self):
         # Named metastable states use their names as keys.
@@ -412,6 +396,55 @@ class TestDefectSystem(unittest.TestCase):
         result = system.charge_state_concentration_dict(per_volume=False)
         self.assertAlmostEqual(result["V_O"]["V_O_tet"], 0.6)
         self.assertAlmostEqual(result["V_O"]["V_O_oct"], 0.4)
+
+    def test_decomposed_concentration_dict_does_not_sum_metastable_states(self):
+        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6, name="V_O_a")
+        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4, name="V_O_b")
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+
+        result = system.concentration_dict(decomposed=True, per_volume=False)["V_O"]
+        self.assertEqual(set(result), {"V_O_a", "V_O_b"})
+        self.assertAlmostEqual(result["V_O_a"], 0.6)
+        self.assertAlmostEqual(result["V_O_b"], 0.4)
+
+    def test_metastable_boltzmann_concentration_ratio(self):
+        # Two variable-concentration states sharing a charge: their solved
+        # concentrations must keep the Boltzmann ratio exp(-(E_a - E_b) / kT).
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="V_O_a")
+        cs_b = DefectChargeState(charge=0, energy=1.2, name="V_O_b")
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+
+        result = system.charge_state_concentration_dict(per_volume=False)["V_O"]
+        ratio = result["V_O_a"] / result["V_O_b"]
+        expected = np.exp((1.2 - 1.0) / (kboltz * 300))
+        self.assertAlmostEqual(ratio / expected, 1.0, places=8)
+
+    def test_decomposed_dict_agrees_with_charge_state_concentration_dict(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="V_O_a")
+        cs_b = DefectChargeState(charge=0, energy=1.2, name="V_O_b")
+        cs_c = DefectChargeState(charge=2, energy=0.5)
+        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b, cs_c])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+
+        decomposed = system.concentration_dict(decomposed=True, per_volume=False)
+        per_state = system.charge_state_concentration_dict(per_volume=False)
+        self.assertEqual(decomposed["V_O"], per_state["V_O"])
 
     def test__repr__(self):
         dos = Mock(spec=DOS)
@@ -2456,7 +2489,7 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         reloaded = DefectSystem.from_dict(system.as_dict())
         reloaded_states = reloaded.defect_species[0].charge_states
         self.assertEqual(reloaded_states[0].name, "V_O_0")
-        self.assertIsNone(reloaded_states[1].name)
+        self.assertEqual(reloaded_states[1].name, "q+2")
 
     def test_system_without_pools_emits_neither_key(self):
         system = DefectSystem(

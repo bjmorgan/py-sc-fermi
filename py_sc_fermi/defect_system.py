@@ -1150,21 +1150,20 @@ class DefectSystem:
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
-    @staticmethod
-    def _cs_key(cs: DefectChargeState, all_charge_states: list[DefectChargeState]) -> str:
-        """Return a string key for ``cs`` within ``all_charge_states``.
-
-        Uses ``cs._name`` when explicitly set. Otherwise generates
-        ``q{charge:+d}`` for a unique charge, or ``q{charge:+d}_0``,
-        ``q{charge:+d}_1``, … when several unnamed states share the same
-        formal charge (metastable configurations).
+    def _per_charge_state_concs(
+        self, e_fermi: float, scale: float
+    ) -> dict[str, dict[str, float]]:
+        """Per-species, per-charge-state concentrations at ``e_fermi``,
+        multiplied by ``scale``, keyed by species name then charge-state name.
         """
-        if cs._name is not None:
-            return cs._name
-        same_charge = [c for c in all_charge_states if c.charge == cs.charge]
-        if len(same_charge) == 1:
-            return f"q{cs.charge:+d}"
-        return f"q{cs.charge:+d}_{same_charge.index(cs)}"
+        cs_concs = self._global_defect_concs(e_fermi)
+        return {
+            ds.name: {
+                cs.name: float(cs_concs.get(cs, 0.0) * scale)
+                for cs in ds.charge_states
+            }
+            for ds in self.defect_species
+        }
 
     def concentration_dict(
         self,
@@ -1181,17 +1180,16 @@ class DefectSystem:
         - ``decomposed=False`` (default): one key per species, mapping to
           its total concentration (sum over all charge states).
         - ``decomposed=True``: one key per species, mapping to a nested
-          ``dict[str, float]`` with one entry per ``DefectChargeState``.
-          The inner key is ``cs.name`` when set, otherwise a generated
-          label: ``"q+2"`` for an unambiguous charge, or ``"q+1_0"`` /
-          ``"q+1_1"`` for unnamed metastable states sharing a formal charge.
+          ``dict[str, float]`` with one entry per ``DefectChargeState``,
+          keyed by ``cs.name`` (an explicit name, or the charge-derived
+          default such as ``"q+2"``).
 
         Use ``charge_state_concentration_dict()`` when you want per-charge-state
         concentrations without the ``"Fermi Energy"``/``"p0"``/``"n0"`` metadata.
 
         Args:
             decomposed (bool, optional): if True, return per-charge-state
-              concentrations in a nested dict keyed by charge-state label.
+              concentrations in a nested dict keyed by charge-state name.
               Defaults to False.
             per_volume (bool, optional): if True, return concentrations in units
               of cm^-3, else returns concentration per unit cell. Defaults to True.
@@ -1212,35 +1210,28 @@ class DefectSystem:
             "p0": float(p0 * scale),
             "n0": float(n0 * scale),
         }
-        cs_concs = self._global_defect_concs(e_fermi)
         if not decomposed:
+            cs_concs = self._global_defect_concs(e_fermi)
             sum_concs = {}
             for ds in self.defect_species:
                 total = sum(cs_concs.get(cs, 0.0) for cs in ds.charge_states)
-                sum_concs[str(ds.name)] = float(total * scale)
+                sum_concs[ds.name] = float(total * scale)
             return {**run_stats, **sum_concs}
         else:
-            decomp_concs: dict[str, dict[str, float]] = {}
-            for ds in self.defect_species:
-                by_cs: dict[str, float] = {
-                    self._cs_key(cs, ds.charge_states): float(cs_concs.get(cs, 0.0) * scale)
-                    for cs in ds.charge_states
-                }
-                decomp_concs[str(ds.name)] = by_cs
-            return {**run_stats, **decomp_concs}
+            return {**run_stats, **self._per_charge_state_concs(e_fermi, scale)}
 
     def charge_state_concentration_dict(
         self,
         per_volume: bool = True,
     ) -> dict[str, dict[str, float]]:
-        """Return per-charge-state concentrations keyed by species name and charge-state key.
+        """Return per-charge-state concentrations keyed by species name and
+        charge-state name.
 
-        Every ``DefectChargeState`` appears as a separate entry, so metastable
-        configurations that share a formal charge are never summed (unlike
-        ``concentration_dict(decomposed=True)``). The inner key for each charge
-        state is ``cs.name`` when set, otherwise a generated label: ``q+2`` for
-        an unambiguous charge, or ``q+1_0`` / ``q+1_1`` … when several unnamed
-        states share the same formal charge.
+        Every ``DefectChargeState`` appears as a separate entry, keyed by
+        ``cs.name`` (an explicit name, or the charge-derived default such as
+        ``"q+2"``). ``concentration_dict(decomposed=True)`` returns the same
+        per-species entries with the ``"Fermi Energy"``/``"p0"``/``"n0"``
+        metadata alongside them.
 
         Args:
             per_volume (bool, optional): if True, return concentrations in units
@@ -1248,18 +1239,11 @@ class DefectSystem:
 
         Returns:
             dict[str, dict[str, float]]: mapping from species name to a dict of
-            ``{charge_state_key: concentration}``, one entry per charge state.
+            ``{charge_state_name: concentration}``, one entry per charge state.
         """
         scale = 1e24 / self.volume if per_volume else 1
         e_fermi = self.get_sc_fermi()[0]
-        cs_concs = self._global_defect_concs(e_fermi)
-        return {
-            ds.name: {
-                self._cs_key(cs, ds.charge_states): float(cs_concs.get(cs, 0.0) * scale)
-                for cs in ds.charge_states
-            }
-            for ds in self.defect_species
-        }
+        return self._per_charge_state_concs(e_fermi, scale)
 
     def _site_occupancy_fractions(self, e_fermi: float) -> dict[str, float]:
         """Return each ``DefectSpecies``' site occupancy as a fraction of the
