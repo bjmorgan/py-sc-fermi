@@ -728,6 +728,88 @@ class TestDefectSystemSitePools(unittest.TestCase):
         )
         self.assertAlmostEqual(total, 0.3, places=8)
 
+    def _two_state_system(self, fixed_concentrations):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_b = DefectChargeState(charge=1, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        return DefectSystem(
+            defect_species=[ds],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+            fixed_concentrations=fixed_concentrations,
+        )
+
+    def test_pair_key_fixes_one_charge_state(self):
+        system = self._two_state_system({("X", "X_a"): 0.25})
+        fixed_state = system.defect_species_by_name("X").charge_state_by_name("X_a")
+        free_state = system.defect_species_by_name("X").charge_state_by_name("X_b")
+        self.assertEqual(fixed_state.fixed_concentration, 0.25)
+        self.assertIsNone(free_state.fixed_concentration)
+        # species total remains variable: only the one state is fixed
+        self.assertIsNone(system.defect_species_by_name("X").fixed_concentration)
+
+    def test_pair_key_matches_post_construction_fixing(self):
+        # The constructor route must solve identically to the (legacy)
+        # in-place mutation route.
+        by_constructor = self._two_state_system({("X", "X_a"): 0.25})
+        by_constructor.get_sc_fermi = Mock(return_value=[0.5, {}])
+        constructed = by_constructor.charge_state_concentration_dict(per_volume=False)
+
+        mutated_system = self._two_state_system(None)
+        mutated_system.defect_species_by_name("X").charge_state_by_name(
+            "X_a"
+        ).fix_concentration(0.25)
+        mutated_system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        mutated = mutated_system.charge_state_concentration_dict(per_volume=False)
+
+        self.assertEqual(constructed, mutated)
+
+    def test_species_and_pair_keys_mix(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_y = DefectChargeState(charge=0, energy=1.2, name="Y_a")
+        ds_x = DefectSpecies(name="X", nsites=1, charge_states=[cs_a])
+        ds_y = DefectSpecies(name="Y", nsites=1, charge_states=[cs_y])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(
+            defect_species=[ds_x, ds_y],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+            fixed_concentrations={"X": 0.5, ("Y", "Y_a"): 0.1},
+        )
+        self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.5)
+        self.assertEqual(
+            system.defect_species_by_name("Y")
+            .charge_state_by_name("Y_a")
+            .fixed_concentration,
+            0.1,
+        )
+
+    def test_pair_key_with_unknown_charge_state_raises(self):
+        with self.assertRaisesRegex(ValueError, "available: X_a, X_b"):
+            self._two_state_system({("X", "nope"): 0.1})
+
+    def test_pair_key_with_unknown_species_raises(self):
+        with self.assertRaisesRegex(ValueError, "no defect species named 'Z'"):
+            self._two_state_system({("Z", "X_a"): 0.1})
+
+    def test_invalid_fixed_concentration_key_shape_raises(self):
+        with self.assertRaisesRegex(ValueError, r"species name or \(species_name"):
+            self._two_state_system({0: 0.1})
+
+    def test_pair_key_with_invalid_value_raises(self):
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(
+                ValueError, r"'X_a' of species 'X'.*finite and non-negative"
+            ):
+                self._two_state_system({("X", "X_a"): bad})
+
     def test_species_fixed_above_fixed_charge_states_with_variable_succeeds(self):
         # With a variable charge state to absorb the remainder, a species
         # total above its fixed charge states is fine.
