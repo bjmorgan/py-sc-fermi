@@ -55,6 +55,11 @@
 - Added `DefectSpecies.charge_state_by_name`, mirroring
   `DefectSystem.defect_species_by_name`; raises `ValueError` listing the
   available names when no charge state matches.
+- `formation_energy_corrections` (`DefectSystem`) and
+  `formation_energy_correction_fns` (`DefectSystemFactory`) accept
+  `(species_name, charge_state_name)` pairs as keys, alongside
+  `DefectChargeState` objects. Referencing the same charge state through two
+  keys raises `ValueError`.
 - Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
   returns `{species_name: {charge_state_name: conc}}` with one entry per
   `DefectChargeState`. It returns the same per-species entries as
@@ -123,24 +128,24 @@
   self-consistent Fermi level, as well as the effective band gap shown by
   `__repr__`/`report`. The new `DOS.scissored(delta_gap)` performs this shift
   and returns a new `DOS`. `formation_energy_corrections` is a
-  `dict[DefectChargeState, float]` of per-charge-state formation-energy
-  corrections, keyed by the `DefectChargeState` objects themselves so that
-  metastable states sharing a formal charge can be corrected independently. If
-  `rigid_shift` is True (the default), the band structure and defect levels are
-  assumed to move together as a rigid body, so any variable-concentration
-  charge state not covered by `formation_energy_corrections` is unchanged; if
-  False, such charge states have their formation energy shifted by
-  `-charge * vbm_shift`. The DOS scissor and the formation-energy channel are
-  independent. `DefectSystem` is an immutable, fixed-temperature snapshot:
+  `dict` of per-charge-state formation-energy corrections, keyed by the
+  `DefectChargeState` object or a `(species_name, charge_state_name)` pair,
+  so that metastable states sharing a formal charge can be corrected
+  independently. If `rigid_shift` is True (the default), the band structure
+  and defect levels are assumed to move together as a rigid body, so any
+  variable-concentration charge state not covered by
+  `formation_energy_corrections` is unchanged; if False, such charge states
+  have their formation energy shifted by `-charge * vbm_shift`. The DOS
+  scissor and the formation-energy channel are independent. `DefectSystem` is an immutable, fixed-temperature snapshot:
   corrections are applied once at construction to copies of `defect_species`
   (and to a private scissored DOS), the caller's objects are never modified,
   and `report()`/`as_dict()`/`from_dict()` always agree.
 - Added `DefectSystemFactory`, for building `DefectSystem` snapshots at a
   series of temperatures from temperature-dependent `vbm_shift_fn`,
   `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
-  temperature; the latter a `dict[DefectChargeState, Callable[[float], float]]`
-  of temperature-dependent formation-energy corrections, e.g. vibrational
-  free-energy contributions). `factory.at(T,
+  temperature; the latter a `dict` of temperature-dependent formation-energy
+  corrections keyed per charge state, e.g. vibrational free-energy
+  contributions). `factory.at(T,
   **overrides)` evaluates these functions at `T` and returns an independent
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.
@@ -148,10 +153,10 @@
   mapping species name to a fixed total concentration per unit cell, applied by
   name to the constructor's own copies of `defect_species` (overriding any
   species-level `fixed_concentration` they were constructed with, and composing
-  with `formation_energy_corrections`, which are resolved by identity). This makes
-  the anneal-and-quench override documented on `DefectSystemFactory.at` work:
-  freeze some species' totals at their high-temperature values and re-solve at
-  a lower temperature, e.g.
+  with `formation_energy_corrections`, keyed by object or by name pair). This
+  makes the anneal-and-quench override documented on `DefectSystemFactory.at`
+  work: freeze some species' totals at their high-temperature values and
+  re-solve at a lower temperature, e.g.
   `factory.at(T_low, fixed_concentrations={n: high[n] for n in frozen})`.
 - `DefectSystem` and `DefectSystemFactory` now emit a `DiluteLimitWarning`
   (a dedicated warning subclass), at most once per system, when a defect

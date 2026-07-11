@@ -144,7 +144,7 @@ class DefectSystem:
           overriding any species-level `fixed_concentration` it was constructed
           with. The fix is applied by name to this system's own copies of
           `defect_species`, so it composes with `formation_energy_corrections`
-          (resolved by identity against the passed-in objects) and never
+          (resolved against the passed-in `defect_species`) and never
           mutates the caller's species. A non-finite or negative value, or one
           that cannot be hosted (above its site-exclusion group's site budget
           -- its own `nsites`, or its shared `site_pools` size -- or below its

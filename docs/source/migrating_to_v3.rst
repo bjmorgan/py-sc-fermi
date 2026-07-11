@@ -202,25 +202,22 @@ Temperature-dependent formation-energy corrections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``DefectSystemFactory`` accepts ``formation_energy_correction_fns``, a mapping
-from a ``DefectChargeState`` to an arbitrary function of temperature. The
-function is evaluated at each snapshot and the result is added to that charge
-state's formation energy. This is the natural place for corrections whose
-magnitude varies with temperature — for example, vibrational free-energy
-corrections from phonon calculations:
+from a charge state to an arbitrary function of temperature. Each key
+identifies the charge state either as a ``(species_name, charge_state_name)``
+pair or as the ``DefectChargeState`` object itself. The function is evaluated
+at each snapshot and the result is added to that charge state's formation
+energy. This is the natural place for corrections whose magnitude varies with
+temperature — for example, vibrational free-energy corrections from phonon
+calculations:
 
 .. code-block:: python
-
-    # Keep a reference to the charge state so it can be used as a key below.
-    # Matching is by object identity, so this must be the same object passed
-    # into DefectSpecies.
-    v_o_2plus = DefectChargeState(charge=2, energy=1.2, degeneracy=1, name="V_O_2+")
 
     v_O = DefectSpecies(
         name="V_O",
         nsites=1,
         charge_states=[
             DefectChargeState(charge=0, energy=0.0, degeneracy=1, name="V_O_0"),
-            v_o_2plus,
+            DefectChargeState(charge=2, energy=1.2, degeneracy=1, name="V_O_2+"),
         ],
     )
 
@@ -229,7 +226,7 @@ corrections from phonon calculations:
         dos=dos,
         volume=volume,
         formation_energy_correction_fns={
-            v_o_2plus: lambda T: vibrational_free_energy(T),
+            ("V_O", "V_O_2+"): lambda T: vibrational_free_energy(T),
         },
     )
 
@@ -238,8 +235,7 @@ corrections from phonon calculations:
 At each temperature the correction is re-evaluated and baked into the formation
 energy before the self-consistent Fermi level is solved. ``DefectSystem``
 itself (for a single temperature) accepts the pre-evaluated version as
-``formation_energy_corrections: dict[DefectChargeState, float]`` if you do not
-need a sweep.
+``formation_energy_corrections``, with the same choice of key forms.
 
 Also new
 ~~~~~~~~
