@@ -59,7 +59,8 @@
   `formation_energy_correction_fns` (`DefectSystemFactory`) accept
   `(species_name, charge_state_name)` pairs as keys, alongside
   `DefectChargeState` objects. Referencing the same charge state through two
-  keys raises `ValueError`.
+  keys, keying a fixed-concentration state (which has no formation energy to
+  correct), or passing a key that is neither form raises `ValueError`.
 - Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
   returns `{species_name: {charge_state_name: conc}}` with one entry per
   `DefectChargeState`. It returns the same per-species entries as
@@ -136,7 +137,8 @@
   variable-concentration charge state not covered by
   `formation_energy_corrections` is unchanged; if False, such charge states
   have their formation energy shifted by `-charge * vbm_shift`. The DOS
-  scissor and the formation-energy channel are independent. `DefectSystem` is an immutable, fixed-temperature snapshot:
+  scissor and the formation-energy channel are independent. `DefectSystem`
+  is an immutable, fixed-temperature snapshot:
   corrections are applied once at construction to copies of `defect_species`
   (and to a private scissored DOS), the caller's objects are never modified,
   and `report()`/`as_dict()`/`from_dict()` always agree.

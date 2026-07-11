@@ -2271,6 +2271,44 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
                 lambda cs_a, cs_b: {cs_a: 0.2, ("X", "X_a"): 0.1}
             )
 
+    def test_correction_for_fixed_concentration_state_raises(self):
+        # A fixed-concentration state has no formation energy for a
+        # correction to act on; keying it is an input error, not a no-op.
+        cs_var = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_fixed = DefectChargeState(
+            charge=1, fixed_concentration=0.1, name="X_fixed"
+        )
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_var, cs_fixed])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        for key in (cs_fixed, ("X", "X_fixed")):
+            with self.assertRaisesRegex(ValueError, "X_fixed.*cannot be corrected"):
+                DefectSystem(
+                    defect_species=[ds],
+                    volume=1.0,
+                    dos=dos,
+                    temperature=300,
+                    formation_energy_corrections={key: 0.2},
+                )
+
+    def test_invalid_correction_key_shape_raises(self):
+        # A bare string is neither key form and must not be misreported as
+        # an unrecognised DefectChargeState object.
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        with self.assertRaisesRegex(ValueError, r"objects or \(species_name"):
+            DefectSystem(
+                defect_species=[ds],
+                volume=1.0,
+                dos=dos,
+                temperature=300,
+                formation_energy_corrections={"X_a": 0.2},
+            )
+
     def test_name_pair_correction_targets_the_right_species(self):
         # Two species each have a default-named "q+0" state; the pair key
         # must correct only the named species' state.
