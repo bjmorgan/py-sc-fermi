@@ -27,6 +27,11 @@ from py_sc_fermi.warnings import DiluteLimitWarning
 
 _kboltz = _physical_constants["Boltzmann constant in eV/K"][0]
 
+CorrectionKey = DefectChargeState | tuple[str, str]
+"""A formation-energy-correction key: a ``DefectChargeState`` object, or a
+``(species_name, charge_state_name)`` pair resolved against the system's
+defect species."""
+
 
 class _VariableState(NamedTuple):
     """A non-fixed-concentration charge state within an exclusion group,
@@ -115,13 +120,15 @@ class DefectSystem:
           gap changes by `cbm_shift - vbm_shift`, moving the conduction block
           (and the carrier concentrations) and setting the effective band gap
           shown by `__repr__`/`report`. Defaults to 0.0 (no shift).
-        formation_energy_corrections (dict[DefectChargeState, float] | None, optional):
+        formation_energy_corrections (dict[CorrectionKey, float] | None, optional):
           per-charge-state formation-energy corrections (in eV), evaluated by
-          the caller for this system's `temperature`. Keying by the
-          `DefectChargeState` object itself (rather than e.g.
-          `(species_name, charge)`) allows different corrections for
-          metastable `DefectChargeState`s that share a formal charge. Every
-          key must be one of the `DefectChargeState`s in `defect_species`.
+          the caller for this system's `temperature`. Each key identifies one
+          charge state, either as the `DefectChargeState` object itself or as
+          a `(species_name, charge_state_name)` pair; the two forms may be
+          mixed. Keying per charge state (rather than per formal charge)
+          allows different corrections for metastable states that share a
+          formal charge. Every key must identify a charge state in
+          `defect_species`, and no charge state may be referenced twice.
           Defaults to None (no per-state corrections).
         rigid_shift (bool, optional): gates only the formation-energy channel;
           the DOS scissor from `vbm_shift`/`cbm_shift` is applied regardless. If
@@ -188,7 +195,7 @@ class DefectSystem:
         element_pools: dict[str, ElementPool] | None = None,
         vbm_shift: float = 0.0,
         cbm_shift: float = 0.0,
-        formation_energy_corrections: dict[DefectChargeState, float] | None = None,
+        formation_energy_corrections: dict[CorrectionKey, float] | None = None,
         rigid_shift: bool = True,
         fixed_concentrations: dict[str, float] | None = None,
         occupancy_warning_threshold: float | None = 0.01,
@@ -209,14 +216,13 @@ class DefectSystem:
         self._occupancy_warning_emitted = False
 
         self._defect_species = copy.deepcopy(defect_species)
+        self._site_pools: dict[str, SitePool] = dict(site_pools or {})
+        self._element_pools: dict[str, ElementPool] = dict(element_pools or {})
+        self._validate_pools()
+
         self._apply_formation_energy_corrections(
             defect_species, formation_energy_corrections or {}
         )
-
-        self._site_pools: dict[str, SitePool] = dict(site_pools or {})
-        self._element_pools: dict[str, ElementPool] = dict(element_pools or {})
-
-        self._validate_pools()
         self._apply_fixed_concentrations(fixed_concentrations or {})
         self._validate_fixed_concentrations()
 
@@ -322,21 +328,67 @@ class DefectSystem:
         for name, conc in fixed_concentrations.items():
             self.defect_species_by_name(name).fix_concentration(conc)
 
+    @staticmethod
+    def _resolve_correction_keys(
+        defect_species: list[DefectSpecies],
+        corrections: dict[CorrectionKey, float],
+    ) -> dict[DefectChargeState, float]:
+        """Canonicalise correction keys to ``DefectChargeState`` objects.
+
+        ``(species_name, charge_state_name)`` keys are resolved against
+        ``defect_species``; ``DefectChargeState`` keys pass through unchanged.
+
+        Raises:
+            ValueError: if a pair names an unknown species or charge state,
+                or if two keys resolve to the same charge state.
+        """
+        species_by_name = {ds.name: ds for ds in defect_species}
+        resolved: dict[DefectChargeState, float] = {}
+        for key, value in corrections.items():
+            if isinstance(key, tuple):
+                species_name, cs_name = key
+                if species_name not in species_by_name:
+                    available = ", ".join(species_by_name)
+                    raise ValueError(
+                        f"no defect species named '{species_name}'; "
+                        f"available: {available}"
+                    )
+                cs = species_by_name[species_name].charge_state_by_name(cs_name)
+            else:
+                cs = key
+            if cs in resolved:
+                owner = next(
+                    (ds.name for ds in defect_species if cs in ds.charge_states),
+                    "<unknown>",
+                )
+                raise ValueError(
+                    "formation_energy_corrections contains more than one key for "
+                    f"charge state '{cs.name}' of species '{owner}'."
+                )
+            resolved[cs] = value
+        return resolved
+
     def _apply_formation_energy_corrections(
         self,
         original_defect_species: list[DefectSpecies],
-        formation_energy_corrections: dict[DefectChargeState, float],
+        formation_energy_corrections: dict[CorrectionKey, float],
     ) -> None:
         """Permanently shift each variable-concentration charge state's
         formation energy in `self.defect_species` (a copy of
-        `original_defect_species`) by `formation_energy_corrections[cs]` if
-        present, else `-cs.charge * self.vbm_shift` if `self.rigid_shift` is
-        False, else 0.
+        `original_defect_species`) by its entry in
+        `formation_energy_corrections` if present, else
+        `-cs.charge * self.vbm_shift` if `self.rigid_shift` is False, else 0.
+        Keys are `DefectChargeState` objects or
+        `(species_name, charge_state_name)` pairs, canonicalised to objects
+        before use.
         """
+        resolved_corrections = self._resolve_correction_keys(
+            original_defect_species, formation_energy_corrections
+        )
         original_states = [cs for ds in original_defect_species for cs in ds.charge_states]
         copied_states = [cs for ds in self.defect_species for cs in ds.charge_states]
 
-        unrecognised = set(formation_energy_corrections) - set(original_states)
+        unrecognised = set(resolved_corrections) - set(original_states)
         if unrecognised:
             raise ValueError(
                 f"formation_energy_corrections references "
@@ -347,8 +399,8 @@ class DefectSystem:
         for original_cs, copied_cs in zip(original_states, copied_states, strict=True):
             if copied_cs._energy is None:
                 continue
-            if original_cs in formation_energy_corrections:
-                delta = formation_energy_corrections[original_cs]
+            if original_cs in resolved_corrections:
+                delta = resolved_corrections[original_cs]
             elif not self.rigid_shift:
                 delta = -copied_cs.charge * self.vbm_shift
             else:

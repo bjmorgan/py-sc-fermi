@@ -2214,6 +2214,109 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         with self.assertRaises(ValueError):
             self._make_system(formation_energy_corrections={unknown_cs: 0.1})
 
+    def _corrected_x_concentrations(self, corrections_for):
+        """Solve a two-state species with corrections built by ``corrections_for``.
+
+        ``corrections_for(cs_a, cs_b)`` returns the formation_energy_corrections
+        dict, so tests can key by object, by name pair, or a mixture.
+        """
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_b = DefectChargeState(charge=0, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(
+            defect_species=[ds],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+            formation_energy_corrections=corrections_for(cs_a, cs_b),
+        )
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        return system.charge_state_concentration_dict(per_volume=False)["X"]
+
+    def test_formation_energy_corrections_accept_name_pairs(self):
+        by_object = self._corrected_x_concentrations(lambda cs_a, cs_b: {cs_a: 0.2})
+        by_name = self._corrected_x_concentrations(
+            lambda cs_a, cs_b: {("X", "X_a"): 0.2}
+        )
+        self.assertEqual(by_object, by_name)
+
+    def test_formation_energy_corrections_accept_mixed_keys(self):
+        by_objects = self._corrected_x_concentrations(
+            lambda cs_a, cs_b: {cs_a: 0.2, cs_b: 0.1}
+        )
+        mixed = self._corrected_x_concentrations(
+            lambda cs_a, cs_b: {cs_a: 0.2, ("X", "X_b"): 0.1}
+        )
+        self.assertEqual(by_objects, mixed)
+
+    def test_correction_with_unknown_species_name_raises(self):
+        with self.assertRaisesRegex(ValueError, "no defect species named 'Y'"):
+            self._corrected_x_concentrations(
+                lambda cs_a, cs_b: {("Y", "X_a"): 0.2}
+            )
+
+    def test_correction_with_unknown_charge_state_name_raises(self):
+        with self.assertRaisesRegex(ValueError, "available: X_a, X_b"):
+            self._corrected_x_concentrations(
+                lambda cs_a, cs_b: {("X", "nope"): 0.2}
+            )
+
+    def test_duplicate_correction_reference_raises(self):
+        # The same charge state referenced by object and by name pair.
+        with self.assertRaisesRegex(ValueError, "X_a"):
+            self._corrected_x_concentrations(
+                lambda cs_a, cs_b: {cs_a: 0.2, ("X", "X_a"): 0.1}
+            )
+
+    def test_name_pair_correction_targets_the_right_species(self):
+        # Two species each have a default-named "q+0" state; the pair key
+        # must correct only the named species' state.
+        a_state = DefectChargeState(charge=0, energy=1.0)
+        b_state = DefectChargeState(charge=0, energy=2.0)
+        ds_a = DefectSpecies(name="A", nsites=1, charge_states=[a_state])
+        ds_b = DefectSpecies(name="B", nsites=1, charge_states=[b_state])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(
+            defect_species=[ds_a, ds_b],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+            formation_energy_corrections={("B", "q+0"): 0.3},
+        )
+        corrected_b = system.defect_species_by_name("B").charge_state_by_name("q+0")
+        untouched_a = system.defect_species_by_name("A").charge_state_by_name("q+0")
+        self.assertAlmostEqual(corrected_b.energy, 2.3)
+        self.assertAlmostEqual(untouched_a.energy, 1.0)
+        self.assertAlmostEqual(a_state.energy, 1.0)   # caller's objects untouched
+        self.assertAlmostEqual(b_state.energy, 2.0)
+
+    def test_duplicate_species_names_beat_correction_resolution(self):
+        # Structural validation must run before correction-key resolution,
+        # so the user sees the duplicate-names error, not a resolver error.
+        # The key names a state on the first duplicate, which the resolver's
+        # name map would shadow with the second, so resolving first would
+        # raise a confusing "no charge state named ..." error instead.
+        cs_1 = DefectChargeState(charge=0, energy=1.0)
+        cs_2 = DefectChargeState(charge=1, energy=1.0)
+        dup_a = DefectSpecies(name="X", nsites=1, charge_states=[cs_1])
+        dup_b = DefectSpecies(name="X", nsites=1, charge_states=[cs_2])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        with self.assertRaisesRegex(ValueError, "duplicate names"):
+            DefectSystem(
+                defect_species=[dup_a, dup_b],
+                volume=1.0,
+                dos=dos,
+                temperature=300,
+                formation_energy_corrections={("X", "q+0"): 0.1},
+            )
+
     def test_cbm_shift_moves_carriers(self):
         base = self._make_system()
         shifted = self._make_system(cbm_shift=0.5)  # delta_gap = +0.5 (widen)
