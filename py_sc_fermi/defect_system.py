@@ -1480,12 +1480,14 @@ class DefectSystemFactory:
         cbm_shift_fn (Callable[[float], float] | None, optional): a function
           of temperature returning the conduction-band-minimum shift (in eV)
           at that temperature. Defaults to None (no shift).
-        formation_energy_correction_fns (dict[DefectChargeState, Callable[[float], float]] | None,
+        formation_energy_correction_fns (dict[CorrectionKey, Callable[[float], float]] | None,
           optional): per-charge-state temperature-dependent formation-energy
           corrections. Each callable takes a temperature in K and returns a
           correction in eV to add to that charge state's formation energy at
-          each snapshot. Keys must be `DefectChargeState` objects in
-          `defect_species`, matched by identity. Defaults to None.
+          each snapshot. Keys identify a charge state either as the
+          `DefectChargeState` object or as a `(species_name, charge_state_name)`
+          pair; they are resolved when `at()` builds each `DefectSystem`.
+          Defaults to None.
         rigid_shift (bool, optional): passed to every `DefectSystem` built by
           `at()`. Defaults to True.
         occupancy_warning_threshold (float | None, optional): passed to every
@@ -1505,7 +1507,7 @@ class DefectSystemFactory:
         vbm_shift_fn: Callable[[float], float] | None = None,
         cbm_shift_fn: Callable[[float], float] | None = None,
         formation_energy_correction_fns: (
-            dict[DefectChargeState, Callable[[float], float]] | None
+            dict[CorrectionKey, Callable[[float], float]] | None
         ) = None,
         rigid_shift: bool = True,
         occupancy_warning_threshold: float | None = 0.01,

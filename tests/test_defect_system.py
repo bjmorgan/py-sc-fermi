@@ -2412,6 +2412,47 @@ class TestDefectSystemFactory(unittest.TestCase):
         self.assertAlmostEqual(system.defect_species[0].charge_states[0].energy, 0.5 + 0.3)
         self.assertAlmostEqual(system.defect_species[0].charge_states[1].energy, 0.9 - 0.15)
 
+    def _factory_corrected_x_concentrations(self, correction_fns_for):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_b = DefectChargeState(charge=0, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        factory = DefectSystemFactory(
+            defect_species=[ds],
+            dos=dos,
+            volume=1.0,
+            formation_energy_correction_fns=correction_fns_for(cs_a, cs_b),
+        )
+        system = factory.at(300)
+        system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        return system.charge_state_concentration_dict(per_volume=False)["X"]
+
+    def test_factory_correction_fns_accept_name_pairs(self):
+        by_object = self._factory_corrected_x_concentrations(
+            lambda cs_a, cs_b: {cs_a: lambda T: 1e-4 * T}
+        )
+        by_name = self._factory_corrected_x_concentrations(
+            lambda cs_a, cs_b: {("X", "X_a"): lambda T: 1e-4 * T}
+        )
+        self.assertEqual(by_object, by_name)
+
+    def test_factory_correction_fns_unknown_name_raises_at_at(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        factory = DefectSystemFactory(
+            defect_species=[ds],
+            dos=dos,
+            volume=1.0,
+            formation_energy_correction_fns={("X", "nope"): lambda T: 0.1},
+        )
+        with self.assertRaisesRegex(ValueError, "available: X_a"):
+            factory.at(300)
+
     def test_repeated_at_calls_are_independent(self):
         factory = DefectSystemFactory(
             defect_species=[self.species],
