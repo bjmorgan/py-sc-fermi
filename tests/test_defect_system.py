@@ -2954,6 +2954,22 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         )
         self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
 
+    def test_at_fixed_concentrations_accepts_pair_keys(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_b = DefectChargeState(charge=1, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        factory = DefectSystemFactory(defect_species=[ds], dos=dos, volume=1.0)
+        system = factory.at(300, fixed_concentrations={("X", "X_a"): 0.25})
+        self.assertEqual(
+            system.defect_species_by_name("X")
+            .charge_state_by_name("X_a")
+            .fixed_concentration,
+            0.25,
+        )
+
     def test_anneal_and_quench_freezes_some_species_and_re_equilibrates_rest(self):
         # A minority donor frozen at its high-temperature total, plus a major
         # donor/acceptor pair that re-equilibrates when the temperature drops.

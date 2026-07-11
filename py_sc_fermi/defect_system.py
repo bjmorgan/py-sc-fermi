@@ -1592,11 +1592,14 @@ class DefectSystemFactory:
             **overrides: keyword arguments forwarded to `DefectSystem.__init__`,
               overriding any of this factory's corresponding attributes (e.g.
               `temperature` itself, or `fixed_concentrations`, a
-              `dict[str, float]` mapping species name to a fixed total
-              concentration per unit cell). Passing `fixed_concentrations`
-              freezes those species' totals at the given values, as in the
-              anneal-and-quench workflow: take the totals solved at a high
-              temperature and re-solve at a lower one with them held fixed.
+              `dict[FixedConcentrationKey, float]` mapping a species name (or a
+              ``(species_name, charge_state_name)`` pair, fixing that single
+              charge state) to a fixed concentration per unit cell). Passing
+              `fixed_concentrations` freezes those species' totals (or
+              per-charge-state values) at the given values, as in the
+              anneal-and-quench workflow: take the totals (or per-charge-state
+              values) solved at a high temperature and re-solve at a lower one
+              with them held fixed.
 
         Returns:
             DefectSystem: a new, independent `DefectSystem` for `temperature`.
