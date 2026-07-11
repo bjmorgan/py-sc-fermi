@@ -191,6 +191,17 @@ its charge states re-equilibrate:
     frozen = {name: totals[name] for name in frozen_species}
     quenched = factory.at(quenched_temperature, fixed_concentrations=frozen)
 
+To freeze a single charge state rather than a whole species, key the mapping
+with a ``(species_name, charge_state_name)`` pair; the two key forms can be
+mixed in one mapping. A pair-keyed charge state is held at the given
+concentration while the rest of its species re-equilibrates:
+
+.. code-block:: python
+
+    cs_totals = annealed.charge_state_concentration_dict(per_volume=False)
+    frozen[("V_O", "q+2")] = cs_totals["V_O"]["q+2"]
+    quenched = factory.at(quenched_temperature, fixed_concentrations=frozen)
+
 Temperature-dependent band edges need no special handling here: set
 ``vbm_shift_fn`` and ``cbm_shift_fn`` on the factory (as above) and they are
 evaluated at every snapshot, so the quench gets its own band-edge correction

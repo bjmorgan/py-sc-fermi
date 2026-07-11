@@ -61,6 +61,11 @@
   `DefectChargeState` objects. Referencing the same charge state through two
   keys, keying a fixed-concentration state (which has no formation energy to
   correct), or passing a key that is neither form raises `ValueError`.
+- `fixed_concentrations` (`DefectSystem`, and as a `factory.at()` override)
+  accepts `(species_name, charge_state_name)` pairs as keys, fixing that
+  single charge state at construction, alongside species-name keys for
+  species totals. Charge-state-level quenching no longer requires mutating
+  a constructed system.
 - Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
   returns `{species_name: {charge_state_name: conc}}` with one entry per
   `DefectChargeState`. It returns the same per-species entries as
@@ -151,8 +156,9 @@
   **overrides)` evaluates these functions at `T` and returns an independent
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.
-- `DefectSystem` gained a `fixed_concentrations` argument: a `dict[str, float]`
-  mapping species name to a fixed total concentration per unit cell, applied by
+- `DefectSystem` gained a `fixed_concentrations` argument: a mapping of species
+  name -- or `(species_name, charge_state_name)` pair, fixing that single
+  charge state -- to a fixed concentration per unit cell, applied by
   name to the constructor's own copies of `defect_species` (overriding any
   species-level `fixed_concentration` they were constructed with, and composing
   with `formation_energy_corrections`, keyed by object or by name pair). This
