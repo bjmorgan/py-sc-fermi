@@ -333,26 +333,21 @@ class DefectSystem:
         ``fixed_concentration``, overriding any it was constructed with. A
         ``(species_name, charge_state_name)`` pair fixes that single charge
         state. Both resolve against this system's own copies in
-        ``self.defect_species`` (never the caller's originals) and are
-        validated by ``_validate_fixed_concentrations``.
+        ``self.defect_species`` (never the caller's originals). The
+        concentration values are checked (finite and non-negative) by
+        ``DefectChargeState.fix_concentration`` and, for species totals and
+        their site-exclusion budgets, by ``_validate_fixed_concentrations``.
 
         Raises:
             ValueError: if a key is neither form, a name is not found (via
-                the name lookups, listing the available names), or a
-                pair-keyed value is not finite and non-negative.
+                the name lookups, listing the available names), or a value
+                is not finite and non-negative.
         """
         for key, conc in fixed_concentrations.items():
             if isinstance(key, tuple) and len(key) == 2:
                 species_name, cs_name = key
                 species = self.defect_species_by_name(species_name)
-                cs = species.charge_state_by_name(cs_name)
-                if not math.isfinite(conc) or conc < 0:
-                    raise ValueError(
-                        f"'{cs.name}' of species '{species.name}' has an "
-                        f"invalid fixed concentration {conc}; it must be "
-                        "finite and non-negative"
-                    )
-                cs.fix_concentration(conc)
+                species.charge_state_by_name(cs_name).fix_concentration(conc)
             elif isinstance(key, str):
                 self.defect_species_by_name(key).fix_concentration(conc)
             else:

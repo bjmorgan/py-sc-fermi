@@ -804,9 +804,11 @@ class TestDefectSystemSitePools(unittest.TestCase):
             self._two_state_system({0: 0.1})
 
     def test_pair_key_with_invalid_value_raises(self):
+        # The value check lives on DefectChargeState.fix_concentration, which
+        # the pair path calls; its message names the charge state.
         for bad in (-0.1, float("nan"), float("inf")):
             with self.assertRaisesRegex(
-                ValueError, r"'X_a' of species 'X'.*finite and non-negative"
+                ValueError, r"'X_a'.*finite and non-negative"
             ):
                 self._two_state_system({("X", "X_a"): bad})
 
