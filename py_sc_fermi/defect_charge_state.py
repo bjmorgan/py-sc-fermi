@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import warnings
 from typing import Any
 
@@ -18,7 +19,8 @@ class DefectChargeState:
          charge (int): charge of this ``DefectChargeState``
          degeneracy (float): degeneracy of this charge state
          energy (float): formation energy at E[Fermi] = 0
-         fixed_concentration (float): fixed concentration per unit cell
+         fixed_concentration (float): fixed concentration per unit cell.
+           Must be finite and non-negative.
          name (str | None): identifying label for this charge state, used as
            the key in ``DefectSystem.charge_state_concentration_dict`` and
            ``concentration_dict(decomposed=True)``. Defaults to the charge
@@ -46,8 +48,26 @@ class DefectChargeState:
         self._charge = charge
         self._degeneracy = degeneracy
         self._energy = energy
-        self._fixed_concentration = fixed_concentration
         self._name = name
+        self._fixed_concentration = (
+            self._validated_fixed_concentration(fixed_concentration)
+            if fixed_concentration is not None
+            else None
+        )
+
+    def _validated_fixed_concentration(self, concentration: float) -> float:
+        """Return ``concentration`` if it is a valid fixed concentration.
+
+        Raises:
+            ValueError: if ``concentration`` is not finite and non-negative.
+        """
+        if not math.isfinite(concentration) or concentration < 0:
+            raise ValueError(
+                f"DefectChargeState '{self.name}' has an invalid fixed "
+                f"concentration {concentration}; it must be finite and "
+                "non-negative"
+            )
+        return concentration
 
     @property
     def energy(self) -> float | None:
@@ -165,8 +185,11 @@ class DefectChargeState:
 
         Args:
             concentration (float): ``DefectChargeState`` concentration per unit cell
+
+        Raises:
+            ValueError: if ``concentration`` is not finite and non-negative.
         """
-        self._fixed_concentration = concentration
+        self._fixed_concentration = self._validated_fixed_concentration(concentration)
 
     def get_formation_energy(self, e_fermi: float) -> float:
         """get the formation energy of this ``DefectChargeState`` at a given Fermi

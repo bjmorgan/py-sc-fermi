@@ -125,6 +125,11 @@
   previously surfaced only at solve time (wrapped as a `RuntimeError` about the
   Fermi-energy search window) or, for a shortfall, were silently under-reported.
   They now fail fast at construction with a clear message.
+- `DefectChargeState` validates its `fixed_concentration` at its own boundary:
+  a value that is not finite and non-negative raises `ValueError` from
+  `__init__` and from `fix_concentration`, rather than passing silently into
+  budget sums (where a NaN defeats every comparison and a negative silently
+  reduces the total).
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) that scissor the DOS at

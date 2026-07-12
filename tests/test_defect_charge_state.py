@@ -30,6 +30,26 @@ class TestDefectChargeStateInit(unittest.TestCase):
         with self.assertRaises(ValueError):
             DefectChargeState(charge=1, energy=0.5, degeneracy=-1)
 
+    def test_init_rejects_invalid_fixed_concentration(self):
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(
+                ValueError, r"'q\+1'.*finite and non-negative"
+            ):
+                DefectChargeState(charge=1, fixed_concentration=bad)
+
+    def test_init_accepts_zero_fixed_concentration(self):
+        cs = DefectChargeState(charge=1, fixed_concentration=0.0)
+        self.assertEqual(cs.fixed_concentration, 0.0)
+
+    def test_fix_concentration_rejects_invalid_values(self):
+        cs = DefectChargeState(charge=1, energy=1.0, name="X_a")
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(
+                ValueError, r"'X_a'.*finite and non-negative"
+            ):
+                cs.fix_concentration(bad)
+        self.assertIsNone(cs.fixed_concentration)
+
 
 class TestDefectChargeStateChargeProperty(unittest.TestCase):
     def setUp(self):
