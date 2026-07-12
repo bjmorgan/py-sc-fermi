@@ -335,8 +335,9 @@ class DefectSystem:
         state. Both resolve against this system's own copies in
         ``self.defect_species`` (never the caller's originals). The
         concentration values are checked (finite and non-negative) by
-        ``DefectChargeState.fix_concentration`` and, for species totals and
-        their site-exclusion budgets, by ``_validate_fixed_concentrations``.
+        ``DefectChargeState._fix_concentration``/``DefectSpecies._fix_concentration``
+        and, for species totals and their site-exclusion budgets, by
+        ``_validate_fixed_concentrations``.
 
         Raises:
             ValueError: if a key is neither form, a name is not found (via
@@ -347,9 +348,9 @@ class DefectSystem:
             if isinstance(key, tuple) and len(key) == 2:
                 species_name, cs_name = key
                 species = self.defect_species_by_name(species_name)
-                species.charge_state_by_name(cs_name).fix_concentration(conc)
+                species.charge_state_by_name(cs_name)._fix_concentration(conc)
             elif isinstance(key, str):
-                self.defect_species_by_name(key).fix_concentration(conc)
+                self.defect_species_by_name(key)._fix_concentration(conc)
             else:
                 raise ValueError(
                     "fixed_concentrations keys must be a species name or "
@@ -514,16 +515,16 @@ class DefectSystem:
             )
 
     def _validate_fixed_concentrations(self) -> None:
-        """Reject fixed concentrations that are invalid or cannot be hosted.
+        """Reject fixed concentrations that are inconsistent or cannot be hosted.
 
-        The checks are independent of the Fermi level -- they depend only on
-        the fixed concentrations and the site budgets -- so they are static
+        Per-object values are validated at their own boundary, by
+        ``DefectSpecies``/``DefectChargeState`` (at construction, and by their
+        internal ``_fix_concentration`` setters). The checks here are
+        cross-cutting and independent of the Fermi level -- they depend only
+        on the fixed concentrations and the site budgets -- so they are static
         properties of the system, caught here at construction rather than left
         to surface (wrapped as a Fermi-window error) from a later solve:
 
-        * a species-level fixed concentration must be a finite, non-negative
-          number (a NaN would otherwise pass every comparison below and
-          surface silently as ``nan`` in the solved concentrations);
         * a species fixed at the total level must be consistent with its
           individually-fixed charge states: those cannot exceed the total, and
           if every charge state is fixed (none variable) they must sum to it,
@@ -532,21 +533,15 @@ class DefectSystem:
           concentration cannot exceed the group's site budget.
 
         Raises:
-            ValueError: if a species-level fixed concentration is not finite
-                and non-negative, a species' fixed charge states are
-                inconsistent with its species-level fixed concentration, or a
-                group's total fixed concentration exceeds its site budget (its
+            ValueError: if a species' fixed charge states are inconsistent
+                with its species-level fixed concentration, or a group's
+                total fixed concentration exceeds its site budget (its
                 ``site_pools`` size, or, for an unpooled species, its own
                 ``nsites``).
         """
         for sp in self.defect_species:
             if sp.fixed_concentration is None:
                 continue
-            if not math.isfinite(sp.fixed_concentration) or sp.fixed_concentration < 0:
-                raise ValueError(
-                    f"'{sp.name}' has an invalid fixed concentration "
-                    f"{sp.fixed_concentration}; it must be finite and non-negative"
-                )
             charge_state_total = self._charge_state_fixed_total(sp)
             if math.isclose(charge_state_total, sp.fixed_concentration):
                 continue

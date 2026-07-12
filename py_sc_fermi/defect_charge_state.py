@@ -180,8 +180,9 @@ class DefectChargeState:
 
         return defect_dict
 
-    def fix_concentration(self, concentration: float) -> None:
-        """Fixes the concentration (per unit cell) of this ``DefectChargeState``
+    def _fix_concentration(self, concentration: float) -> None:
+        """Set the fixed concentration (per unit cell); internal setter used
+        by construction-time fixing.
 
         Args:
             concentration (float): ``DefectChargeState`` concentration per unit cell

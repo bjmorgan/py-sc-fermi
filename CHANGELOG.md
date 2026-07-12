@@ -43,6 +43,12 @@
   `DefectSystemFactory.at(...)`) for a different temperature, DOS, or correction
   set. `occupancy_warning_threshold`, a non-physical reporting preference, stays
   settable and validates on assignment.
+- `DefectChargeState.fix_concentration` and `DefectSpecies.fix_concentration`
+  are no longer public. A concentration is fixed only at construction: via the
+  `fixed_concentration` argument of `DefectChargeState`/`DefectSpecies`, or via
+  `DefectSystem(fixed_concentrations=...)` / `DefectSystemFactory.at(...,
+  fixed_concentrations=...)`. This removes the last route that could mutate a
+  constructed `DefectSystem` in place.
 
 ### Improvements
 
@@ -113,23 +119,21 @@
   names interchangeably (both are normalised to names internally).
   `DefectSystem.defect_species_by_name` now raises a `ValueError` listing the
   available names, rather than an `IndexError`, when given an unknown name.
-- Fixed concentrations are validated at construction. A `ValueError` is raised
-  if a species-level `fixed_concentration` is not a finite, non-negative number
-  (a NaN would otherwise pass silently into the solved concentrations), if a
-  species' individually-fixed charge states are inconsistent with its
-  species-level `fixed_concentration` -- they exceed it, or, when every charge
-  state is fixed so none can absorb a shortfall, fall below it -- or if the
-  total fixed concentration in a site-exclusion group exceeds its available
-  sites (an unpooled species' own `nsites`, or a `site_pools` entry's shared
-  size). These conditions are all independent of the Fermi level; they
-  previously surfaced only at solve time (wrapped as a `RuntimeError` about the
-  Fermi-energy search window) or, for a shortfall, were silently under-reported.
-  They now fail fast at construction with a clear message.
-- `DefectChargeState` validates its `fixed_concentration` at its own boundary:
-  a value that is not finite and non-negative raises `ValueError` from
-  `__init__` and from `fix_concentration`, rather than passing silently into
-  budget sums (where a NaN defeats every comparison and a negative silently
-  reduces the total).
+- The consistency of fixed concentrations is checked at construction. A
+  `ValueError` is raised if a species' individually-fixed charge states are
+  inconsistent with its species-level `fixed_concentration` -- they exceed it,
+  or, when every charge state is fixed so none can absorb a shortfall, fall
+  below it -- or if the total fixed concentration in a site-exclusion group
+  exceeds its available sites (an unpooled species' own `nsites`, or a
+  `site_pools` entry's shared size). These conditions are all independent of the
+  Fermi level; they previously surfaced only at solve time (wrapped as a
+  `RuntimeError` about the Fermi-energy search window) or, for a shortfall, were
+  silently under-reported. They now fail fast at construction with a clear
+  message.
+- `DefectChargeState` and `DefectSpecies` validate their `fixed_concentration`
+  at construction: a value that is not finite and non-negative raises
+  `ValueError`, rather than passing silently into budget sums (where a NaN
+  defeats every comparison and a negative silently reduces the total).
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) that scissor the DOS at

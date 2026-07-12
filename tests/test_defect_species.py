@@ -130,6 +130,23 @@ class TestDefectSpeciesInit(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "q\\+1"):
             DefectSpecies.from_dict(d)
 
+    def test_init_rejects_invalid_fixed_concentration(self):
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(ValueError, r"'V_O'.*finite and non-negative"):
+                DefectSpecies(
+                    "V_O", nsites=1,
+                    charge_states=[DefectChargeState(charge=0, energy=1.0)],
+                    fixed_concentration=bad,
+                )
+
+    def test_init_accepts_zero_fixed_concentration(self):
+        species = DefectSpecies(
+            "V_O", nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0)],
+            fixed_concentration=0.0,
+        )
+        self.assertEqual(species.fixed_concentration, 0.0)
+
 
 class TestDefectSpecies(unittest.TestCase):
     def setUp(self):
@@ -165,9 +182,9 @@ class TestDefectSpecies(unittest.TestCase):
             self.defect_species._fixed_concentration,
         )
 
-    def test_fix_concentration(self):
+    def test__fix_concentration(self):
         self.assertEqual(self.defect_species.fixed_concentration, None)
-        self.defect_species.fix_concentration(0.1234)
+        self.defect_species._fix_concentration(0.1234)
         self.assertEqual(self.defect_species.fixed_concentration, 0.1234)
 
     def test_charge_states_by_formation_energy(self):
@@ -378,7 +395,7 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
     def test_charge_states_and_defect_species_have_fixed_concentration(self):
-        self.defect_species.fix_concentration(concentration=0.1234*3)
+        self.defect_species._fix_concentration(concentration=0.1234*3)
         for cs in self.defect_species.charge_states:
             cs.fixed_concentration = 0.1234
             cs.get_concentration = Mock(return_value=0.1234)
@@ -606,9 +623,9 @@ class TestDefectSpecies(unittest.TestCase):
         defect = DefectSpecies(
             name="v_Na",
             nsites=1,
-            charge_states=[cs_0, cs_minus1]
+            charge_states=[cs_0, cs_minus1],
+            fixed_concentration=1e-5,
         )
-        defect.fix_concentration(1e-5)
 
         result = defect.charge_state_concentrations(e_fermi=0.0, temperature=300)
 
@@ -627,9 +644,9 @@ class TestDefectSpecies(unittest.TestCase):
         defect = DefectSpecies(
             name="test",
             nsites=1,
-            charge_states=[cs_0, cs_1]
+            charge_states=[cs_0, cs_1],
+            fixed_concentration=0.1,  # Less than fixed charge state concentration
         )
-        defect.fix_concentration(0.1)  # Less than fixed charge state concentration
 
         with self.assertRaises(ValueError):
             defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
@@ -639,8 +656,9 @@ class TestDefectSpecies(unittest.TestCase):
         less than the species total, with no variable state to make up the
         difference."""
         cs_0 = DefectChargeState(charge=0, fixed_concentration=3.0)
-        defect = DefectSpecies(name="test", nsites=10, charge_states=[cs_0])
-        defect.fix_concentration(5.0)
+        defect = DefectSpecies(
+            name="test", nsites=10, charge_states=[cs_0], fixed_concentration=5.0
+        )
 
         with self.assertRaises(ValueError):
             defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
