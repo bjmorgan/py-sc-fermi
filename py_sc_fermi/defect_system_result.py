@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -14,7 +15,7 @@ class DefectSystemResult:
     derived from the per-charge-state breakdown, so the two cannot disagree.
 
     Supports value equality, but is unhashable: ``charge_state_concentrations_per_cell``
-    nests plain ``dict``s, so no field-derived hash can be computed.
+    nests mappings, so no field-derived hash can be computed.
 
     Attributes:
         temperature: temperature of the solve, in K.
@@ -34,10 +35,11 @@ class DefectSystemResult:
     label: str | None
     p0_per_cell: float
     n0_per_cell: float
-    charge_state_concentrations_per_cell: dict[str, dict[str, float]]
+    charge_state_concentrations_per_cell: Mapping[str, Mapping[str, float]]
 
-    # Left unhashable rather than inheriting a dataclass-synthesised __hash__
-    # that would raise at call time over the nested dict field.
+    # @dataclass synthesises __hash__ onto this class; setting __hash__ = None
+    # keeps instances unhashable, as they hold dict/mapping fields that a
+    # synthesised hash would raise over at call time.
     __hash__ = None  # type: ignore[assignment]
 
     @property
@@ -122,7 +124,7 @@ class DefectSystemResult:
         total. Describes the solution only; ``repr()`` of the originating
         ``DefectSystem`` describes the system.
         """
-        cm3 = "cm\u207b\u00b3"  # cm to the minus three, written with Unicode escapes
+        cm3 = "cm\u207b\u00b3"  # cm to the minus three
         lines = [
             f"SC Fermi energy:  {self.fermi_energy:.6f} eV",
             "",

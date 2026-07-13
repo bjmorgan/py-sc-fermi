@@ -7,6 +7,7 @@ import warnings
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -1025,6 +1026,7 @@ class DefectSystem:
         if self._result is None:
             e_fermi, _ = self.get_sc_fermi()
             p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
+            per_cell = self._per_charge_state_concs(e_fermi)
             self._result = DefectSystemResult(
                 temperature=float(self.temperature),
                 fermi_energy=e_fermi,
@@ -1032,8 +1034,11 @@ class DefectSystem:
                 label=self.label,
                 p0_per_cell=float(p0),
                 n0_per_cell=float(n0),
-                charge_state_concentrations_per_cell=self._per_charge_state_concs(
-                    e_fermi
+                charge_state_concentrations_per_cell=MappingProxyType(
+                    {
+                        species: MappingProxyType(states)
+                        for species, states in per_cell.items()
+                    }
                 ),
             )
         return self._result

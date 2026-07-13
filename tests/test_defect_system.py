@@ -3409,6 +3409,21 @@ class TestDiluteLimitWarning(unittest.TestCase):
             os.path.basename(dilute[0].filename), os.path.basename(__file__)
         )
 
+    def test_result_per_cell_concentrations_are_read_only(self):
+        # result caches one object, so a mutable nested dict would let a caller
+        # corrupt the cache in place. Both nesting levels are read-only proxies,
+        # so inner and outer assignment both raise.
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        per_cell = system.result.charge_state_concentrations_per_cell
+        sp = next(iter(per_cell))
+        cs = next(iter(per_cell[sp]))
+        with self.assertRaises(TypeError):
+            per_cell[sp][cs] = 999.0
+        with self.assertRaises(TypeError):
+            per_cell[sp] = {}
+
     def test_result_carries_the_system_label(self):
         system = self._make_system(
             [self._saturating_species("S")],
