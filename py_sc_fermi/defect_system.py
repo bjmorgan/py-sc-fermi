@@ -1029,7 +1029,7 @@ class DefectSystem:
             per_cell = self._per_charge_state_concs(e_fermi)
             self._result = DefectSystemResult(
                 temperature=float(self.temperature),
-                fermi_energy=e_fermi,
+                fermi_energy=float(e_fermi),
                 volume=float(self.volume),
                 label=self.label,
                 p0_per_cell=float(p0),
