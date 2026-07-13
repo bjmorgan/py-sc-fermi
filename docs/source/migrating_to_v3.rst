@@ -141,6 +141,30 @@ physical system, remains settable.
     # v3: build a new snapshot, e.g. with the factory
     system = factory.at(300)
 
+``fix_concentration`` has been removed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``DefectChargeState.fix_concentration`` and ``DefectSpecies.fix_concentration``
+are no longer public: they were the last route that could mutate a constructed
+``DefectSystem`` in place. A concentration is fixed only at construction. Pass
+``fixed_concentration`` to ``DefectChargeState`` or ``DefectSpecies``, or fix by
+name through ``DefectSystem`` (or ``DefectSystemFactory.at(...)``) with
+``fixed_concentrations``.
+
+.. code-block:: python
+
+    # v2: fix a species (or charge state) after the fact
+    species.fix_concentration(x)
+
+    # v3: fix at construction, by name
+    system = DefectSystem(..., fixed_concentrations={"V_O": x})
+    # or a single charge state
+    system = DefectSystem(..., fixed_concentrations={("V_O", "V_O_2+"): x})
+
+See :ref:`Frozen defects (anneal and quench) <anneal-and-quench>` below for the
+full idiom: solve at the annealing temperature, then re-solve with those values
+held fixed at the quench temperature.
+
 
 New in v3
 ---------
@@ -169,6 +193,8 @@ temperature, evaluated at each snapshot:
     )
 
     results = {T: factory.at(T).concentration_dict() for T in temperatures}
+
+.. _anneal-and-quench:
 
 Frozen defects (anneal and quench)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
