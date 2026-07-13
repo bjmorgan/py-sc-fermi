@@ -22,11 +22,11 @@ class DefectChargeState:
          fixed_concentration (float): fixed concentration per unit cell.
            Must be finite and non-negative.
          name (str | None): identifying label for this charge state, used as
-           the key in ``DefectSystem.charge_state_concentration_dict`` and
-           ``concentration_dict(decomposed=True)``. Defaults to the charge
-           string (e.g. ``"q+2"``). Metastable configurations sharing a formal
-           charge must be given explicit names (e.g. ``"V_O_2+_tet"`` vs
-           ``"V_O_2+_oct"``), since names must be unique within a
+           the key in ``DefectSystem.result.charge_state_concentrations``
+           (keyed by species name then charge-state name). Defaults to the
+           charge string (e.g. ``"q+2"``). Metastable configurations sharing a
+           formal charge must be given explicit names (e.g. ``"V_O_2+_tet"``
+           vs ``"V_O_2+_oct"``), since names must be unique within a
            ``DefectSpecies``.
     """
 

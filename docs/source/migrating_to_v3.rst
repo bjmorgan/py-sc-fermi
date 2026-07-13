@@ -70,30 +70,57 @@ Because the charge states form an ordered collection, a single species may now
 hold several states with the same formal charge, which is how v3 represents
 metastable defects.
 
-``concentration_dict(decomposed=True)`` keys by string, not charge
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The flat-dict read-outs have been replaced by ``DefectSystem.result``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The inner dict returned by ``concentration_dict(decomposed=True)`` previously
-mapped formal charge (``int``) to concentration. It now maps the charge state's
-``name`` to concentration, with one entry per ``DefectChargeState`` rather than
-one per formal charge. ``name`` defaults to the charge string (``"q+2"``);
-metastable states sharing a formal charge must be given explicit names (two
-states with the same name raise ``ValueError`` when the ``DefectSpecies`` is
-built).
+``DefectSystem.report()``, ``concentration_dict()`` and
+``charge_state_concentration_dict()`` have been removed. A solved system is now
+read through a single cached ``DefectSystem.result`` object, whose
+concentrations are in cm^-3 by default with per-unit-cell counterparts also
+available.
+
+.. list-table::
+   :header-rows: 1
+
+   * - v2
+     - v3
+   * - ``system.report()``
+     - ``print(system.result)``
+   * - ``system.concentration_dict()``
+     - ``system.result.concentrations``
+   * - ``system.concentration_dict(per_volume=False)``
+     - ``system.result.concentrations_per_cell``
+   * - ``system.concentration_dict(decomposed=True)``
+     - ``system.result.charge_state_concentrations``
+   * - ``system.charge_state_concentration_dict()``
+     - ``system.result.charge_state_concentrations``
+
+``result.as_dict()`` returns the same information in a JSON-safe record; its
+scalar keys are snake_case (``fermi_energy``, ``p0``, ``n0``), where v2's
+``concentration_dict()`` used ``"Fermi Energy"``.
+
+``result.charge_state_concentrations`` keys by name, not charge
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In v2, ``concentration_dict(decomposed=True)`` mapped formal charge (``int``)
+to concentration. ``result.charge_state_concentrations`` instead maps the
+charge state's ``name`` to concentration, with one entry per
+``DefectChargeState`` rather than one per formal charge. ``name`` defaults to
+the charge string (``"q+2"``); metastable states sharing a formal charge must
+be given explicit names (two states with the same name raise ``ValueError``
+when the ``DefectSpecies`` is built).
 
 .. code-block:: python
 
-    # v2 / old v3
-    conc_2plus = result["V_O"][2]
+    # v2
+    decomposed = system.concentration_dict(decomposed=True)
+    conc_2plus = decomposed["V_O"][2]
 
     # v3: default name
-    conc_2plus = result["V_O"]["q+2"]
+    conc_2plus = system.result.charge_state_concentrations["V_O"]["q+2"]
 
     # v3: explicit name
-    conc_2plus = result["V_O"]["V_O_2+"]
-
-The new ``DefectSystem.charge_state_concentration_dict()`` method uses the same
-keys and is the recommended way to retrieve per-charge-state concentrations.
+    conc_2plus = system.result.charge_state_concentrations["V_O"]["V_O_2+"]
 
 The legacy SC-Fermi input format has been removed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -117,9 +144,9 @@ Defect species names must be unique
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A ``DefectSystem`` raises ``ValueError`` if two ``DefectSpecies`` share a name.
-Names key ``concentration_dict`` and ``defect_species_by_name``, so duplicate
-names were already ambiguous; this now fails at construction rather than
-silently. Give each species a distinct name.
+Names key ``defect_species_by_name`` and the per-species entries in
+``DefectSystem.result``, so duplicate names were already ambiguous; this now
+fails at construction rather than silently. Give each species a distinct name.
 
 ``DefectSystem`` attributes are read-only
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -192,7 +219,7 @@ temperature, evaluated at each snapshot:
         cbm_shift_fn=lambda T: ...,
     )
 
-    results = {T: factory.at(T).concentration_dict() for T in temperatures}
+    results = {T: factory.at(T).result for T in temperatures}
 
 .. _anneal-and-quench:
 
@@ -211,7 +238,7 @@ its charge states re-equilibrate:
 
     # equilibrium at the annealing temperature
     annealed = factory.at(annealing_temperature)
-    totals = annealed.concentration_dict(per_volume=False)   # per unit cell
+    totals = annealed.result.concentrations_per_cell
 
     # quench: freeze chosen species' totals, re-solve at the lower temperature
     frozen = {name: totals[name] for name in frozen_species}
@@ -224,7 +251,7 @@ concentration while the rest of its species re-equilibrates:
 
 .. code-block:: python
 
-    cs_totals = annealed.charge_state_concentration_dict(per_volume=False)
+    cs_totals = annealed.result.charge_state_concentrations_per_cell
     frozen[("V_O", "q+2")] = cs_totals["V_O"]["q+2"]
     quenched = factory.at(quenched_temperature, fixed_concentrations=frozen)
 
@@ -267,7 +294,7 @@ calculations:
         },
     )
 
-    results = {T: factory.at(T).concentration_dict() for T in temperatures}
+    results = {T: factory.at(T).result for T in temperatures}
 
 At each temperature the correction is re-evaluated and baked into the formation
 energy before the self-consistent Fermi level is solved. ``DefectSystem``
@@ -282,13 +309,7 @@ Also new
 - Metastable charge states, and Boltzmann-weighted effective formation energies
   for charges with more than one form.
 - ``DefectChargeState`` has a ``name``, used as the key in
-  ``concentration_dict(decomposed=True)`` and
-  ``charge_state_concentration_dict()``; it defaults to the charge string
+  ``result.charge_state_concentrations``; it defaults to the charge string
   (``"q+2"``), and explicit names distinguish metastable states.
-- ``DefectSystem.charge_state_concentration_dict(per_volume=True)`` returns
-  ``{species_name: {charge_state_name: conc}}``, one entry per
-  ``DefectChargeState`` — the same per-species entries as
-  ``concentration_dict(decomposed=True)``, without the
-  ``"Fermi Energy"``/``"p0"``/``"n0"`` metadata.
 - Site pools (a shared site budget across several species) and element pools (a
   target content for an element, solved through its chemical potential).
