@@ -1026,9 +1026,9 @@ class DefectSystem:
             e_fermi, _ = self.get_sc_fermi()
             p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
             self._result = DefectSystemResult(
-                temperature=self.temperature,
+                temperature=float(self.temperature),
                 fermi_energy=e_fermi,
-                volume=self.volume,
+                volume=float(self.volume),
                 label=self.label,
                 p0_per_cell=float(p0),
                 n0_per_cell=float(n0),

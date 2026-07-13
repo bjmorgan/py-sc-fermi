@@ -2829,6 +2829,31 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         )
         yaml.safe_dump(system.as_dict())
 
+    def test_fully_numpy_system_result_as_dict_is_yaml_safe(self):
+        # The same boundary guard for the solved-state read-out. The cm^-3 views
+        # scale per-cell values by 1e24/volume, so a numpy volume or temperature
+        # leaks numpy scalars into result.as_dict() unless the result casts them.
+        species = DefectSpecies(
+            "Z",
+            nsites=np.int64(4),
+            charge_states=[
+                DefectChargeState(
+                    charge=np.int64(0),
+                    energy=np.float64(0.5),
+                    degeneracy=np.float64(1),
+                ),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=np.float64(100.0),
+            temperature=np.float64(300.0),
+            convergence_tolerance=np.float64(1e-8),
+            occupancy_warning_threshold=None,
+        )
+        yaml.safe_dump(system.result.as_dict())
+
 
 class TestDefectSystemFixedConcentrations(unittest.TestCase):
     def setUp(self):
