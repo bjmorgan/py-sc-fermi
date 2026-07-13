@@ -3463,6 +3463,59 @@ class TestDiluteLimitWarning(unittest.TestCase):
         system = self._make_system([self._saturating_species("S")])
         self.assertNotIn("label", system.as_dict())
 
+    def test_result_matches_get_sc_fermi_and_carriers(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        e_fermi, _ = system.get_sc_fermi()
+        p0, n0 = system.dos.carrier_concentrations(e_fermi, system.temperature)
+        result = system.result
+        self.assertEqual(result.fermi_energy, e_fermi)
+        self.assertEqual(result.temperature, system.temperature)
+        self.assertEqual(result.volume, system.volume)
+        self.assertEqual(result.p0_per_cell, float(p0))
+        self.assertEqual(result.n0_per_cell, float(n0))
+
+    def test_result_is_cached(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        self.assertIs(system.result, system.result)
+
+    def test_result_concentrations_match_global_defect_concs(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        e_fermi = system.result.fermi_energy
+        raw = system._global_defect_concs(e_fermi)  # dict[DefectChargeState, float]
+        per_cell = system.result.charge_state_concentrations_per_cell
+        for ds in system.defect_species:
+            for cs in ds.charge_states:
+                self.assertEqual(per_cell[ds.name][cs.name], float(raw[cs]))
+
+    def test_result_warning_is_attributed_to_caller(self):
+        # The DiluteLimitWarning must blame the user's frame, not functools or
+        # the library. This pins the manual-cache property (a cached_property
+        # would insert a functools frame and misattribute the warning).
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            _ = system.result
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        # attributed to this test file, not functools.py or defect_system.py
+        self.assertEqual(
+            os.path.basename(dilute[0].filename), os.path.basename(__file__)
+        )
+
+    def test_result_carries_the_system_label(self):
+        system = self._make_system(
+            [self._saturating_species("S")],
+            occupancy_warning_threshold=None,
+            label="O-rich",
+        )
+        self.assertEqual(system.result.label, "O-rich")
+
 
 if __name__ == "__main__":
     unittest.main()

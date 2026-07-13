@@ -16,6 +16,7 @@ from scipy.optimize import brentq
 from py_sc_fermi import element_pools
 from py_sc_fermi.defect_charge_state import DefectChargeState
 from py_sc_fermi.defect_species import DefectSpecies
+from py_sc_fermi.defect_system_result import DefectSystemResult
 from py_sc_fermi.dos import DOS
 from py_sc_fermi.element_pools import ElementPoolError
 from py_sc_fermi.pools import (
@@ -226,6 +227,7 @@ class DefectSystem:
             self._dos = self._dos.scissored(delta_gap)
         self._temperature = temperature
         self._label = label
+        self._result: DefectSystemResult | None = None
         self._convergence_tolerance = convergence_tolerance
         self._vbm_shift = vbm_shift
         self._cbm_shift = cbm_shift
@@ -260,7 +262,8 @@ class DefectSystem:
 
     @property
     def label(self) -> str | None:
-        """An optional human-readable tag for this system, serialised when set."""
+        """An optional human-readable tag for this system, copied into
+        ``result`` and serialised when set."""
         return self._label
 
     @property
@@ -1074,6 +1077,40 @@ class DefectSystem:
         available = ", ".join(self.defect_species_names)
         raise ValueError(f"no defect species named '{name}'; available: {available}")
     
+    @property
+    def result(self) -> DefectSystemResult:
+        """The solved state of this system as a ``DefectSystemResult``.
+
+        Solves for the self-consistent Fermi energy on first access and caches
+        the result; subsequent accesses return the same object without
+        re-solving. Safe to cache unconditionally because the system is an
+        immutable snapshot.
+
+        Returns:
+            DefectSystemResult: the Fermi level, carrier and defect
+            concentrations at the self-consistent Fermi energy.
+        """
+        # Deliberately a manual cache, not functools.cached_property: the latter
+        # inserts a functools frame that DiluteLimitWarning's attribution walk
+        # (_warning_stacklevel) stops at, misattributing the warning to
+        # functools.py instead of the caller. See
+        # test_result_warning_is_attributed_to_caller.
+        if self._result is None:
+            e_fermi, _ = self.get_sc_fermi()
+            p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
+            self._result = DefectSystemResult(
+                temperature=self.temperature,
+                fermi_energy=e_fermi,
+                volume=self.volume,
+                label=self.label,
+                p0_per_cell=float(p0),
+                n0_per_cell=float(n0),
+                charge_state_concentrations_per_cell=self._per_charge_state_concs(
+                    e_fermi, 1.0
+                ),
+            )
+        return self._result
+
     def get_sc_fermi(self) -> tuple[float, float]:
         """Calculate the self-consistent Fermi energy.
         
