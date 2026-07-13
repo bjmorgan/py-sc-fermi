@@ -41,8 +41,8 @@
   any of them after construction raises `AttributeError`, enforcing the
   documented immutable-snapshot contract. Construct a new `DefectSystem` (or use
   `DefectSystemFactory.at(...)`) for a different temperature, DOS, or correction
-  set. `occupancy_warning_threshold`, a non-physical reporting preference, stays
-  settable and validates on assignment.
+  set. `occupancy_warning_threshold`, a non-physical reporting preference, is
+  likewise set only at construction, validated there and read-only thereafter.
 - `DefectChargeState.fix_concentration` and `DefectSpecies.fix_concentration`
   are no longer public. A concentration is fixed only at construction: via the
   `fixed_concentration` argument of `DefectChargeState`/`DefectSpecies`, or via

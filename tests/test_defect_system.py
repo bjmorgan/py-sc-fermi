@@ -122,6 +122,7 @@ class TestDefectSystem(unittest.TestCase):
             "defect_species": [],
             "site_pools": {},
             "element_pools": {},
+            "occupancy_warning_threshold": 0.5,
         }
         for name, value in new_values.items():
             with self.subTest(attribute=name):
@@ -137,16 +138,6 @@ class TestDefectSystem(unittest.TestCase):
         self.assertTrue(self.defect_system.rigid_shift)
         self.assertEqual(self.defect_system.site_pools, {})
         self.assertEqual(self.defect_system.element_pools, {})
-
-    def test_occupancy_warning_threshold_setter_validates(self):
-        with self.assertRaises(ValueError):
-            self.defect_system.occupancy_warning_threshold = 1.5
-
-    def test_occupancy_warning_threshold_is_settable(self):
-        self.defect_system.occupancy_warning_threshold = 0.5
-        self.assertEqual(self.defect_system.occupancy_warning_threshold, 0.5)
-        self.defect_system.occupancy_warning_threshold = None
-        self.assertIsNone(self.defect_system.occupancy_warning_threshold)
 
     def test_total_defect_charge_contributions(self):
         cs_pos = DefectChargeState(charge=1, fixed_concentration=2)
@@ -3319,29 +3310,6 @@ class TestDiluteLimitWarning(unittest.TestCase):
             _ = system.result  # solves; warns once, arms the once-guard
             system.get_sc_fermi()  # re-reaches the chokepoint from a different line
         self.assertEqual(len(self._dilute_warnings(records)), 1)
-
-    def test_changing_threshold_re_arms_warning_for_next_solve(self):
-        # The once-per-instance guard silences repeat warnings for a solved
-        # system. Changing the threshold re-arms it so the next solve warns
-        # again; re-setting the same value leaves it silent.
-        system = self._make_system([self._saturating_species("S")])
-
-        with warnings.catch_warnings(record=True) as first:
-            warnings.simplefilter("always")
-            system.get_sc_fermi()
-        self.assertEqual(len(self._dilute_warnings(first)), 1)
-
-        system.occupancy_warning_threshold = 0.5
-        with warnings.catch_warnings(record=True) as after_change:
-            warnings.simplefilter("always")
-            system.get_sc_fermi()
-        self.assertEqual(len(self._dilute_warnings(after_change)), 1)
-
-        system.occupancy_warning_threshold = 0.5
-        with warnings.catch_warnings(record=True) as after_same:
-            warnings.simplefilter("always")
-            system.get_sc_fermi()
-        self.assertEqual(self._dilute_warnings(after_same), [])
 
     def test_threshold_absent_from_as_dict(self):
         system = self._make_system(

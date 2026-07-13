@@ -131,7 +131,7 @@ raises ``AttributeError``. To compute at a different temperature, DOS, or
 correction set, construct a new ``DefectSystem``, or use
 ``DefectSystemFactory.at(...)``, which builds one snapshot per temperature.
 ``occupancy_warning_threshold``, a reporting preference rather than part of the
-physical system, remains settable.
+physical system, is likewise set only at construction.
 
 .. code-block:: python
 

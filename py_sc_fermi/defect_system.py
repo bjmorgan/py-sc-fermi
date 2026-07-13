@@ -191,7 +191,7 @@ class DefectSystem:
           or a finite fraction in (0, 1].
 
     Note:
-        `DefectSystem` is a fixed-temperature snapshot whose physical public
+        `DefectSystem` is a fixed-temperature snapshot whose public
         attributes are read-only once constructed: rebinding any of them raises
         `AttributeError`. `vbm_shift`, `cbm_shift`,
         `formation_energy_corrections`, `rigid_shift`, and
@@ -297,24 +297,6 @@ class DefectSystem:
     @property
     def occupancy_warning_threshold(self) -> float | None:
         return self._occupancy_warning_threshold
-
-    @occupancy_warning_threshold.setter
-    def occupancy_warning_threshold(self, value: float | None) -> None:
-        """Set the dilute-limit warning threshold.
-
-        Validates ``value`` (see ``__init__``) and, when it differs from the
-        current threshold, re-arms the once-per-instance dilute-limit warning
-        so the next solve re-evaluates site occupancy against the new
-        threshold.
-
-        Raises:
-            ValueError: if ``value`` is not ``None`` or a finite fraction in
-                (0, 1].
-        """
-        validated = self._validate_occupancy_warning_threshold(value)
-        if validated != self._occupancy_warning_threshold:
-            self._occupancy_warning_emitted = False
-        self._occupancy_warning_threshold = validated
 
     @staticmethod
     def _validate_occupancy_warning_threshold(value: float | None) -> float | None:
