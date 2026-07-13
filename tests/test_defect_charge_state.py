@@ -30,6 +30,26 @@ class TestDefectChargeStateInit(unittest.TestCase):
         with self.assertRaises(ValueError):
             DefectChargeState(charge=1, energy=0.5, degeneracy=-1)
 
+    def test_init_rejects_invalid_fixed_concentration(self):
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(
+                ValueError, r"'q\+1'.*finite and non-negative"
+            ):
+                DefectChargeState(charge=1, fixed_concentration=bad)
+
+    def test_init_accepts_zero_fixed_concentration(self):
+        cs = DefectChargeState(charge=1, fixed_concentration=0.0)
+        self.assertEqual(cs.fixed_concentration, 0.0)
+
+    def test__fix_concentration_rejects_invalid_values(self):
+        cs = DefectChargeState(charge=1, energy=1.0, name="X_a")
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(
+                ValueError, r"'X_a'.*finite and non-negative"
+            ):
+                cs._fix_concentration(bad)
+        self.assertIsNone(cs.fixed_concentration)
+
 
 class TestDefectChargeStateChargeProperty(unittest.TestCase):
     def setUp(self):
@@ -85,9 +105,9 @@ class TestDefectChargeStateFixConcentration(unittest.TestCase):
             charge=charge, energy=energy, degeneracy=degeneracy
         )
 
-    def test_fix_concentration(self):
+    def test__fix_concentration(self):
         self.assertEqual(self.defect_charge_state.fixed_concentration, None)
-        self.defect_charge_state.fix_concentration(1)
+        self.defect_charge_state._fix_concentration(1)
         self.assertEqual(self.defect_charge_state.fixed_concentration, 1)
 
 
@@ -131,10 +151,10 @@ class TestDefectChargeStateGetConcentration(unittest.TestCase):
     def test_get_concentration_with_fixed_concentration(self):
         e_fermi = 1.2
         temperature = 298.0
-        self.defect_charge_state.fix_concentration(1.0)
-        conc = self.defect_charge_state.get_concentration(
-            e_fermi=e_fermi, temperature=temperature
+        cs = DefectChargeState(
+            charge=1, energy=0.1234, degeneracy=2, fixed_concentration=1.0
         )
+        conc = cs.get_concentration(e_fermi=e_fermi, temperature=temperature)
         self.assertEqual(conc, 1.0)
 
 
@@ -174,16 +194,20 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
         self.assertEqual(dictionary["charge"], 1)
 
     def test_defect_system_as_dict_fixed_concentration(self):
-        self.defect_charge_state.fix_concentration(1)
-        dictionary = self.defect_charge_state.as_dict()
+        cs = DefectChargeState(charge=1, energy=0.1234, degeneracy=2, fixed_concentration=1)
+        dictionary = cs.as_dict()
         self.assertEqual(dictionary["degeneracy"], 2)
         self.assertEqual(dictionary["energy"], 0.1234)
         self.assertEqual(dictionary["charge"], 1)
         self.assertEqual(dictionary["fixed_concentration"], 1)
 
     def test_as_dict_emits_native_floats_for_numpy_values(self):
-        cs = DefectChargeState(charge=1, energy=np.float64(0.5), degeneracy=2)
-        cs.fix_concentration(np.float64(1e20))
+        cs = DefectChargeState(
+            charge=1,
+            energy=np.float64(0.5),
+            degeneracy=2,
+            fixed_concentration=np.float64(1e20),
+        )
         dictionary = cs.as_dict()
         self.assertIs(type(dictionary["energy"]), float)
         self.assertIs(type(dictionary["fixed_concentration"]), float)
@@ -233,8 +257,9 @@ class TestDefectChargeStateDictionaryOperations(unittest.TestCase):
         self.assertEqual(cs.name, "q+1")
 
     def test_round_trip_preserves_energy_of_fixed_concentration_state(self):
-        cs = DefectChargeState(charge=1, energy=0.7, degeneracy=1, name="V_O_frozen")
-        cs.fix_concentration(0.01)
+        cs = DefectChargeState(
+            charge=1, energy=0.7, degeneracy=1, fixed_concentration=0.01, name="V_O_frozen"
+        )
         reloaded = DefectChargeState.from_dict(cs.as_dict())
         self.assertEqual(reloaded.energy, 0.7)
         self.assertEqual(reloaded.fixed_concentration, 0.01)

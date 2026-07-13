@@ -32,6 +32,11 @@ CorrectionKey = DefectChargeState | tuple[str, str]
 ``(species_name, charge_state_name)`` pair resolved against the system's
 defect species."""
 
+FixedConcentrationKey = str | tuple[str, str]
+"""A fixed-concentration key: a species name (fixes the species' total
+concentration), or a ``(species_name, charge_state_name)`` pair (fixes that
+single charge state)."""
+
 
 class _VariableState(NamedTuple):
     """A non-fixed-concentration charge state within an exclusion group,
@@ -140,16 +145,22 @@ class DefectSystem:
           unchanged. If False, the defect levels are fixed in absolute energy
           while the band edges move, so such charge states have their formation
           energy shifted by `-charge * vbm_shift`.
-        fixed_concentrations (dict[str, float] | None, optional): mapping of
-          species name -> fixed total concentration (per unit cell). Each
-          named species has its total concentration fixed at the given value,
-          overriding any species-level `fixed_concentration` it was constructed
-          with. The fix is applied by name to this system's own copies of
-          `defect_species`, so it composes with `formation_energy_corrections`
-          (resolved against the passed-in `defect_species`) and never
-          mutates the caller's species. A non-finite or negative value, or one
-          that cannot be hosted (above its site-exclusion group's site budget
-          -- its own `nsites`, or its shared `site_pools` size -- or below its
+        fixed_concentrations (dict[FixedConcentrationKey, float] | None, optional):
+          mapping of species name -> fixed total concentration (per unit
+          cell), or ``(species_name, charge_state_name)`` -> fixed
+          concentration for that single charge state. A named species has its
+          total concentration fixed at the given value, overriding any
+          species-level `fixed_concentration` it was constructed with; a
+          `(species_name, charge_state_name)` pair fixes that one charge
+          state, leaving the rest of its species variable. Both forms are
+          applied by name to this system's own copies of `defect_species`, so
+          they compose with `formation_energy_corrections` (resolved against
+          the passed-in `defect_species`) and never mutate the caller's
+          species. A charge state fixed by either key form has its formation
+          energy (including any correction applied to it) left unused by the
+          solve. A non-finite or negative value, or one that cannot be
+          hosted (above its site-exclusion group's site budget -- its own
+          `nsites`, or its shared `site_pools` size -- or below its
           individually-fixed charge states), is rejected at construction by the
           same checks as a species-level fix. Defaults to None (no fixes).
         occupancy_warning_threshold (float | None, optional): the site-occupancy
@@ -169,9 +180,10 @@ class DefectSystem:
           references a species not in `defect_species`, a pool lists a
           species more than once, a species appears in more than one site
           pool, `formation_energy_corrections` references a `DefectChargeState`
-          that is not part of `defect_species`, `fixed_concentrations` names
-          a species not in `defect_species`, or `occupancy_warning_threshold`
-          is not ``None`` or a finite fraction in (0, 1].
+          that is not part of `defect_species`, a `fixed_concentrations` key
+          names a species (or, for a pair key, a charge state) not in
+          `defect_species`, or `occupancy_warning_threshold` is not ``None``
+          or a finite fraction in (0, 1].
 
     Note:
         `DefectSystem` is a fixed-temperature snapshot whose physical public
@@ -199,7 +211,7 @@ class DefectSystem:
         cbm_shift: float = 0.0,
         formation_energy_corrections: dict[CorrectionKey, float] | None = None,
         rigid_shift: bool = True,
-        fixed_concentrations: dict[str, float] | None = None,
+        fixed_concentrations: dict[FixedConcentrationKey, float] | None = None,
         occupancy_warning_threshold: float | None = 0.01,
     ):
         self._volume = volume
@@ -313,22 +325,37 @@ class DefectSystem:
         return value
 
     def _apply_fixed_concentrations(
-        self, fixed_concentrations: dict[str, float]
+        self, fixed_concentrations: dict[FixedConcentrationKey, float]
     ) -> None:
-        """Fix the total concentration of named species on the deep copies.
+        """Fix concentrations on the deep copies, by name.
 
-        Each ``name -> conc`` entry sets the species-level
-        ``fixed_concentration`` of the matching copy in ``self.defect_species``,
-        overriding any species-level fix it was constructed with. The copies
-        are resolved by name (never the caller's originals) and validated by
+        A ``str`` key names a species and sets its species-level
+        ``fixed_concentration``, overriding any it was constructed with. A
+        ``(species_name, charge_state_name)`` pair fixes that single charge
+        state. Both resolve against this system's own copies in
+        ``self.defect_species`` (never the caller's originals). The
+        concentration values are checked (finite and non-negative) by
+        ``DefectChargeState._fix_concentration``/``DefectSpecies._fix_concentration``
+        and, for species totals and their site-exclusion budgets, by
         ``_validate_fixed_concentrations``.
 
         Raises:
-            ValueError: if a name is not in the species roster (via
-                ``defect_species_by_name``, listing the available names).
+            ValueError: if a key is neither form, a name is not found (via
+                the name lookups, listing the available names), or a value
+                is not finite and non-negative.
         """
-        for name, conc in fixed_concentrations.items():
-            self.defect_species_by_name(name).fix_concentration(conc)
+        for key, conc in fixed_concentrations.items():
+            if isinstance(key, tuple) and len(key) == 2:
+                species_name, cs_name = key
+                species = self.defect_species_by_name(species_name)
+                species.charge_state_by_name(cs_name)._fix_concentration(conc)
+            elif isinstance(key, str):
+                self.defect_species_by_name(key)._fix_concentration(conc)
+            else:
+                raise ValueError(
+                    "fixed_concentrations keys must be a species name or "
+                    f"(species_name, charge_state_name) pair; got {key!r}."
+                )
 
     @staticmethod
     def _resolve_correction_keys(
@@ -488,16 +515,16 @@ class DefectSystem:
             )
 
     def _validate_fixed_concentrations(self) -> None:
-        """Reject fixed concentrations that are invalid or cannot be hosted.
+        """Reject fixed concentrations that are inconsistent or cannot be hosted.
 
-        The checks are independent of the Fermi level -- they depend only on
-        the fixed concentrations and the site budgets -- so they are static
+        Per-object values are validated at their own boundary, by
+        ``DefectSpecies``/``DefectChargeState`` (at construction, and by their
+        internal ``_fix_concentration`` setters). The checks here are
+        cross-cutting and independent of the Fermi level -- they depend only
+        on the fixed concentrations and the site budgets -- so they are static
         properties of the system, caught here at construction rather than left
         to surface (wrapped as a Fermi-window error) from a later solve:
 
-        * a species-level fixed concentration must be a finite, non-negative
-          number (a NaN would otherwise pass every comparison below and
-          surface silently as ``nan`` in the solved concentrations);
         * a species fixed at the total level must be consistent with its
           individually-fixed charge states: those cannot exceed the total, and
           if every charge state is fixed (none variable) they must sum to it,
@@ -506,21 +533,15 @@ class DefectSystem:
           concentration cannot exceed the group's site budget.
 
         Raises:
-            ValueError: if a species-level fixed concentration is not finite
-                and non-negative, a species' fixed charge states are
-                inconsistent with its species-level fixed concentration, or a
-                group's total fixed concentration exceeds its site budget (its
+            ValueError: if a species' fixed charge states are inconsistent
+                with its species-level fixed concentration, or a group's
+                total fixed concentration exceeds its site budget (its
                 ``site_pools`` size, or, for an unpooled species, its own
                 ``nsites``).
         """
         for sp in self.defect_species:
             if sp.fixed_concentration is None:
                 continue
-            if not math.isfinite(sp.fixed_concentration) or sp.fixed_concentration < 0:
-                raise ValueError(
-                    f"'{sp.name}' has an invalid fixed concentration "
-                    f"{sp.fixed_concentration}; it must be finite and non-negative"
-                )
             charge_state_total = self._charge_state_fixed_total(sp)
             if math.isclose(charge_state_total, sp.fixed_concentration):
                 continue
@@ -1561,11 +1582,14 @@ class DefectSystemFactory:
             **overrides: keyword arguments forwarded to `DefectSystem.__init__`,
               overriding any of this factory's corresponding attributes (e.g.
               `temperature` itself, or `fixed_concentrations`, a
-              `dict[str, float]` mapping species name to a fixed total
-              concentration per unit cell). Passing `fixed_concentrations`
-              freezes those species' totals at the given values, as in the
-              anneal-and-quench workflow: take the totals solved at a high
-              temperature and re-solve at a lower one with them held fixed.
+              `dict[FixedConcentrationKey, float]` mapping a species name (or a
+              ``(species_name, charge_state_name)`` pair, fixing that single
+              charge state) to a fixed concentration per unit cell). Passing
+              `fixed_concentrations` freezes those species' totals (or
+              per-charge-state values) at the given values, as in the
+              anneal-and-quench workflow: take the totals (or per-charge-state
+              values) solved at a high temperature and re-solve at a lower one
+              with them held fixed.
 
         Returns:
             DefectSystem: a new, independent `DefectSystem` for `temperature`.

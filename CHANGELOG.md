@@ -43,6 +43,12 @@
   `DefectSystemFactory.at(...)`) for a different temperature, DOS, or correction
   set. `occupancy_warning_threshold`, a non-physical reporting preference, stays
   settable and validates on assignment.
+- `DefectChargeState.fix_concentration` and `DefectSpecies.fix_concentration`
+  are no longer public. A concentration is fixed only at construction: via the
+  `fixed_concentration` argument of `DefectChargeState`/`DefectSpecies`, or via
+  `DefectSystem(fixed_concentrations=...)` / `DefectSystemFactory.at(...,
+  fixed_concentrations=...)`. This removes the last route that could mutate a
+  constructed `DefectSystem` in place.
 
 ### Improvements
 
@@ -61,6 +67,11 @@
   `DefectChargeState` objects. Referencing the same charge state through two
   keys, keying a fixed-concentration state (which has no formation energy to
   correct), or passing a key that is neither form raises `ValueError`.
+- `fixed_concentrations` (`DefectSystem`, and as a `factory.at()` override)
+  accepts `(species_name, charge_state_name)` pairs as keys, fixing that
+  single charge state at construction, alongside species-name keys for
+  species totals. Charge-state-level quenching no longer requires mutating
+  a constructed system.
 - Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
   returns `{species_name: {charge_state_name: conc}}` with one entry per
   `DefectChargeState`. It returns the same per-species entries as
@@ -108,18 +119,21 @@
   names interchangeably (both are normalised to names internally).
   `DefectSystem.defect_species_by_name` now raises a `ValueError` listing the
   available names, rather than an `IndexError`, when given an unknown name.
-- Fixed concentrations are validated at construction. A `ValueError` is raised
-  if a species-level `fixed_concentration` is not a finite, non-negative number
-  (a NaN would otherwise pass silently into the solved concentrations), if a
-  species' individually-fixed charge states are inconsistent with its
-  species-level `fixed_concentration` -- they exceed it, or, when every charge
-  state is fixed so none can absorb a shortfall, fall below it -- or if the
-  total fixed concentration in a site-exclusion group exceeds its available
-  sites (an unpooled species' own `nsites`, or a `site_pools` entry's shared
-  size). These conditions are all independent of the Fermi level; they
-  previously surfaced only at solve time (wrapped as a `RuntimeError` about the
-  Fermi-energy search window) or, for a shortfall, were silently under-reported.
-  They now fail fast at construction with a clear message.
+- The consistency of fixed concentrations is checked at construction. A
+  `ValueError` is raised if a species' individually-fixed charge states are
+  inconsistent with its species-level `fixed_concentration` -- they exceed it,
+  or, when every charge state is fixed so none can absorb a shortfall, fall
+  below it -- or if the total fixed concentration in a site-exclusion group
+  exceeds its available sites (an unpooled species' own `nsites`, or a
+  `site_pools` entry's shared size). These conditions are all independent of the
+  Fermi level; they previously surfaced only at solve time (wrapped as a
+  `RuntimeError` about the Fermi-energy search window) or, for a shortfall, were
+  silently under-reported. They now fail fast at construction with a clear
+  message.
+- `DefectChargeState` and `DefectSpecies` validate their `fixed_concentration`
+  at construction: a value that is not finite and non-negative raises
+  `ValueError`, rather than passing silently into budget sums (where a NaN
+  defeats every comparison and a negative silently reduces the total).
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) that scissor the DOS at
@@ -151,8 +165,9 @@
   **overrides)` evaluates these functions at `T` and returns an independent
   `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
   temperatures}`.
-- `DefectSystem` gained a `fixed_concentrations` argument: a `dict[str, float]`
-  mapping species name to a fixed total concentration per unit cell, applied by
+- `DefectSystem` gained a `fixed_concentrations` argument: a mapping of species
+  name -- or `(species_name, charge_state_name)` pair, fixing that single
+  charge state -- to a fixed concentration per unit cell, applied by
   name to the constructor's own copies of `defect_species` (overriding any
   species-level `fixed_concentration` they were constructed with, and composing
   with `formation_energy_corrections`, keyed by object or by name pair). This

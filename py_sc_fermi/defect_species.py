@@ -26,6 +26,8 @@ class DefectSpecies:
            represent metastable defect configurations; such states must be
            given explicit, distinct names (charge-state names, including the
            charge-derived defaults, must be unique within a species).
+        fixed_concentration (float | None): fixed total concentration per unit
+           cell. Must be finite and non-negative.
 
     """
 
@@ -59,15 +61,37 @@ class DefectSpecies:
         self._name = name
         self._nsites = nsites
         self._charge_states = charge_states
-        self._fixed_concentration = fixed_concentration
+        self._fixed_concentration = (
+            self._validated_fixed_concentration(fixed_concentration)
+            if fixed_concentration is not None
+            else None
+        )
 
-    def fix_concentration(self, concentration: float) -> None:
-        """fix the concentration of this ``DefectSpecies``
+    def _validated_fixed_concentration(self, concentration: float) -> float:
+        """Return ``concentration`` if it is a valid fixed concentration.
+
+        Raises:
+            ValueError: if ``concentration`` is not finite and non-negative.
+        """
+        if not math.isfinite(concentration) or concentration < 0:
+            raise ValueError(
+                f"DefectSpecies '{self.name}' has an invalid fixed "
+                f"concentration {concentration}; it must be finite and "
+                "non-negative"
+            )
+        return concentration
+
+    def _fix_concentration(self, concentration: float) -> None:
+        """Set the fixed concentration (per unit cell); internal setter used
+        by construction-time fixing.
 
         Args:
             concentration (float): concentration per unit cell
+
+        Raises:
+            ValueError: if ``concentration`` is not finite and non-negative.
         """
-        self._fixed_concentration = concentration
+        self._fixed_concentration = self._validated_fixed_concentration(concentration)
 
     @property
     def name(self) -> str:

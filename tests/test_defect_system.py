@@ -560,7 +560,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
     def test_pool_raises_when_fixed_concentrations_exceed_site_count(self):
         # Over-budget fixed concentrations are a static constraint violation,
         # rejected at construction rather than surfacing from the solve.
-        self.species_a.charge_states[0].fix_concentration(20.0)
+        self.species_a.charge_states[0]._fix_concentration(20.0)
         with self.assertRaises(ValueError):
             DefectSystem(
                 defect_species=[self.species_a],
@@ -571,7 +571,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
             )
 
     def test_pooled_species_honours_species_level_fixed_concentration(self):
-        self.species_a.fix_concentration(3.0)
+        self.species_a._fix_concentration(3.0)
         no_pool_system = DefectSystem(
             defect_species=[self.species_a],
             dos=self.dos,
@@ -599,7 +599,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
     def test_pool_raises_when_species_level_fixed_concentration_exceeds_site_count(
         self,
     ):
-        self.species_a.fix_concentration(20.0)
+        self.species_a._fix_concentration(20.0)
         with self.assertRaises(ValueError):
             DefectSystem(
                 defect_species=[self.species_a],
@@ -612,7 +612,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
     def test_unpooled_species_raises_when_fixed_concentration_exceeds_nsites(self):
         # An unpooled species' implicit group budget is its own nsites; the
         # error names the species and the budget-versus-occupancy.
-        self.species_a.fix_concentration(20.0)  # nsites=5
+        self.species_a._fix_concentration(20.0)  # nsites=5
         with self.assertRaisesRegex(ValueError, r"'A' has 5 .*occupy 20"):
             DefectSystem(
                 defect_species=[self.species_a],
@@ -664,9 +664,9 @@ class TestDefectSystemSitePools(unittest.TestCase):
     def test_pool_raises_when_members_jointly_exceed_site_count(self):
         # Each member fits the pool alone -- A across its two fixed charge
         # states, B in one -- but together they exceed the shared budget.
-        self.species_a.charge_states[0].fix_concentration(4.0)
-        self.species_a.charge_states[1].fix_concentration(4.0)
-        self.species_b.charge_states[0].fix_concentration(4.0)
+        self.species_a.charge_states[0]._fix_concentration(4.0)
+        self.species_a.charge_states[1]._fix_concentration(4.0)
+        self.species_b.charge_states[0]._fix_concentration(4.0)
         with self.assertRaises(ValueError):
             DefectSystem(
                 defect_species=[self.species_a, self.species_b],
@@ -727,6 +727,100 @@ class TestDefectSystemSitePools(unittest.TestCase):
             for cs in system.defect_species[0].charge_states
         )
         self.assertAlmostEqual(total, 0.3, places=8)
+
+    def _two_state_system(self, fixed_concentrations):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_b = DefectChargeState(charge=1, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        return DefectSystem(
+            defect_species=[ds],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+            fixed_concentrations=fixed_concentrations,
+        )
+
+    def test_pair_key_fixes_one_charge_state(self):
+        system = self._two_state_system({("X", "X_a"): 0.25})
+        fixed_state = system.defect_species_by_name("X").charge_state_by_name("X_a")
+        free_state = system.defect_species_by_name("X").charge_state_by_name("X_b")
+        self.assertEqual(fixed_state.fixed_concentration, 0.25)
+        self.assertIsNone(free_state.fixed_concentration)
+        # species total remains variable: only the one state is fixed
+        self.assertIsNone(system.defect_species_by_name("X").fixed_concentration)
+
+    def test_pair_key_matches_direct_fixed_construction(self):
+        # The pair-key route must solve identically to constructing the same
+        # charge state directly fixed.
+        by_pair_key = self._two_state_system({("X", "X_a"): 0.25})
+        by_pair_key.get_sc_fermi = Mock(return_value=[0.5, {}])
+        via_pair_key = by_pair_key.charge_state_concentration_dict(per_volume=False)
+
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a", fixed_concentration=0.25)
+        cs_b = DefectChargeState(charge=1, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        by_direct_construction = DefectSystem(
+            defect_species=[ds],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+        )
+        by_direct_construction.get_sc_fermi = Mock(return_value=[0.5, {}])
+        via_direct_construction = by_direct_construction.charge_state_concentration_dict(
+            per_volume=False
+        )
+
+        self.assertEqual(via_pair_key, via_direct_construction)
+
+    def test_species_and_pair_keys_mix(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_y = DefectChargeState(charge=0, energy=1.2, name="Y_a")
+        ds_x = DefectSpecies(name="X", nsites=1, charge_states=[cs_a])
+        ds_y = DefectSpecies(name="Y", nsites=1, charge_states=[cs_y])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        system = DefectSystem(
+            defect_species=[ds_x, ds_y],
+            volume=1.0,
+            dos=dos,
+            temperature=300,
+            fixed_concentrations={"X": 0.5, ("Y", "Y_a"): 0.1},
+        )
+        self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.5)
+        self.assertEqual(
+            system.defect_species_by_name("Y")
+            .charge_state_by_name("Y_a")
+            .fixed_concentration,
+            0.1,
+        )
+
+    def test_pair_key_with_unknown_charge_state_raises(self):
+        with self.assertRaisesRegex(ValueError, "available: X_a, X_b"):
+            self._two_state_system({("X", "nope"): 0.1})
+
+    def test_pair_key_with_unknown_species_raises(self):
+        with self.assertRaisesRegex(ValueError, "no defect species named 'Z'"):
+            self._two_state_system({("Z", "X_a"): 0.1})
+
+    def test_invalid_fixed_concentration_key_shape_raises(self):
+        with self.assertRaisesRegex(ValueError, r"species name or \(species_name"):
+            self._two_state_system({0: 0.1})
+
+    def test_pair_key_with_invalid_value_raises(self):
+        # The value check lives on DefectChargeState._fix_concentration, which
+        # the pair path calls; its message names the charge state.
+        for bad in (-0.1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(
+                ValueError, r"'X_a'.*finite and non-negative"
+            ):
+                self._two_state_system({("X", "X_a"): bad})
 
     def test_species_fixed_above_fixed_charge_states_with_variable_succeeds(self):
         # With a variable charge state to absorb the remainder, a species
@@ -1120,7 +1214,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
 
     def test_element_pool_leaves_fixed_charge_states_unscaled(self):
         fixed_value = 2.0
-        self.species.charge_states[0].fix_concentration(fixed_value)
+        self.species.charge_states[0]._fix_concentration(fixed_value)
         target = 5.0
         system = DefectSystem(
             defect_species=[self.species],
@@ -1135,7 +1229,7 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self.assertAlmostEqual(total_mg, target, places=6)
 
     def test_element_pool_raises_when_fixed_states_exceed_target(self):
-        self.species.charge_states[0].fix_concentration(10.0)
+        self.species.charge_states[0]._fix_concentration(10.0)
         system = DefectSystem(
             defect_species=[self.species],
             dos=self.dos,
@@ -2871,6 +2965,22 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
             system.concentration_dict(per_volume=False)["X"], 0.01
         )
         self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
+
+    def test_at_fixed_concentrations_accepts_pair_keys(self):
+        cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_b = DefectChargeState(charge=1, energy=1.5, name="X_b")
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_a, cs_b])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        factory = DefectSystemFactory(defect_species=[ds], dos=dos, volume=1.0)
+        system = factory.at(300, fixed_concentrations={("X", "X_a"): 0.25})
+        self.assertEqual(
+            system.defect_species_by_name("X")
+            .charge_state_by_name("X_a")
+            .fixed_concentration,
+            0.25,
+        )
 
     def test_anneal_and_quench_freezes_some_species_and_re_equilibrates_rest(self):
         # A minority donor frozen at its high-temperature total, plus a major
