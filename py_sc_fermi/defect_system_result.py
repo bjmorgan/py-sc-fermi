@@ -82,3 +82,35 @@ class DefectSystemResult:
             species: sum(states.values())
             for species, states in self.charge_state_concentrations.items()
         }
+
+    def as_dict(self) -> dict:
+        """Return a structured, JSON-safe record of the solved state.
+
+        Concentrations are in cm^-3; ``volume`` is included so per-cell values
+        are recoverable. Keys are snake_case. This is a one-way export: there is
+        no ``from_dict`` (a result is derived by solving a ``DefectSystem``, not
+        reconstructed).
+
+        Returns:
+            dict: ``fermi_energy`` (eV), ``p0`` and ``n0`` (cm^-3),
+            ``temperature`` (K), ``volume`` (cubic Angstrom), ``label``,
+            ``concentrations`` and ``charge_state_concentrations`` (per-species
+            totals and per-charge-state, in cm^-3).
+        """
+        return {
+            "fermi_energy": self.fermi_energy,
+            "p0": self.p0,
+            "n0": self.n0,
+            "temperature": self.temperature,
+            "volume": self.volume,
+            "label": self.label,
+            "concentrations": self.concentrations,
+            "charge_state_concentrations": self.charge_state_concentrations,
+        }
+
+    def __repr__(self) -> str:
+        label = f", label={self.label!r}" if self.label is not None else ""
+        return (
+            f"DefectSystemResult(fermi_energy={self.fermi_energy:.4f} eV, "
+            f"temperature={self.temperature:g} K{label})"
+        )
