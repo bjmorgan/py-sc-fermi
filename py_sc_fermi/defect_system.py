@@ -174,6 +174,10 @@ class DefectSystem:
           hosts), or set ``None`` to silence the warning. Must be ``None`` or a
           finite fraction in (0, 1]. This is a reporting preference, not part of
           the physical system, and is not serialised. Defaults to 0.01.
+        label (str | None, optional): an optional human-readable tag for this
+          system (e.g. a growth condition or sample name), useful for
+          identifying it within a batch of related systems. Included in
+          ``as_dict`` only when set. Defaults to None.
 
     Raises:
         ValueError: if two entries in `defect_species` share a name, a pool
@@ -213,6 +217,7 @@ class DefectSystem:
         rigid_shift: bool = True,
         fixed_concentrations: dict[FixedConcentrationKey, float] | None = None,
         occupancy_warning_threshold: float | None = 0.01,
+        label: str | None = None,
     ):
         self._volume = volume
         self._dos = dos
@@ -220,6 +225,7 @@ class DefectSystem:
         if delta_gap != 0.0:
             self._dos = self._dos.scissored(delta_gap)
         self._temperature = temperature
+        self._label = label
         self._convergence_tolerance = convergence_tolerance
         self._vbm_shift = vbm_shift
         self._cbm_shift = cbm_shift
@@ -251,6 +257,11 @@ class DefectSystem:
     @property
     def temperature(self) -> float:
         return self._temperature
+
+    @property
+    def label(self) -> str | None:
+        """An optional human-readable tag for this system, serialised when set."""
+        return self._label
 
     @property
     def convergence_tolerance(self) -> float | None:
@@ -1041,8 +1052,9 @@ class DefectSystem:
             ],
             site_pools=site_pools,
             element_pools=element_pools,
+            label=dictionary.get("label"),
         )
-        
+
     def defect_species_by_name(self, name: str) -> DefectSpecies:
         """return a ``DefectSpecies`` contained within the ``DefectSystem``
         via its name.
@@ -1479,6 +1491,8 @@ class DefectSystem:
         )
         if self.convergence_tolerance is not None:
             defect_system_dict["convergence_tolerance"] = float(self.convergence_tolerance)
+        if self.label is not None:
+            defect_system_dict["label"] = self.label
         if self.site_pools:
             defect_system_dict["site_pools"] = {
                 name: pool.as_dict() for name, pool in self.site_pools.items()
@@ -1535,6 +1549,8 @@ class DefectSystemFactory:
           `DefectSystem` built by `at()`, so a temperature sweep warns
           consistently. See `DefectSystem` for its meaning and validation.
           Defaults to 0.01.
+        label (str | None, optional): passed to every `DefectSystem` built by
+          `at()`, unless overridden per call. Defaults to None.
     """
 
     def __init__(
@@ -1552,6 +1568,7 @@ class DefectSystemFactory:
         ) = None,
         rigid_shift: bool = True,
         occupancy_warning_threshold: float | None = 0.01,
+        label: str | None = None,
     ):
         self.defect_species = defect_species
         self.dos = dos
@@ -1564,6 +1581,7 @@ class DefectSystemFactory:
         self.formation_energy_correction_fns = formation_energy_correction_fns or {}
         self.rigid_shift = rigid_shift
         self.occupancy_warning_threshold = occupancy_warning_threshold
+        self.label = label
 
     def at(self, temperature: float, **overrides: Any) -> DefectSystem:
         """Build a `DefectSystem` snapshot at `temperature`.
@@ -1613,6 +1631,7 @@ class DefectSystemFactory:
             formation_energy_corrections=formation_energy_corrections,
             rigid_shift=self.rigid_shift,
             occupancy_warning_threshold=self.occupancy_warning_threshold,
+            label=self.label,
         )
         kwargs.update(overrides)
         return DefectSystem(**kwargs)

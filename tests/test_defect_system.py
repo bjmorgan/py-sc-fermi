@@ -2527,6 +2527,13 @@ class TestDefectSystemFactory(unittest.TestCase):
         system = factory.at(300, convergence_tolerance=1e-12)
         self.assertEqual(system.convergence_tolerance, 1e-12)
 
+    def test_at_forwards_label_from_factory(self):
+        factory = DefectSystemFactory(
+            defect_species=[self.species], dos=self.dos, volume=100, label="O-rich"
+        )
+        system = factory.at(300)
+        self.assertEqual(system.label, "O-rich")
+
     def test_at_with_formation_energy_correction_fns_per_charge_state(self):
         cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
         cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
@@ -3433,6 +3440,28 @@ class TestDiluteLimitWarning(unittest.TestCase):
             [self._saturating_species("S")], occupancy_warning_threshold=0.5
         )
         self.assertNotIn("occupancy_warning_threshold", system.as_dict())
+
+    def test_label_defaults_to_none_and_is_readable(self):
+        system = self._make_system([self._saturating_species("S")])
+        self.assertIsNone(system.label)
+
+    def test_label_is_stored(self):
+        system = self._make_system(
+            [self._saturating_species("S")], label="O-rich"
+        )
+        self.assertEqual(system.label, "O-rich")
+
+    def test_label_round_trips_through_as_dict(self):
+        system = self._make_system(
+            [self._saturating_species("S")], label="O-rich"
+        )
+        self.assertEqual(system.as_dict()["label"], "O-rich")
+        reloaded = DefectSystem.from_dict(system.as_dict())
+        self.assertEqual(reloaded.label, "O-rich")
+
+    def test_label_absent_from_as_dict_when_unset(self):
+        system = self._make_system([self._saturating_species("S")])
+        self.assertNotIn("label", system.as_dict())
 
 
 if __name__ == "__main__":
