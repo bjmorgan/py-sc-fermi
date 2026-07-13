@@ -119,13 +119,13 @@ class DefectSystem:
           at E=0, `vbm_shift` narrows the gap. Separately, when
           `rigid_shift=False`, `-charge * vbm_shift` is added to every
           variable-concentration charge state's formation energy. Also sets the
-          effective band gap shown by `__repr__`/`report`. Defaults to 0.0.
+          effective band gap shown by `__repr__`. Defaults to 0.0.
         cbm_shift (float, optional): a temperature-dependent shift of the
           conduction-band minimum, in eV, evaluated by the caller for this
           system's `temperature`. Enters only through the DOS scissor: the band
           gap changes by `cbm_shift - vbm_shift`, moving the conduction block
           (and the carrier concentrations) and setting the effective band gap
-          shown by `__repr__`/`report`. Defaults to 0.0 (no shift).
+          shown by `__repr__`. Defaults to 0.0 (no shift).
         formation_energy_corrections (dict[CorrectionKey, float] | None, optional):
           per-charge-state formation-energy corrections (in eV), evaluated by
           the caller for this system's `temperature`. Each key identifies one
@@ -659,61 +659,6 @@ class DefectSystem:
         """
         return [ds.name for ds in self.defect_species]
 
-    def report(self) -> str:
-        """Solve for the self-consistent Fermi energy and print a summary of
-        the system: SC Fermi energy, carrier concentrations, and per-species
-        and per-charge-state defect concentrations.
-
-        Returns:
-            str: the formatted report (also printed to stdout)
-        """
-        scale = 1e24 / self.volume
-        e_fermi, _ = self.get_sc_fermi()
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-
-        # pool-aware per-charge-state concentrations (per unit cell)
-        cs_concs = self._global_defect_concs(e_fermi)
-
-        # group concentrations back to their parent DefectSpecies
-        sp_cs: dict[str, list[tuple[DefectChargeState, float]]] = {
-            ds.name: [] for ds in self.defect_species
-        }
-        for ds in self.defect_species:
-            for cs in ds.charge_states:
-                if cs in cs_concs:
-                    sp_cs[ds.name].append((cs, cs_concs[cs]))
-
-        lines = [
-            repr(self),
-            "",
-            f"SC Fermi energy:  {e_fermi:.6f} eV",
-            "",
-            "Carriers:",
-            f"  p0 (holes):     {p0 * scale:.3e} cm\u207b\u00b3",
-            f"  n0 (electrons): {n0 * scale:.3e} cm\u207b\u00b3",
-            "",
-            "Defect concentrations:",
-        ]
-        for ds in self.defect_species:
-            cs_list = sp_cs[ds.name]
-            sp_total = sum(c for _, c in cs_list) * scale
-            header = f"  {ds.name:<16s}  {sp_total:.3e} cm\u207b\u00b3"
-            if ds.fixed_concentration is not None:
-                header += "  [fixed]"
-            lines.append(header)
-            total_per_cell = sum(c for _, c in cs_list)
-            for cs, conc in sorted(cs_list, key=lambda x: x[0].charge):
-                pct = 100 * conc / total_per_cell if total_per_cell > 0 else 0.0
-                flag = "  [fixed]" if cs.fixed_concentration is not None else ""
-                lines.append(
-                    f"    q = {cs.charge:+2d}   {conc * scale:.3e} cm\u207b\u00b3"
-                    f"  ({pct:6.2f}%){flag}"
-                )
-
-        output = "\n".join(lines)
-        print(output)
-        return output
-
     def _resolve_species(self, name: str) -> DefectSpecies:
         """Resolve a species name to its entry in the roster."""
         return self.defect_species_by_name(name)
@@ -1106,7 +1051,7 @@ class DefectSystem:
                 p0_per_cell=float(p0),
                 n0_per_cell=float(n0),
                 charge_state_concentrations_per_cell=self._per_charge_state_concs(
-                    e_fermi, 1.0
+                    e_fermi
                 ),
             )
         return self._result
@@ -1166,10 +1111,10 @@ class DefectSystem:
         emits one warning naming every offending species and its occupancy,
         worst first. The warning fires at most once per ``DefectSystem``: the
         occupancy verdict is deterministic for an immutable snapshot, so a user
-        inspecting one solved system through several methods (``report``,
-        ``concentration_dict``, ``site_percentages``, a direct ``get_sc_fermi``)
-        sees a single warning, attributed to their own call rather than to an
-        internal solve method.
+        inspecting one solved system through several routes (a direct
+        ``get_sc_fermi``, or the deeper ``result``, ``site_percentages`` or
+        ``element_chemical_potential_shifts``) sees a single warning, attributed
+        to their own call rather than to an internal solve method.
 
         Args:
             e_fermi (float): the self-consistent Fermi energy from
@@ -1203,12 +1148,14 @@ class DefectSystem:
         points at the first frame outside this module.
 
         The warning is reached at different stack depths -- directly via
-        ``get_sc_fermi``, or one frame deeper via ``report``,
-        ``concentration_dict`` or ``site_percentages`` -- so no fixed
-        ``stacklevel`` blames the caller on every path. Counting frames up to
-        the first one outside ``py_sc_fermi.defect_system`` attributes the
-        warning to the user's call. ``warnings.warn`` is invoked one frame above
-        this helper, where the count begins.
+        ``get_sc_fermi``, or more deeply through the ``result`` property
+        (accessed as ``system.result``, or via ``site_percentages`` or
+        ``element_chemical_potential_shifts``, which read
+        ``result.fermi_energy``) -- so no fixed ``stacklevel`` blames the
+        caller on every path. Counting frames up to the first one outside
+        ``py_sc_fermi.defect_system`` attributes the warning to the user's
+        call. ``warnings.warn`` is invoked one frame above this helper, where
+        the count begins.
         """
         frame: Any = sys._getframe(1)
         level = 1
@@ -1292,108 +1239,23 @@ class DefectSystem:
             transition_levels.update({defect_species: [x, y]})
         return transition_levels
 
-    def _per_charge_state_concs(
-        self, e_fermi: float, scale: float
-    ) -> dict[str, dict[str, float]]:
-        """Per-species, per-charge-state concentrations at ``e_fermi``,
-        multiplied by ``scale``, keyed by species name then charge-state name.
+    def _per_charge_state_concs(self, e_fermi: float) -> dict[str, dict[str, float]]:
+        """Per-species, per-charge-state concentrations per unit cell at
+        ``e_fermi``, keyed by species name then charge-state name.
         """
         cs_concs = self._global_defect_concs(e_fermi)
         return {
-            ds.name: {
-                cs.name: float(cs_concs[cs] * scale)
-                for cs in ds.charge_states
-            }
+            ds.name: {cs.name: float(cs_concs[cs]) for cs in ds.charge_states}
             for ds in self.defect_species
         }
-
-    def concentration_dict(
-        self,
-        decomposed: bool = False,
-        per_volume: bool = True,
-    ) -> dict[str, Any]:
-        """Returns a dictionary of solved Fermi energy, carrier concentrations,
-        and defect concentrations for this ``DefectSystem``.
-
-        The returned dict always contains ``"Fermi Energy"``, ``"p0"``
-        (holes), and ``"n0"`` (electrons). Each defect species then
-        contributes one or more additional keys:
-
-        - ``decomposed=False`` (default): one key per species, mapping to
-          its total concentration (sum over all charge states).
-        - ``decomposed=True``: one key per species, mapping to a nested
-          ``dict[str, float]`` with one entry per ``DefectChargeState``,
-          keyed by ``cs.name`` (an explicit name, or the charge-derived
-          default such as ``"q+2"``).
-
-        Use ``charge_state_concentration_dict()`` when you want per-charge-state
-        concentrations without the ``"Fermi Energy"``/``"p0"``/``"n0"`` metadata.
-
-        Args:
-            decomposed (bool, optional): if True, return per-charge-state
-              concentrations in a nested dict keyed by charge-state name.
-              Defaults to False.
-            per_volume (bool, optional): if True, return concentrations in units
-              of cm^-3, else returns concentration per unit cell. Defaults to True.
-
-        Returns:
-            dict[str, Any]: dictionary with ``"Fermi Energy"``, ``"p0"``,
-            ``"n0"``, and one entry per defect species.
-        """
-        if per_volume:
-            scale = 1e24 / self.volume
-        else:
-            scale = 1
-
-        e_fermi = self.get_sc_fermi()[0]
-        p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-        run_stats = {
-            "Fermi Energy": float(e_fermi),
-            "p0": float(p0 * scale),
-            "n0": float(n0 * scale),
-        }
-        if not decomposed:
-            cs_concs = self._global_defect_concs(e_fermi)
-            sum_concs = {}
-            for ds in self.defect_species:
-                total = sum(cs_concs[cs] for cs in ds.charge_states)
-                sum_concs[ds.name] = float(total * scale)
-            return {**run_stats, **sum_concs}
-        else:
-            return {**run_stats, **self._per_charge_state_concs(e_fermi, scale)}
-
-    def charge_state_concentration_dict(
-        self,
-        per_volume: bool = True,
-    ) -> dict[str, dict[str, float]]:
-        """Return per-charge-state concentrations keyed by species name and
-        charge-state name.
-
-        Every ``DefectChargeState`` appears as a separate entry, keyed by
-        ``cs.name`` (an explicit name, or the charge-derived default such as
-        ``"q+2"``). ``concentration_dict(decomposed=True)`` returns the same
-        per-species entries with the ``"Fermi Energy"``/``"p0"``/``"n0"``
-        metadata alongside them.
-
-        Args:
-            per_volume (bool, optional): if True, return concentrations in units
-              of cm^-3, else returns concentration per unit cell. Defaults to True.
-
-        Returns:
-            dict[str, dict[str, float]]: mapping from species name to a dict of
-            ``{charge_state_name: concentration}``, one entry per charge state.
-        """
-        scale = 1e24 / self.volume if per_volume else 1
-        e_fermi = self.get_sc_fermi()[0]
-        return self._per_charge_state_concs(e_fermi, scale)
 
     def _site_occupancy_fractions(self, e_fermi: float) -> dict[str, float]:
         """Return each ``DefectSpecies``' site occupancy as a fraction of the
         sites available to it, at an already-solved Fermi level.
 
-        The concentrations are the same pool- and exclusion-aware values used
-        by ``report`` and ``concentration_dict`` (``_global_defect_concs`` at
-        ``e_fermi``). The denominator is the sites available to the species:
+        The concentrations are the same pool- and exclusion-aware values
+        underlying ``result`` (``_global_defect_concs`` at ``e_fermi``). The
+        denominator is the sites available to the species:
         the pool's total site count for a species in a ``site_pools`` entry,
         otherwise its own ``nsites``. This is the fractional form of
         ``site_percentages`` (which scales it by 100); both draw on a single
@@ -1427,8 +1289,8 @@ class DefectSystem:
         percentage of the sites available to it.
 
         The occupancies are drawn from the same solved, pool- and
-        exclusion-aware concentrations as ``report`` and ``concentration_dict``
-        (``_global_defect_concs`` at ``result.fermi_energy``). The denominator
+        exclusion-aware concentrations as ``result`` (``_global_defect_concs``
+        at ``result.fermi_energy``). The denominator
         is the sites available to the species -- its own ``nsites``, or, for a
         species in a ``site_pools`` entry, the pool's total site count (so a
         pool's members together occupy at most 100% of it). A species'
@@ -1467,7 +1329,7 @@ class DefectSystem:
 
         The shift is re-derived from the same deterministic element-pool solve
         used for the concentrations at this Fermi level, so it is consistent
-        with ``concentration_dict``.
+        with ``result``.
 
         Reads the cached ``result`` rather than re-solving.
 
