@@ -3,9 +3,7 @@ import math
 import os
 import unittest
 import warnings
-from contextlib import redirect_stdout
-from io import StringIO
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import numpy as np
 import yaml
@@ -124,6 +122,7 @@ class TestDefectSystem(unittest.TestCase):
             "defect_species": [],
             "site_pools": {},
             "element_pools": {},
+            "occupancy_warning_threshold": 0.5,
         }
         for name, value in new_values.items():
             with self.subTest(attribute=name):
@@ -139,16 +138,6 @@ class TestDefectSystem(unittest.TestCase):
         self.assertTrue(self.defect_system.rigid_shift)
         self.assertEqual(self.defect_system.site_pools, {})
         self.assertEqual(self.defect_system.element_pools, {})
-
-    def test_occupancy_warning_threshold_setter_validates(self):
-        with self.assertRaises(ValueError):
-            self.defect_system.occupancy_warning_threshold = 1.5
-
-    def test_occupancy_warning_threshold_is_settable(self):
-        self.defect_system.occupancy_warning_threshold = 0.5
-        self.assertEqual(self.defect_system.occupancy_warning_threshold, 0.5)
-        self.defect_system.occupancy_warning_threshold = None
-        self.assertIsNone(self.defect_system.occupancy_warning_threshold)
 
     def test_total_defect_charge_contributions(self):
         cs_pos = DefectChargeState(charge=1, fixed_concentration=2)
@@ -307,82 +296,7 @@ class TestDefectSystem(unittest.TestCase):
             {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
         )
 
-    def test_concentration_dict(self):
-        cs_v_O = DefectChargeState(charge=1, fixed_concentration=1)
-        cs_O_i = DefectChargeState(charge=-1, fixed_concentration=1)
-        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-        self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.defect_species[0].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[1].get_concentration = Mock(return_value=1)
-        self.defect_system.defect_species[0].charge_state_concentrations = Mock(
-            return_value=[(cs_v_O, 1)]
-        )
-        self.defect_system.defect_species[1].charge_state_concentrations = Mock(
-            return_value=[(cs_O_i, 1)]
-        )
-        self.defect_system.defect_species[0].charge_states = [cs_v_O]
-        self.defect_system.defect_species[1].charge_states = [cs_O_i]
-        self.defect_system.defect_species[0].fixed_concentration = None
-        self.defect_system.defect_species[1].fixed_concentration = None
-        self.defect_system.defect_species[0].nsites = 1
-        self.defect_system.defect_species[1].nsites = 1
-        self.defect_system.defect_species[0].name = "v_O"
-        self.defect_system.defect_species[1].name = "O_i"
-
-        expected_dict = {
-            "Fermi Energy": 1.0,
-            "p0": 1.0e22,
-            "n0": 1.0e22,
-            "v_O": 1.0e22,
-            "O_i": 1.0e22
-        }
-        result_dict = self.defect_system.concentration_dict()
-        self.assertEqual(result_dict, expected_dict)
-
-        # unnamed states -> charge-default names "q+1", "q-1"
-        expected_decomposed_dict = {
-            "Fermi Energy": 1.0,
-            "p0": 1.0e22,
-            "n0": 1.0e22,
-            "v_O": {"q+1": 1.0e22},
-            "O_i": {"q-1": 1.0e22}
-        }
-        result_decomposed_dict = self.defect_system.concentration_dict(decomposed=True)
-        self.assertEqual(result_decomposed_dict, expected_decomposed_dict)
-
-
-
-    def test_charge_state_concentration_dict(self):
-        cs_v_O = DefectChargeState(charge=1, fixed_concentration=1)
-        cs_O_i = DefectChargeState(charge=-1, fixed_concentration=1)
-        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-        self.defect_system.defect_species[0].charge_states = [cs_v_O]
-        self.defect_system.defect_species[1].charge_states = [cs_O_i]
-        self.defect_system.defect_species[0].fixed_concentration = None
-        self.defect_system.defect_species[1].fixed_concentration = None
-        self.defect_system.defect_species[0].nsites = 1
-        self.defect_system.defect_species[1].nsites = 1
-        self.defect_system.defect_species[0].name = "v_O"
-        self.defect_system.defect_species[1].name = "O_i"
-
-        result = self.defect_system.charge_state_concentration_dict()
-        self.assertEqual(list(result.keys()), ["v_O", "O_i"])
-        # unnamed state at charge +1 -> charge-default name "q+1"
-        self.assertAlmostEqual(result["v_O"]["q+1"], 1e22)
-
-    def test_charge_state_concentration_dict_named(self):
-        cs_v_O = DefectChargeState(charge=1, fixed_concentration=1, name="v_O_1+")
-        self.defect_system.get_sc_fermi = Mock(return_value=[1, {}])
-        self.defect_system.defect_species[0].charge_states = [cs_v_O]
-        self.defect_system.defect_species[0].fixed_concentration = None
-        self.defect_system.defect_species[0].nsites = 1
-        self.defect_system.defect_species[0].name = "v_O"
-
-        result = self.defect_system.charge_state_concentration_dict()
-        self.assertIn("v_O_1+", result["v_O"])
-        self.assertAlmostEqual(result["v_O"]["v_O_1+"], 1e22)
-
-    def test_charge_state_concentration_dict_metastable_named(self):
+    def test_named_metastable_states_are_reported_separately(self):
         # Named metastable states use their names as keys.
         cs_a = DefectChargeState(charge=0, fixed_concentration=0.6, name="V_O_tet")
         cs_b = DefectChargeState(charge=0, fixed_concentration=0.4, name="V_O_oct")
@@ -392,26 +306,11 @@ class TestDefectSystem(unittest.TestCase):
         dos.nelect = 10
         system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
         system.get_sc_fermi = Mock(return_value=[0.5, {}])
-
-        result = system.charge_state_concentration_dict(per_volume=False)
-        self.assertAlmostEqual(result["V_O"]["V_O_tet"], 0.6)
-        self.assertAlmostEqual(result["V_O"]["V_O_oct"], 0.4)
-
-    def test_decomposed_concentration_dict_does_not_sum_metastable_states(self):
-        cs_a = DefectChargeState(charge=0, fixed_concentration=0.6, name="V_O_a")
-        cs_b = DefectChargeState(charge=0, fixed_concentration=0.4, name="V_O_b")
-        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b])
-        dos = Mock(spec=DOS)
-        dos.bandgap = 1.0
-        dos.nelect = 10
-        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
-        system.get_sc_fermi = Mock(return_value=[0.5, {}])
         system.dos.carrier_concentrations = Mock(return_value=(1, 1))
 
-        result = system.concentration_dict(decomposed=True, per_volume=False)["V_O"]
-        self.assertEqual(set(result), {"V_O_a", "V_O_b"})
-        self.assertAlmostEqual(result["V_O_a"], 0.6)
-        self.assertAlmostEqual(result["V_O_b"], 0.4)
+        result = system.result.charge_state_concentrations_per_cell["V_O"]
+        self.assertAlmostEqual(result["V_O_tet"], 0.6)
+        self.assertAlmostEqual(result["V_O_oct"], 0.4)
 
     def test_metastable_boltzmann_concentration_ratio(self):
         # Two variable-concentration states sharing a charge: their solved
@@ -424,27 +323,12 @@ class TestDefectSystem(unittest.TestCase):
         dos.nelect = 10
         system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
         system.get_sc_fermi = Mock(return_value=[0.5, {}])
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
 
-        result = system.charge_state_concentration_dict(per_volume=False)["V_O"]
+        result = system.result.charge_state_concentrations_per_cell["V_O"]
         ratio = result["V_O_a"] / result["V_O_b"]
         expected = np.exp((1.2 - 1.0) / (kboltz * 300))
         self.assertAlmostEqual(ratio / expected, 1.0, places=8)
-
-    def test_decomposed_dict_agrees_with_charge_state_concentration_dict(self):
-        cs_a = DefectChargeState(charge=0, energy=1.0, name="V_O_a")
-        cs_b = DefectChargeState(charge=0, energy=1.2, name="V_O_b")
-        cs_c = DefectChargeState(charge=2, energy=0.5)
-        ds = DefectSpecies(name="V_O", nsites=1, charge_states=[cs_a, cs_b, cs_c])
-        dos = Mock(spec=DOS)
-        dos.bandgap = 1.0
-        dos.nelect = 10
-        system = DefectSystem(defect_species=[ds], volume=1.0, dos=dos, temperature=300)
-        system.get_sc_fermi = Mock(return_value=[0.5, {}])
-        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-
-        decomposed = system.concentration_dict(decomposed=True, per_volume=False)
-        per_state = system.charge_state_concentration_dict(per_volume=False)
-        self.assertEqual(decomposed["V_O"], per_state["V_O"])
 
     def test__repr__(self):
         dos = Mock(spec=DOS)
@@ -757,7 +641,8 @@ class TestDefectSystemSitePools(unittest.TestCase):
         # charge state directly fixed.
         by_pair_key = self._two_state_system({("X", "X_a"): 0.25})
         by_pair_key.get_sc_fermi = Mock(return_value=[0.5, {}])
-        via_pair_key = by_pair_key.charge_state_concentration_dict(per_volume=False)
+        by_pair_key.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        via_pair_key = by_pair_key.result.charge_state_concentrations_per_cell
 
         cs_a = DefectChargeState(charge=0, energy=1.0, name="X_a", fixed_concentration=0.25)
         cs_b = DefectChargeState(charge=1, energy=1.5, name="X_b")
@@ -772,8 +657,9 @@ class TestDefectSystemSitePools(unittest.TestCase):
             temperature=300,
         )
         by_direct_construction.get_sc_fermi = Mock(return_value=[0.5, {}])
-        via_direct_construction = by_direct_construction.charge_state_concentration_dict(
-            per_volume=False
+        by_direct_construction.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        via_direct_construction = (
+            by_direct_construction.result.charge_state_concentrations_per_cell
         )
 
         self.assertEqual(via_pair_key, via_direct_construction)
@@ -893,10 +779,10 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
         self.assertLessEqual(pct, 100.0)
         self.assertGreater(pct, 99.0)
 
-    def test_site_percentages_agree_with_concentration_dict(self):
+    def test_site_percentages_agree_with_result_concentrations(self):
         # The documented contract: site_percentages reports the same solved
-        # concentrations as concentration_dict, just as an occupancy fraction.
-        # Comparing the two public methods pins that contract without
+        # concentrations as result.concentrations_per_cell, just as an occupancy
+        # fraction. Comparing the two public read-outs pins that contract without
         # duplicating the internal formula.
         species = DefectSpecies(
             "R",
@@ -913,7 +799,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             temperature=300,
             occupancy_warning_threshold=None,
         )
-        per_cell = system.concentration_dict(decomposed=False, per_volume=False)
+        per_cell = system.result.concentrations_per_cell
         expected = per_cell["R"] / species.nsites * 100
         self.assertAlmostEqual(system.site_percentages()["R"], expected, places=8)
 
@@ -1004,7 +890,7 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             site_pools={"shared": SitePool(n_sites=4.0, species=[pooled])},
             occupancy_warning_threshold=None,
         )
-        per_cell = system.concentration_dict(decomposed=False, per_volume=False)
+        per_cell = system.result.concentrations_per_cell
         pct = system.site_percentages()
         # P's own nsites is 5, but as a pool member its denominator is the
         # pool size 4.0; U falls back to its own nsites 3.
@@ -1126,6 +1012,33 @@ class TestDefectSystemElementPools(unittest.TestCase):
         concs = system._global_defect_concs(1.0)
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
+
+    def test_element_chemical_potential_shifts_solves_once_via_cached_result(self):
+        # Unlike the no-pool case, this system actually reaches the rewired
+        # `self.result.fermi_energy` line inside
+        # element_chemical_potential_shifts, so it pins that a pooled system's
+        # shift read-out costs no additional solve beyond the one `result`
+        # already cached.
+        target = 5.0
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": ElementPool(target=target, members={self.species: 1.0})},
+            occupancy_warning_threshold=None,
+        )
+        calls = {"n": 0}
+        original = system.get_sc_fermi
+
+        def counting():
+            calls["n"] += 1
+            return original()
+
+        system.get_sc_fermi = counting
+        _ = system.result
+        _ = system.element_chemical_potential_shifts()
+        self.assertEqual(calls["n"], 1)
 
     def test_element_pool_negative_target_solves(self):
         # Negative net-content target with a negative stoichiometry (net removal):
@@ -1419,13 +1332,13 @@ class TestDefectSystemElementPools(unittest.TestCase):
         self.assertGreater(above.element_chemical_potential_shifts()["X"], 0.0)
         self.assertLess(below.element_chemical_potential_shifts()["X"], 0.0)
 
-    def test_shift_reproduces_concentration_dict_content(self):
+    def test_shift_reproduces_result_concentrations(self):
         # Convert the reported delta_mu back to the activity
         # lambda = exp(delta_mu / kT) and feed it through the site-exclusion
-        # formula: it must reproduce the species content concentration_dict
+        # formula: it must reproduce the species content the result read-out
         # reports at the same solved Fermi level. An independent check of the
         # eV magnitude and of the documented consistency with
-        # concentration_dict.
+        # result.concentrations_per_cell.
         nsites, energy, degeneracy, target, temperature = 10, 1.0, 1, 1e-3, 300
         sp = DefectSpecies(
             "S",
@@ -1447,9 +1360,9 @@ class TestDefectSystemElementPools(unittest.TestCase):
         activity = w * math.exp(delta_mu / (kboltz * temperature))
         content_from_shift = nsites * activity / (1 + activity)
 
-        content_from_dict = system.concentration_dict(per_volume=False)["S"]
-        self.assertAlmostEqual(content_from_shift, content_from_dict, places=10)
-        self.assertAlmostEqual(content_from_dict, target, places=6)
+        content_from_result = system.result.concentrations_per_cell["S"]
+        self.assertAlmostEqual(content_from_shift, content_from_result, places=10)
+        self.assertAlmostEqual(content_from_result, target, places=6)
 
     def test_no_element_pools_returns_empty_dict(self):
         system = DefectSystem(
@@ -2328,7 +2241,8 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
             formation_energy_corrections=corrections_for(cs_a, cs_b),
         )
         system.get_sc_fermi = Mock(return_value=[0.5, {}])
-        return system.charge_state_concentration_dict(per_volume=False)["X"]
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        return system.result.charge_state_concentrations_per_cell["X"]
 
     def test_formation_energy_corrections_accept_name_pairs(self):
         by_object = self._corrected_x_concentrations(lambda cs_a, cs_b: {cs_a: 0.2})
@@ -2527,6 +2441,13 @@ class TestDefectSystemFactory(unittest.TestCase):
         system = factory.at(300, convergence_tolerance=1e-12)
         self.assertEqual(system.convergence_tolerance, 1e-12)
 
+    def test_at_forwards_label_from_factory(self):
+        factory = DefectSystemFactory(
+            defect_species=[self.species], dos=self.dos, volume=100, label="O-rich"
+        )
+        system = factory.at(300)
+        self.assertEqual(system.label, "O-rich")
+
     def test_at_with_formation_energy_correction_fns_per_charge_state(self):
         cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
         cs_b = DefectChargeState(charge=1, energy=0.9, degeneracy=1, name="X_i_1+_b")
@@ -2559,7 +2480,8 @@ class TestDefectSystemFactory(unittest.TestCase):
         )
         system = factory.at(300)
         system.get_sc_fermi = Mock(return_value=[0.5, {}])
-        return system.charge_state_concentration_dict(per_volume=False)["X"]
+        system.dos.carrier_concentrations = Mock(return_value=(1, 1))
+        return system.result.charge_state_concentrations_per_cell["X"]
 
     def test_factory_correction_fns_accept_name_pairs(self):
         by_object = self._factory_corrected_x_concentrations(
@@ -2611,7 +2533,7 @@ class TestDefectSystemFactory(unittest.TestCase):
         self.assertAlmostEqual(factory.dos.bandgap, 2.0)
 
 
-class TestDefectSystemReport(unittest.TestCase):
+class TestDefectSystemResultString(unittest.TestCase):
     def setUp(self):
         self.dos = semiconducting_dos(bandgap=2.0, nelect=10)
         self.species = DefectSpecies(
@@ -2623,36 +2545,18 @@ class TestDefectSystemReport(unittest.TestCase):
             ],
         )
 
-    def test_report_contains_expected_sections(self):
+    def test_result_string_contains_expected_sections(self):
         system = DefectSystem(
             defect_species=[self.species], dos=self.dos, volume=100, temperature=300
         )
-        with patch("sys.stdout", new=StringIO()):
-            output = system.report()
+        output = str(system.result)
         for snippet in (
-            "DefectSystem",
             "SC Fermi energy:",
             "Carriers:",
             "Defect concentrations:",
             "V_O",
         ):
             self.assertIn(snippet, output)
-
-    def test_report_shows_single_corrected_bandgap_value(self):
-        system = DefectSystem(
-            defect_species=[self.species],
-            dos=self.dos,
-            volume=100,
-            temperature=300,
-            vbm_shift=0.05,
-            cbm_shift=-0.02,
-            occupancy_warning_threshold=None,
-        )
-        with patch("sys.stdout", new=StringIO()):
-            output = system.report()
-        self.assertIn("1.93", output)
-        self.assertNotIn("→", output)
-        self.assertAlmostEqual(system.dos.bandgap, 1.93)  # DOS scissored once
 
 
 class TestDefectSystemPoolSerialisation(unittest.TestCase):
@@ -2925,6 +2829,31 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
         )
         yaml.safe_dump(system.as_dict())
 
+    def test_fully_numpy_system_result_as_dict_is_yaml_safe(self):
+        # The same boundary guard for the solved-state read-out. The cm^-3 views
+        # scale per-cell values by 1e24/volume, so a numpy volume or temperature
+        # leaks numpy scalars into result.as_dict() unless the result casts them.
+        species = DefectSpecies(
+            "Z",
+            nsites=np.int64(4),
+            charge_states=[
+                DefectChargeState(
+                    charge=np.int64(0),
+                    energy=np.float64(0.5),
+                    degeneracy=np.float64(1),
+                ),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species],
+            dos=self.dos,
+            volume=np.float64(100.0),
+            temperature=np.float64(300.0),
+            convergence_tolerance=np.float64(1e-8),
+            occupancy_warning_threshold=None,
+        )
+        yaml.safe_dump(system.result.as_dict())
+
 
 class TestDefectSystemFixedConcentrations(unittest.TestCase):
     def setUp(self):
@@ -2952,7 +2881,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
             fixed_concentrations={"X": 0.01},
         )
         self.assertAlmostEqual(
-            system.concentration_dict(per_volume=False)["X"], 0.01
+            system.result.concentrations_per_cell["X"], 0.01
         )
         self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
 
@@ -2962,7 +2891,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         )
         system = factory.at(300, fixed_concentrations={"X": 0.01})
         self.assertAlmostEqual(
-            system.concentration_dict(per_volume=False)["X"], 0.01
+            system.result.concentrations_per_cell["X"], 0.01
         )
         self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
 
@@ -2998,18 +2927,23 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         )
         T_high, T_low = 1000, 300
 
-        high = factory.at(T_high).concentration_dict(per_volume=False)
+        high = factory.at(T_high).result
+        frozen_high = high.concentrations_per_cell["X_frozen"]
         low = factory.at(
-            T_low, fixed_concentrations={"X_frozen": high["X_frozen"]}
-        ).concentration_dict(per_volume=False)
+            T_low, fixed_concentrations={"X_frozen": frozen_high}
+        ).result
 
         # the frozen species keeps its high-temperature total
         self.assertAlmostEqual(
-            low["X_frozen"], high["X_frozen"], delta=abs(high["X_frozen"]) * 1e-9
+            low.concentrations_per_cell["X_frozen"],
+            frozen_high,
+            delta=abs(frozen_high) * 1e-9,
         )
         # a non-frozen species and the carriers re-equilibrate
-        self.assertNotAlmostEqual(low["D"], high["D"])
-        self.assertNotAlmostEqual(low["n0"], high["n0"])
+        self.assertNotAlmostEqual(
+            low.concentrations_per_cell["D"], high.concentrations_per_cell["D"]
+        )
+        self.assertNotAlmostEqual(low.n0_per_cell, high.n0_per_cell)
 
     def test_fix_on_one_call_does_not_leak_to_another_or_to_the_factory(self):
         species = self._donor("X")
@@ -3023,10 +2957,10 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         # the un-fixed call is unaffected by the earlier fixed call
         self.assertIsNone(free.defect_species_by_name("X").fixed_concentration)
         self.assertNotAlmostEqual(
-            free.concentration_dict(per_volume=False)["X"], 0.01
+            free.result.concentrations_per_cell["X"], 0.01
         )
         self.assertAlmostEqual(
-            fixed.concentration_dict(per_volume=False)["X"], 0.01
+            fixed.result.concentrations_per_cell["X"], 0.01
         )
         # the factory's own species object is never mutated
         self.assertIsNone(species.fixed_concentration)
@@ -3057,7 +2991,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         self.assertAlmostEqual(system.defect_species[0].charge_states[1].energy, 0.85)
         # and the fix (resolved by name) is in effect
         self.assertAlmostEqual(
-            system.concentration_dict(per_volume=False)["X_i"], 0.02
+            system.result.concentrations_per_cell["X_i"], 0.02
         )
 
     def test_unknown_species_name_raises_value_error_naming_it(self):
@@ -3127,7 +3061,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
         )
         self.assertEqual(system.defect_species_by_name("X").fixed_concentration, 0.01)
         self.assertAlmostEqual(
-            system.concentration_dict(per_volume=False)["X"], 0.01
+            system.result.concentrations_per_cell["X"], 0.01
         )
 
     def test_fixes_multiple_species_in_one_call(self):
@@ -3139,7 +3073,7 @@ class TestDefectSystemFixedConcentrations(unittest.TestCase):
             fixed_concentrations={"X": 0.01, "Y": 0.02},
             occupancy_warning_threshold=None,
         )
-        cd = system.concentration_dict(per_volume=False)
+        cd = system.result.concentrations_per_cell
         self.assertAlmostEqual(cd["X"], 0.01)
         self.assertAlmostEqual(cd["Y"], 0.02)
 
@@ -3390,49 +3324,157 @@ class TestDiluteLimitWarning(unittest.TestCase):
         self.assertIn(f"{pool_pct:.3g}%", str(dilute[0].message))
 
     def test_warns_at_most_once_per_system_under_default_filter(self):
-        # Inspecting one solved system several ways reaches the chokepoint at
-        # different stack depths; under the realistic default filter (not
-        # "always") that would defeat location-based de-duplication, so the
-        # once-per-instance guard is what holds this to a single warning.
+        # Two paths re-reach the high-occupancy chokepoint from different source
+        # locations: the result solve and a direct get_sc_fermi call. Under the
+        # realistic "default" filter (not "always") those distinct locations would
+        # escape location-based de-duplication, so the once-per-instance guard is
+        # what holds this to a single warning.
         system = self._make_system([self._saturating_species("S")])
-        with warnings.catch_warnings(record=True) as records, redirect_stdout(
-            StringIO()
-        ):
+        with warnings.catch_warnings(record=True) as records:
             warnings.simplefilter("default")
-            system.report()
-            system.site_percentages()
-            system.concentration_dict()
-            system.get_sc_fermi()
+            _ = system.result  # solves; warns once, arms the once-guard
+            system.get_sc_fermi()  # re-reaches the chokepoint from a different line
         self.assertEqual(len(self._dilute_warnings(records)), 1)
 
-    def test_changing_threshold_re_arms_warning_for_next_solve(self):
-        # The once-per-instance guard silences repeat warnings for a solved
-        # system. Changing the threshold re-arms it so the next solve warns
-        # again; re-setting the same value leaves it silent.
+    def test_escalated_dilute_warning_raises_on_every_read(self):
+        # Under an "error" filter the warn call raises, so the latch must arm
+        # only after a delivered warning. Arming it first would swallow the
+        # escalation on a retry, silently handing back the non-physical
+        # dilute-limit numbers, so both solves must raise.
         system = self._make_system([self._saturating_species("S")])
-
-        with warnings.catch_warnings(record=True) as first:
-            warnings.simplefilter("always")
-            system.get_sc_fermi()
-        self.assertEqual(len(self._dilute_warnings(first)), 1)
-
-        system.occupancy_warning_threshold = 0.5
-        with warnings.catch_warnings(record=True) as after_change:
-            warnings.simplefilter("always")
-            system.get_sc_fermi()
-        self.assertEqual(len(self._dilute_warnings(after_change)), 1)
-
-        system.occupancy_warning_threshold = 0.5
-        with warnings.catch_warnings(record=True) as after_same:
-            warnings.simplefilter("always")
-            system.get_sc_fermi()
-        self.assertEqual(self._dilute_warnings(after_same), [])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DiluteLimitWarning)
+            with self.assertRaises(DiluteLimitWarning):
+                system.get_sc_fermi()
+            with self.assertRaises(DiluteLimitWarning):
+                system.get_sc_fermi()
 
     def test_threshold_absent_from_as_dict(self):
         system = self._make_system(
             [self._saturating_species("S")], occupancy_warning_threshold=0.5
         )
         self.assertNotIn("occupancy_warning_threshold", system.as_dict())
+
+    def test_label_defaults_to_none_and_is_readable(self):
+        system = self._make_system([self._saturating_species("S")])
+        self.assertIsNone(system.label)
+
+    def test_label_is_stored(self):
+        system = self._make_system(
+            [self._saturating_species("S")], label="O-rich"
+        )
+        self.assertEqual(system.label, "O-rich")
+
+    def test_label_round_trips_through_as_dict(self):
+        system = self._make_system(
+            [self._saturating_species("S")], label="O-rich"
+        )
+        self.assertEqual(system.as_dict()["label"], "O-rich")
+        reloaded = DefectSystem.from_dict(system.as_dict())
+        self.assertEqual(reloaded.label, "O-rich")
+
+    def test_label_absent_from_as_dict_when_unset(self):
+        system = self._make_system([self._saturating_species("S")])
+        self.assertNotIn("label", system.as_dict())
+
+    def test_result_matches_get_sc_fermi_and_carriers(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        e_fermi, _ = system.get_sc_fermi()
+        p0, n0 = system.dos.carrier_concentrations(e_fermi, system.temperature)
+        result = system.result
+        self.assertEqual(result.fermi_energy, e_fermi)
+        self.assertEqual(result.temperature, system.temperature)
+        self.assertEqual(result.volume, system.volume)
+        self.assertEqual(result.p0_per_cell, float(p0))
+        self.assertEqual(result.n0_per_cell, float(n0))
+
+    def test_result_is_cached(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        self.assertIs(system.result, system.result)
+
+    def test_result_concentrations_match_global_defect_concs(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        e_fermi = system.result.fermi_energy
+        raw = system._global_defect_concs(e_fermi)  # dict[DefectChargeState, float]
+        per_cell = system.result.charge_state_concentrations_per_cell
+        for ds in system.defect_species:
+            for cs in ds.charge_states:
+                self.assertEqual(per_cell[ds.name][cs.name], float(raw[cs]))
+
+    def test_result_warning_is_attributed_to_caller(self):
+        # The DiluteLimitWarning must blame the user's frame, not functools or
+        # the library. This pins the manual-cache property (a cached_property
+        # would insert a functools frame and misattribute the warning).
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            _ = system.result
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        # attributed to this test file, not functools.py or defect_system.py
+        self.assertEqual(
+            os.path.basename(dilute[0].filename), os.path.basename(__file__)
+        )
+
+    def test_site_percentages_warning_is_attributed_to_caller(self):
+        # site_percentages solves through the result property -- a deeper first
+        # access than a direct result read -- so this pins the depth-adaptive
+        # stacklevel that keeps the warning blamed on the caller's frame.
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            _ = system.site_percentages()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
+        self.assertEqual(
+            os.path.basename(dilute[0].filename), os.path.basename(__file__)
+        )
+
+    def test_result_per_cell_concentrations_are_read_only(self):
+        # result caches one object, so a mutable nested dict would let a caller
+        # corrupt the cache in place. Both nesting levels are read-only proxies,
+        # so inner and outer assignment both raise.
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        per_cell = system.result.charge_state_concentrations_per_cell
+        sp = next(iter(per_cell))
+        cs = next(iter(per_cell[sp]))
+        with self.assertRaises(TypeError):
+            per_cell[sp][cs] = 999.0
+        with self.assertRaises(TypeError):
+            per_cell[sp] = {}
+
+    def test_result_carries_the_system_label(self):
+        system = self._make_system(
+            [self._saturating_species("S")],
+            occupancy_warning_threshold=None,
+            label="O-rich",
+        )
+        self.assertEqual(system.result.label, "O-rich")
+
+    def test_read_outs_solve_once_via_cached_result(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        calls = {"n": 0}
+        original = system.get_sc_fermi
+
+        def counting():
+            calls["n"] += 1
+            return original()
+
+        system.get_sc_fermi = counting
+        _ = system.result
+        _ = system.site_percentages()
+        _ = system.element_chemical_potential_shifts()
+        self.assertEqual(calls["n"], 1)
 
 
 if __name__ == "__main__":

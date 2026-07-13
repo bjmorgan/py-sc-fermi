@@ -17,9 +17,9 @@ class DiluteLimitWarning(PyScFermiWarning):
     so the results may be non-physical.
 
     Emitted by :meth:`DefectSystem.get_sc_fermi` -- and therefore by every
-    results path that solves (``report``, ``concentration_dict``,
-    ``site_percentages``) -- when any species' occupancy exceeds
-    ``DefectSystem.occupancy_warning_threshold``, at most once per
+    results path that solves (``result``, ``site_percentages``,
+    ``element_chemical_potential_shifts``) -- when any species' occupancy
+    exceeds ``DefectSystem.occupancy_warning_threshold``, at most once per
     ``DefectSystem`` instance. A dedicated ``PyScFermiWarning`` subclass, so it
     can be filtered on its own or together with other py-sc-fermi warnings.
     """

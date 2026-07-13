@@ -23,41 +23,53 @@
   `convergence_tolerance` to control solver precision instead.
 - `DefectSpecies` names within a `DefectSystem` must now be unique;
   constructing a `DefectSystem` with two species sharing a name raises a
-  `ValueError`. Names key `concentration_dict` and `defect_species_by_name`, so
-  duplicates were already ambiguous -- this now fails loudly at construction
-  rather than silently.
-- `concentration_dict(decomposed=True)` now keys the inner dict by charge-state
-  name rather than charge integer, with one entry per `DefectChargeState`.
-  `DefectChargeState.name` defaults to the charge string (`"q+2"`, `"q-1"`,
-  `"q+0"`); metastable states sharing a formal charge must be given explicit
-  names, and duplicate names within a species raise `ValueError` at
-  construction. Previously, states sharing a formal charge were summed into a
-  single entry. Code that indexed the old dict by charge integer
-  (e.g. `result["V_O"][2]`) must be updated to use the name
-  (e.g. `result["V_O"]["q+2"]`, or `result["V_O"]["V_O_2+"]` for a named state).
+  `ValueError`. Names key `defect_species_by_name` and the per-species entries
+  in `DefectSystem.result`, so duplicates were already ambiguous -- this now
+  fails loudly at construction rather than silently.
+- `DefectSystem.result.charge_state_concentrations` keys the inner dict by
+  charge-state name rather than charge integer, with one entry per
+  `DefectChargeState`. `DefectChargeState.name` defaults to the charge string
+  (`"q+2"`, `"q-1"`, `"q+0"`); metastable states sharing a formal charge must
+  be given explicit names, and duplicate names within a species raise
+  `ValueError` at construction. Previously the per-charge-state read-out was
+  keyed by charge integer and summed states sharing a formal charge into a
+  single entry. Code that indexed the old dict by charge integer (e.g.
+  `d["V_O"][2]`) must use the name (e.g.
+  `system.result.charge_state_concentrations["V_O"]["q+2"]`, or
+  `["V_O"]["V_O_2+"]` for a named state).
 - `DefectSystem`'s physical public attributes (`volume`, `dos`, `temperature`,
   `convergence_tolerance`, `vbm_shift`, `cbm_shift`, `rigid_shift`,
   `defect_species`, `site_pools`, `element_pools`) are now read-only; rebinding
   any of them after construction raises `AttributeError`, enforcing the
   documented immutable-snapshot contract. Construct a new `DefectSystem` (or use
   `DefectSystemFactory.at(...)`) for a different temperature, DOS, or correction
-  set. `occupancy_warning_threshold`, a non-physical reporting preference, stays
-  settable and validates on assignment.
+  set. `occupancy_warning_threshold`, a non-physical reporting preference, is
+  likewise set only at construction, validated there and read-only thereafter.
 - `DefectChargeState.fix_concentration` and `DefectSpecies.fix_concentration`
   are no longer public. A concentration is fixed only at construction: via the
   `fixed_concentration` argument of `DefectChargeState`/`DefectSpecies`, or via
   `DefectSystem(fixed_concentrations=...)` / `DefectSystemFactory.at(...,
   fixed_concentrations=...)`. This removes the last route that could mutate a
   constructed `DefectSystem` in place.
+- `DefectSystem.report()`, `concentration_dict()` and
+  `charge_state_concentration_dict()` have been removed. A solved system is now
+  read through a single cached `DefectSystem.result` (a `DefectSystemResult`):
+  `result.concentrations` and `result.charge_state_concentrations` give the
+  per-species and per-charge-state concentrations in cm^-3, with
+  `concentrations_per_cell` / `charge_state_concentrations_per_cell`
+  counterparts; `result.fermi_energy`, `result.p0` and `result.n0` are the
+  solved scalars; `print(result)` gives the human-readable report and
+  `result.as_dict()` a JSON-safe record. The `decomposed` and `per_volume`
+  flags are gone, and `as_dict` uses snake_case keys (`fermi_energy`, not
+  `"Fermi Energy"`).
 
 ### Improvements
 
 - `DefectChargeState` has a `name` attribute, used as the key in
-  `concentration_dict(decomposed=True)` and
-  `charge_state_concentration_dict()`. It defaults to the charge string
-  (`"q+2"`); explicit names are required for metastable states sharing a
-  formal charge, and must be unique within a species. Explicit names appear
-  in `__repr__` and round-trip through `as_dict` / `from_dict`.
+  `DefectSystem.result.charge_state_concentrations`. It defaults to the charge
+  string (`"q+2"`); explicit names are required for metastable states sharing a
+  formal charge, and must be unique within a species. Explicit names appear in
+  `__repr__` and round-trip through `as_dict` / `from_dict`.
 - Added `DefectSpecies.charge_state_by_name`, mirroring
   `DefectSystem.defect_species_by_name`; raises `ValueError` listing the
   available names when no charge state matches.
@@ -72,11 +84,6 @@
   single charge state at construction, alongside species-name keys for
   species totals. Charge-state-level quenching no longer requires mutating
   a constructed system.
-- Added `DefectSystem.charge_state_concentration_dict(per_volume=True)`, which
-  returns `{species_name: {charge_state_name: conc}}` with one entry per
-  `DefectChargeState`. It returns the same per-species entries as
-  `concentration_dict(decomposed=True)`, without the
-  `"Fermi Energy"`/`"p0"`/`"n0"` metadata.
 - `DefectSpecies.get_formation_energies`, `get_transition_level_and_energy`,
   and `tl_profile` now correctly support multiple `DefectChargeState`s sharing
   a formal charge (metastable defects, see above): each charge is represented
@@ -141,8 +148,8 @@
   by `cbm_shift - vbm_shift` (the VBM is pinned at E=0), which changes the
   carrier concentrations from the Fermi-Dirac integration and the
   self-consistent Fermi level, as well as the effective band gap shown by
-  `__repr__`/`report`. The new `DOS.scissored(delta_gap)` performs this shift
-  and returns a new `DOS`. `formation_energy_corrections` is a
+  `__repr__`. The new `DOS.scissored(delta_gap)` performs this shift and
+  returns a new `DOS`. `formation_energy_corrections` is a
   `dict` of per-charge-state formation-energy corrections, keyed by the
   `DefectChargeState` object or a `(species_name, charge_state_name)` pair,
   so that metastable states sharing a formal charge can be corrected
@@ -155,16 +162,15 @@
   is an immutable, fixed-temperature snapshot:
   corrections are applied once at construction to copies of `defect_species`
   (and to a private scissored DOS), the caller's objects are never modified,
-  and `report()`/`as_dict()`/`from_dict()` always agree.
+  and `as_dict()`/`from_dict()` and the solved `result` always agree.
 - Added `DefectSystemFactory`, for building `DefectSystem` snapshots at a
   series of temperatures from temperature-dependent `vbm_shift_fn`,
   `cbm_shift_fn` and `formation_energy_correction_fns` (each a function of
   temperature; the latter a `dict` of temperature-dependent formation-energy
   corrections keyed per charge state, e.g. vibrational free-energy
-  contributions). `factory.at(T,
-  **overrides)` evaluates these functions at `T` and returns an independent
-  `DefectSystem`, e.g. `{T: factory.at(T).concentration_dict() for T in
-  temperatures}`.
+  contributions). `factory.at(T, **overrides)` evaluates these functions at `T`
+  and returns an independent `DefectSystem`, e.g. `{T:
+  factory.at(T).result.concentrations for T in temperatures}`.
 - `DefectSystem` gained a `fixed_concentrations` argument: a mapping of species
   name -- or `(species_name, charge_state_name)` pair, fixing that single
   charge state -- to a fixed concentration per unit cell, applied by
@@ -195,20 +201,30 @@
   defined. A target above an element's unconstrained content gives a positive
   shift, below it a negative shift, and equal to it a near-zero shift. The
   shift is re-derived from the same element-pool solve used for the
-  concentrations, so it is consistent with `concentration_dict`; an element
-  driven to the complete-exclusion limit is reported as `-inf`. Intended for
-  external stability-region checks (py-sc-fermi has no competing-phase data).
+  concentrations, so it is consistent with the concentrations in `result`; an
+  element driven to the complete-exclusion limit is reported as `-inf`.
+  Intended for external stability-region checks (py-sc-fermi has no
+  competing-phase data).
+- Added `DefectSystem.result`, a cached `DefectSystemResult` holding the solved
+  self-consistent Fermi level, carrier concentrations, and per-species and
+  per-charge-state defect concentrations. Concentrations are exposed in cm^-3
+  (the default) and per unit cell, with per-species totals derived from the
+  per-charge-state breakdown so the two cannot disagree; `str(result)` is the
+  human-readable report and `result.as_dict()` a JSON-safe record. The system
+  solves once on first access and caches the result (it is an immutable
+  snapshot). `DefectSystem` and `DefectSystemFactory` also gained an optional
+  `label`, a human-readable tag copied into `result` and serialised when set.
 
 ### Bug Fixes
 
 - `DefectSystem.site_percentages` is now computed from the solved,
   site-exclusion- and pool-aware concentrations (`_global_defect_concs` at
   the self-consistent Fermi level) rather than the unbounded dilute
-  Boltzmann expression. A near-saturation or pooled species previously
-  reported occupancies far above 100%, contradicting the concentrations from
-  `report` and `concentration_dict`; each species' occupancy is now divided
-  by the sites available to it (its own `nsites`, or the shared `site_pools`
-  size for a pooled species), so every reported occupancy is at most 100%.
+  Boltzmann expression. A near-saturation or pooled species previously reported
+  occupancies far above 100%, contradicting the concentrations in `result`;
+  each species' occupancy is now divided by the sites available to it (its own
+  `nsites`, or the shared `site_pools` size for a pooled species), so every
+  reported occupancy is at most 100%.
 
 ## V2.2.2
 
