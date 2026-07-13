@@ -1122,12 +1122,12 @@ class DefectSystem:
         )
         if not offenders:
             return
-        self._occupancy_warning_emitted = True
         warnings.warn(
             self._high_occupancy_message(offenders),
             DiluteLimitWarning,
             stacklevel=self._warning_stacklevel(),
         )
+        self._occupancy_warning_emitted = True
 
     @staticmethod
     def _warning_stacklevel() -> int:

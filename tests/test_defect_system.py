@@ -3336,6 +3336,19 @@ class TestDiluteLimitWarning(unittest.TestCase):
             system.get_sc_fermi()  # re-reaches the chokepoint from a different line
         self.assertEqual(len(self._dilute_warnings(records)), 1)
 
+    def test_escalated_dilute_warning_raises_on_every_read(self):
+        # Under an "error" filter the warn call raises, so the latch must arm
+        # only after a delivered warning. Arming it first would swallow the
+        # escalation on a retry, silently handing back the non-physical
+        # dilute-limit numbers, so both solves must raise.
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DiluteLimitWarning)
+            with self.assertRaises(DiluteLimitWarning):
+                system.get_sc_fermi()
+            with self.assertRaises(DiluteLimitWarning):
+                system.get_sc_fermi()
+
     def test_threshold_absent_from_as_dict(self):
         system = self._make_system(
             [self._saturating_species("S")], occupancy_warning_threshold=0.5
@@ -3405,6 +3418,20 @@ class TestDiluteLimitWarning(unittest.TestCase):
         dilute = self._dilute_warnings(records)
         self.assertEqual(len(dilute), 1)
         # attributed to this test file, not functools.py or defect_system.py
+        self.assertEqual(
+            os.path.basename(dilute[0].filename), os.path.basename(__file__)
+        )
+
+    def test_site_percentages_warning_is_attributed_to_caller(self):
+        # site_percentages solves through the result property -- a deeper first
+        # access than a direct result read -- so this pins the depth-adaptive
+        # stacklevel that keeps the warning blamed on the caller's frame.
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            _ = system.site_percentages()
+        dilute = self._dilute_warnings(records)
+        self.assertEqual(len(dilute), 1)
         self.assertEqual(
             os.path.basename(dilute[0].filename), os.path.basename(__file__)
         )
