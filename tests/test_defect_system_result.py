@@ -118,5 +118,42 @@ class DefectSystemResultSerialisationTestCase(unittest.TestCase):
         self.assertNotIn("label", text)
 
 
+class DefectSystemResultStrTestCase(unittest.TestCase):
+    def _result(self):
+        return DefectSystemResult(
+            temperature=300.0,
+            fermi_energy=0.5,
+            volume=100.0,
+            label=None,
+            p0_per_cell=2.0,
+            n0_per_cell=4.0,
+            charge_state_concentrations_per_cell={"V_O": {"q+2": 3.0, "q0": 1.0}},
+        )
+
+    def test_str_reports_solution_only(self):
+        text = str(self._result())
+        # solved-state content is present
+        self.assertIn("SC Fermi energy:  0.500000 eV", text)
+        self.assertIn("Carriers:", text)
+        self.assertIn("V_O", text)
+        self.assertIn("q+2", text)
+        # percentages of the species total (3 of 4 -> 75%, 1 of 4 -> 25%)
+        self.assertIn("75.00%", text)
+        self.assertIn("25.00%", text)
+        # no system-description block leaks in
+        self.assertNotIn("bandgap", text)
+        self.assertNotIn("nsites", text)
+        self.assertNotIn("[fixed]", text)
+
+    def test_str_zero_species_total_shows_zero_percent(self):
+        r = DefectSystemResult(
+            temperature=300.0, fermi_energy=0.5, volume=100.0, label=None,
+            p0_per_cell=2.0, n0_per_cell=4.0,
+            charge_state_concentrations_per_cell={"X": {"q0": 0.0}},
+        )
+        text = str(r)
+        self.assertIn("0.00%", text)
+
+
 if __name__ == "__main__":
     unittest.main()

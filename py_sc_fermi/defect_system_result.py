@@ -114,3 +114,29 @@ class DefectSystemResult:
             f"DefectSystemResult(fermi_energy={self.fermi_energy:.4f} eV, "
             f"temperature={self.temperature:g} K{label})"
         )
+
+    def __str__(self) -> str:
+        """Return a human-readable report of the solved state: Fermi energy,
+        carrier concentrations, and per-species and per-charge-state defect
+        concentrations (cm^-3) with each charge state's share of its species
+        total. Describes the solution only; ``repr()`` of the originating
+        ``DefectSystem`` describes the system.
+        """
+        cm3 = "cm\u207b\u00b3"  # cm to the minus three, written with Unicode escapes
+        lines = [
+            f"SC Fermi energy:  {self.fermi_energy:.6f} eV",
+            "",
+            "Carriers:",
+            f"  p0 (holes):     {self.p0:.3e} {cm3}",
+            f"  n0 (electrons): {self.n0:.3e} {cm3}",
+            "",
+            "Defect concentrations:",
+        ]
+        charge_state_concs = self.charge_state_concentrations
+        for species, states in charge_state_concs.items():
+            species_total = sum(states.values())
+            lines.append(f"  {species:<16s}  {species_total:.3e} {cm3}")
+            for name, conc in states.items():
+                pct = 100 * conc / species_total if species_total > 0 else 0.0
+                lines.append(f"    {name:<6s}   {conc:.3e} {cm3}  ({pct:6.2f}%)")
+        return "\n".join(lines)
