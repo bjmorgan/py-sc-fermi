@@ -1428,18 +1428,20 @@ class DefectSystem:
 
         The occupancies are drawn from the same solved, pool- and
         exclusion-aware concentrations as ``report`` and ``concentration_dict``
-        (``_global_defect_concs`` at the self-consistent Fermi level). The
-        denominator is the sites available to the species -- its own
-        ``nsites``, or, for a species in a ``site_pools`` entry, the pool's
-        total site count (so a pool's members together occupy at most 100% of
-        it). A species' concentration cannot exceed its available sites, so
-        every occupancy is at most 100%.
+        (``_global_defect_concs`` at ``result.fermi_energy``). The denominator
+        is the sites available to the species -- its own ``nsites``, or, for a
+        species in a ``site_pools`` entry, the pool's total site count (so a
+        pool's members together occupy at most 100% of it). A species'
+        concentration cannot exceed its available sites, so every occupancy is
+        at most 100%.
+
+        Reads the cached ``result`` rather than re-solving.
 
         Returns:
             dict[str, float]: mapping of ``DefectSpecies`` name to its site
             occupancy as a percentage.
         """
-        e_fermi = self.get_sc_fermi()[0]
+        e_fermi = self.result.fermi_energy
         return {
             name: fraction * 100
             for name, fraction in self._site_occupancy_fractions(e_fermi).items()
@@ -1449,8 +1451,8 @@ class DefectSystem:
         """Solved chemical-potential shifts for each constrained element.
 
         Returns the chemical-potential shift ``delta_mu`` (in eV) of every
-        element constrained by ``element_pools``, evaluated at the
-        self-consistent Fermi level. ``delta_mu`` is measured relative to the
+        element constrained by ``element_pools``, evaluated at
+        ``result.fermi_energy``. ``delta_mu`` is measured relative to the
         chemical-potential reference at which the formation energies were
         defined: a target above the element's unconstrained content gives
         ``delta_mu > 0``, a target below it ``delta_mu < 0``, and a target
@@ -1467,6 +1469,8 @@ class DefectSystem:
         used for the concentrations at this Fermi level, so it is consistent
         with ``concentration_dict``.
 
+        Reads the cached ``result`` rather than re-solving.
+
         Returns:
             dict[str, float]: each constrained element mapped to its
             ``delta_mu`` in eV, in the order the pools were declared. Empty
@@ -1482,7 +1486,7 @@ class DefectSystem:
         """
         if not self.element_pools:
             return {}
-        e_fermi = self.get_sc_fermi()[0]
+        e_fermi = self.result.fermi_energy
         groups, _ = self._build_exclusion_groups(e_fermi)
         pools = self._resolve_element_pools()
         elements = list(pools)

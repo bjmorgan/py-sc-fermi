@@ -1127,6 +1127,33 @@ class TestDefectSystemElementPools(unittest.TestCase):
         total_mg = sum(concs[cs] for cs in system.defect_species[0].charge_states)
         self.assertAlmostEqual(total_mg, target, places=6)
 
+    def test_element_chemical_potential_shifts_solves_once_via_cached_result(self):
+        # Unlike the no-pool case, this system actually reaches the rewired
+        # `self.result.fermi_energy` line inside
+        # element_chemical_potential_shifts, so it pins that a pooled system's
+        # shift read-out costs no additional solve beyond the one `result`
+        # already cached.
+        target = 5.0
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": ElementPool(target=target, members={self.species: 1.0})},
+            occupancy_warning_threshold=None,
+        )
+        calls = {"n": 0}
+        original = system.get_sc_fermi
+
+        def counting():
+            calls["n"] += 1
+            return original()
+
+        system.get_sc_fermi = counting
+        _ = system.result
+        _ = system.element_chemical_potential_shifts()
+        self.assertEqual(calls["n"], 1)
+
     def test_element_pool_negative_target_solves(self):
         # Negative net-content target with a negative stoichiometry (net removal):
         # content = -1 * total, so a target of -5 drives the total to 5.
@@ -3515,6 +3542,23 @@ class TestDiluteLimitWarning(unittest.TestCase):
             label="O-rich",
         )
         self.assertEqual(system.result.label, "O-rich")
+
+    def test_read_outs_solve_once_via_cached_result(self):
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        calls = {"n": 0}
+        original = system.get_sc_fermi
+
+        def counting():
+            calls["n"] += 1
+            return original()
+
+        system.get_sc_fermi = counting
+        _ = system.result
+        _ = system.site_percentages()
+        _ = system.element_chemical_potential_shifts()
+        self.assertEqual(calls["n"], 1)
 
 
 if __name__ == "__main__":
