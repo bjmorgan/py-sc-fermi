@@ -238,7 +238,7 @@ class DefectSystem:
         )
         self._occupancy_warning_emitted = False
 
-        self._defect_species = copy.deepcopy(defect_species)
+        self._defect_species = tuple(copy.deepcopy(defect_species))
         self._site_pools: dict[str, SitePool] = dict(site_pools or {})
         self._element_pools: dict[str, ElementPool] = dict(element_pools or {})
         self._validate_pools()
@@ -284,7 +284,7 @@ class DefectSystem:
         return self._rigid_shift
 
     @property
-    def defect_species(self) -> list[DefectSpecies]:
+    def defect_species(self) -> tuple[DefectSpecies, ...]:
         return self._defect_species
 
     @property

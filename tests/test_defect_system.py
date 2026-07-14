@@ -110,6 +110,14 @@ class TestDefectSystem(unittest.TestCase):
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
+    def test_defect_species_is_a_read_only_tuple(self):
+        species = self.defect_system.defect_species
+        self.assertIsInstance(species, tuple)
+        with self.assertRaises(AttributeError):
+            species.append(species[0])
+        with self.assertRaises(TypeError):
+            species[0] = species[0]
+
     def test_public_attributes_are_read_only(self):
         new_values = {
             "volume": 1.0,
