@@ -225,11 +225,16 @@
 - `DefectSystem` now validates `volume` and `temperature` at construction,
   raising `ValueError` (naming the offending parameter and its value) when
   either is not finite and > 0. `DefectSystemFactory` applies the same check to
-  `volume` at build time and to the `temperature` passed to `at()`. Previously a
-  negative volume or temperature produced silently-wrong concentrations and
-  Fermi levels, and a zero raised an opaque `ZeroDivisionError` at solve time
-  far from the construction call; these now fail immediately at the boundary,
-  matching the existing checks on the DOS, `DefectChargeState`, and `SitePool`.
+  `volume` at build time and to the `temperature` passed to `at()`, before any
+  temperature-dependent shift function is evaluated. Previously these bad
+  inputs failed silently or opaquely, far from the construction call. A negative
+  `temperature` inverted the Boltzmann factors, giving a converged-looking but
+  wrong Fermi level and defect concentrations; a negative `volume` left the
+  Fermi level and per-cell concentrations correct but flipped the sign of the
+  reported cm^-3 concentrations. A zero `temperature` divided by zero in the
+  solve, and a zero `volume` divided by zero when a cm^-3 concentration was
+  read. These now fail immediately at the boundary, matching the existing
+  checks on the DOS, `DefectChargeState`, and `SitePool`.
 
 ### Bug Fixes
 

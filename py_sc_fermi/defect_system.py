@@ -49,10 +49,7 @@ def _require_finite_positive(value: float, name: str) -> None:
 
     Raises:
         ValueError: if ``value`` is not finite (infinite or NaN) or is not
-            greater than zero. Physical inputs such as a cell volume or a solve
-            temperature must be finite and positive: non-positive values give
-            meaningless concentrations and Fermi levels, and zero divides by
-            zero in the solve.
+            greater than zero.
     """
     if not math.isfinite(value) or value <= 0:
         raise ValueError(f"{name} must be finite and > 0; got {value}.")
@@ -1536,6 +1533,7 @@ class DefectSystemFactory:
         Raises:
             ValueError: if `temperature` is not finite and > 0.
         """
+        _require_finite_positive(temperature, "temperature")
         vbm_shift = self.vbm_shift_fn(temperature) if self.vbm_shift_fn else 0.0
         cbm_shift = self.cbm_shift_fn(temperature) if self.cbm_shift_fn else 0.0
         formation_energy_corrections = {
