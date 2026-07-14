@@ -1519,6 +1519,28 @@ class TestDefectSystemElementPools(unittest.TestCase):
         with self.assertRaises(TypeError):
             system.element_pools[key] = system.element_pools[key]
 
+    def test_resolved_element_pool_members_are_read_only(self):
+        o_i = DefectSpecies(
+            "O_i", nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        v_o = DefectSpecies(
+            "V_O", nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[o_i, v_o],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": ElementPool(target=0.0, members={o_i: 2.0, "V_O": -3.0})},
+        )
+        resolved = system._resolve_element_pools()
+        pool = next(iter(resolved.values()))
+        key = next(iter(pool.members))
+        with self.assertRaises(TypeError):
+            pool.members[key] = 1.0
+
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):
     """Convergence of the element-pool chemical-potential solve across

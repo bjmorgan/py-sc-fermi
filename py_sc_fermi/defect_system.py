@@ -721,10 +721,12 @@ class DefectSystem:
         return {
             elem: ResolvedElementPool(
                 target=pool.target,
-                members={
-                    self._resolve_species(name): stoich
-                    for name, stoich in pool.members.items()
-                },
+                members=MappingProxyType(
+                    {
+                        self._resolve_species(name): stoich
+                        for name, stoich in pool.members.items()
+                    }
+                ),
             )
             for elem, pool in self.element_pools.items()
         }

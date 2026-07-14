@@ -194,8 +194,8 @@ class ResolvedElementPool:
     Built internally by ``DefectSystem._resolve_element_pools`` from a validated
     ``ElementPool``; carries no validation of its own. Equality is by identity
     (``eq=False``) -- it is built once and never compared by value, and a
-    synthesised value ``__hash__`` over its ``dict`` field would raise.
+    synthesised value ``__hash__`` over its ``mapping`` field would raise.
     """
 
     target: float
-    members: dict[DefectSpecies, float]
+    members: Mapping[DefectSpecies, float]
