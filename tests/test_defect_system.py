@@ -353,6 +353,34 @@ class TestDefectSystem(unittest.TestCase):
             {"v_O": [[1, 1], [2, 2]], "O_i": [[1, 1], [2, 2]]},
         )
 
+    def test_get_transition_levels_ignores_fixed_charge_state_below_range(self):
+        # A species carrying a fixed-concentration charge state below its
+        # variable charges must not break the system-level transition-level
+        # walk (previously a KeyError); the fixed state is simply ignored.
+        variable_states = [
+            DefectChargeState(charge=0, energy=2.0, degeneracy=1),
+            DefectChargeState(charge=2, energy=-1.0, degeneracy=1),
+        ]
+        dos = semiconducting_dos()
+
+        def system_for(charge_states):
+            return DefectSystem(
+                defect_species=[DefectSpecies("V_O", 1, charge_states)],
+                volume=100,
+                dos=dos,
+                temperature=300,
+                convergence_tolerance=1e-6,
+            )
+
+        with_fixed = system_for(
+            [*variable_states, DefectChargeState(charge=-1, fixed_concentration=1e-3)]
+        )
+        without_fixed = system_for(variable_states)
+        np.testing.assert_array_almost_equal(
+            with_fixed.get_transition_levels()["V_O"],
+            without_fixed.get_transition_levels()["V_O"],
+        )
+
     def test_named_metastable_states_are_reported_separately(self):
         # Named metastable states use their names as keys.
         cs_a = DefectChargeState(charge=0, fixed_concentration=0.6, name="V_O_tet")
