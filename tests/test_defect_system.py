@@ -755,6 +755,20 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertIn("dE: 1 per cell", repr(system))
         self.assertIn("A ×2", repr(system))
 
+    def test_site_pools_mapping_is_read_only(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a])},
+        )
+        key = next(iter(system.site_pools))
+        with self.assertRaises(TypeError):
+            system.site_pools[key] = system.site_pools[key]
+        with self.assertRaises(TypeError):
+            del system.site_pools[key]
+
 
 class TestDefectSystemSitePercentages(unittest.TestCase):
     def setUp(self):
@@ -1484,6 +1498,26 @@ class TestDefectSystemElementPools(unittest.TestCase):
         )
         with self.assertRaises(ElementPoolError):
             system.element_chemical_potential_shifts()
+
+    def test_element_pools_mapping_is_read_only(self):
+        o_i = DefectSpecies(
+            "O_i", nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        v_o = DefectSpecies(
+            "V_O", nsites=4,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[o_i, v_o],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"dO": ElementPool(target=0.0, members={o_i: 2.0, "V_O": -3.0})},
+        )
+        key = next(iter(system.element_pools))
+        with self.assertRaises(TypeError):
+            system.element_pools[key] = system.element_pools[key]
 
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):

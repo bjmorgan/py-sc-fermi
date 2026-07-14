@@ -5,7 +5,7 @@ import math
 import sys
 import warnings
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, NamedTuple
@@ -288,12 +288,12 @@ class DefectSystem:
         return self._defect_species
 
     @property
-    def site_pools(self) -> dict[str, SitePool]:
-        return self._site_pools
+    def site_pools(self) -> Mapping[str, SitePool]:
+        return MappingProxyType(self._site_pools)
 
     @property
-    def element_pools(self) -> dict[str, ElementPool]:
-        return self._element_pools
+    def element_pools(self) -> Mapping[str, ElementPool]:
+        return MappingProxyType(self._element_pools)
 
     @property
     def occupancy_warning_threshold(self) -> float | None:
