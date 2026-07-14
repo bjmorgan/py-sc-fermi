@@ -222,6 +222,14 @@
   `element_pools` and `ElementPool.members` return read-only mappings. All
   documented use is read-only, so this is non-breaking; to obtain a mutable
   copy, wrap explicitly (`list(...)`, `dict(...)`).
+- `DefectSystem` now validates `volume` and `temperature` at construction,
+  raising `ValueError` (naming the offending parameter and its value) when
+  either is not finite and > 0. `DefectSystemFactory` applies the same check to
+  `volume` at build time and to the `temperature` passed to `at()`. Previously a
+  negative volume or temperature produced silently-wrong concentrations and
+  Fermi levels, and a zero raised an opaque `ZeroDivisionError` at solve time
+  far from the construction call; these now fail immediately at the boundary,
+  matching the existing checks on the DOS, `DefectChargeState`, and `SitePool`.
 
 ### Bug Fixes
 
