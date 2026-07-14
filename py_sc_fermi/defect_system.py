@@ -5,7 +5,7 @@ import math
 import sys
 import warnings
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, NamedTuple
@@ -482,12 +482,12 @@ class DefectSystem:
                     )
         for element, element_pool in self.element_pools.items():
             self._check_unknown_species(
-                "element pool", element, list(element_pool.members), roster
+                "element pool", element, element_pool.members, roster
             )
 
     @staticmethod
     def _check_unknown_species(
-        kind: str, pool_name: str, members: list[str], roster: set[str]
+        kind: str, pool_name: str, members: Iterable[str], roster: set[str]
     ) -> None:
         """Raise if any member name is not in ``roster``."""
         unknown = sorted(set(members) - roster)
@@ -499,7 +499,7 @@ class DefectSystem:
 
     @staticmethod
     def _check_duplicate_species(
-        kind: str, pool_name: str, members: list[str]
+        kind: str, pool_name: str, members: Iterable[str]
     ) -> None:
         """Raise if any member name appears more than once (site pools only)."""
         repeated = sorted(

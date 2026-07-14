@@ -18,12 +18,14 @@ class TestSitePool(unittest.TestCase):
     def test_normalises_species_to_names(self):
         pool = SitePool(n_sites=10.0, species=[_species("A"), "B"])
         self.assertEqual(pool.n_sites, 10.0)
-        self.assertEqual(pool.species, ["A", "B"])
+        self.assertEqual(pool.species, ("A", "B"))
 
-    def test_species_property_returns_a_copy(self):
+    def test_species_property_is_read_only(self):
         pool = SitePool(n_sites=1.0, species=["A"])
-        pool.species.append("X")
-        self.assertEqual(pool.species, ["A"])
+        self.assertIsInstance(pool.species, tuple)
+        with self.assertRaises(AttributeError):
+            pool.species.append("X")
+        self.assertEqual(pool.species, ("A",))
 
     def test_rejects_zero_n_sites(self):
         with self.assertRaisesRegex(ValueError, "n_sites must be finite and > 0"):
@@ -62,9 +64,10 @@ class TestElementPool(unittest.TestCase):
         self.assertEqual(pool.target, 5.0)
         self.assertEqual(pool.members, {"A": 1.0, "B": -2.0})
 
-    def test_members_property_returns_a_copy(self):
+    def test_members_property_is_read_only(self):
         pool = ElementPool(target=1.0, members={"A": 1.0})
-        pool.members["X"] = 9.0
+        with self.assertRaises(TypeError):
+            pool.members["X"] = 9.0
         self.assertEqual(pool.members, {"A": 1.0})
 
     def test_accepts_negative_target(self):
