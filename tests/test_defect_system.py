@@ -70,6 +70,55 @@ class TestDefectSystemInit(unittest.TestCase):
         self.assertEqual(defect_system.defect_species[1].name, "O_i")
 
 
+class TestDefectSystemInputValidation(unittest.TestCase):
+    """``volume`` and ``temperature`` are physical inputs supplied at the
+    construction boundary; the constructor rejects non-finite or non-positive
+    values rather than returning silently-wrong or opaquely-failing results."""
+
+    @staticmethod
+    def _kwargs(**overrides):
+        species = Mock(spec=DefectSpecies)
+        species.name = "v_O"
+        species.charge_states = []
+        species.fixed_concentration = None
+        species.nsites = 1
+        kwargs = dict(
+            defect_species=[species],
+            volume=100.0,
+            dos=Mock(spec=DOS),
+            temperature=300.0,
+        )
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_valid_volume_and_temperature_are_accepted(self):
+        system = DefectSystem(**self._kwargs())
+        self.assertEqual(system.volume, 100.0)
+        self.assertEqual(system.temperature, 300.0)
+
+    def test_rejects_non_positive_or_non_finite_volume(self):
+        for volume in (0, -100, float("inf"), float("nan")):
+            with self.subTest(volume=volume):
+                with self.assertRaisesRegex(
+                    ValueError, r"volume must be finite and > 0"
+                ):
+                    DefectSystem(**self._kwargs(volume=volume))
+
+    def test_rejects_non_positive_or_non_finite_temperature(self):
+        for temperature in (0, -300, float("inf"), float("nan")):
+            with self.subTest(temperature=temperature):
+                with self.assertRaisesRegex(
+                    ValueError, r"temperature must be finite and > 0"
+                ):
+                    DefectSystem(**self._kwargs(temperature=temperature))
+
+    def test_error_message_reports_the_received_value(self):
+        with self.assertRaisesRegex(
+            ValueError, r"volume must be finite and > 0; got -100"
+        ):
+            DefectSystem(**self._kwargs(volume=-100))
+
+
 class TestDefectSystem(unittest.TestCase):
     def setUp(self):
         volume = 100
@@ -2483,6 +2532,45 @@ class TestDefectSystemFactory(unittest.TestCase):
         factory = DefectSystemFactory(defect_species=[self.species], dos=self.dos, volume=100)
         system = factory.at(300)
         self.assertEqual(system.temperature, 300)
+
+    def test_factory_rejects_non_positive_or_non_finite_volume(self):
+        for volume in (0, -100, float("inf"), float("nan")):
+            with self.subTest(volume=volume):
+                with self.assertRaisesRegex(
+                    ValueError, r"volume must be finite and > 0"
+                ):
+                    DefectSystemFactory(
+                        defect_species=[self.species], dos=self.dos, volume=volume
+                    )
+
+    def test_at_rejects_non_positive_or_non_finite_temperature(self):
+        factory = DefectSystemFactory(
+            defect_species=[self.species], dos=self.dos, volume=100
+        )
+        for temperature in (0, -300, float("inf"), float("nan")):
+            with self.subTest(temperature=temperature):
+                with self.assertRaisesRegex(
+                    ValueError, r"temperature must be finite and > 0"
+                ):
+                    factory.at(temperature)
+
+    def test_at_validates_temperature_before_evaluating_shift_functions(self):
+        # A domain-restricted shift function (here a kT*ln(T)-style term) would
+        # raise its own opaque error at T <= 0 if evaluated first; `at()` must
+        # validate the temperature before any user callable sees it, so the
+        # clean boundary error is raised instead.
+        factory = DefectSystemFactory(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            vbm_shift_fn=lambda T: math.log(T),
+        )
+        for temperature in (0, -300):
+            with self.subTest(temperature=temperature):
+                with self.assertRaisesRegex(
+                    ValueError, r"temperature must be finite and > 0"
+                ):
+                    factory.at(temperature)
 
     def test_at_supports_per_call_overrides(self):
         factory = DefectSystemFactory(defect_species=[self.species], dos=self.dos, volume=100)

@@ -40,6 +40,21 @@ concentration), or a ``(species_name, charge_state_name)`` pair (fixes that
 single charge state)."""
 
 
+def _require_finite_positive(value: float, name: str) -> None:
+    """Reject a value that is not finite and strictly positive.
+
+    Args:
+        value: the quantity to check.
+        name: the parameter name, used in the error message.
+
+    Raises:
+        ValueError: if ``value`` is not finite (infinite or NaN) or is not
+            greater than zero.
+    """
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be finite and > 0; got {value}.")
+
+
 class _VariableState(NamedTuple):
     """A non-fixed-concentration charge state within an exclusion group,
     paired with its per-site Boltzmann weight.
@@ -76,10 +91,11 @@ class DefectSystem:
     Args:
         defect_species (list[DefectSpecies]): List of ``DefectSpecies`` objects
           which are present in the ``DefectSystem``.
-        volume (float): volume of the unit cell in Angstroms cubed
+        volume (float): volume of the unit cell in Angstroms cubed. Must be
+          finite and > 0.
         dos (DOS): the ``DOS`` object associated with the unit cell
         temperature (float): temperature at which self-consistent Fermi energy
-          will be solved for.
+          will be solved for. Must be finite and > 0.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV. If not specified, uses scipy's default.
         site_pools (dict[str, SitePool] | None, optional):
@@ -182,7 +198,8 @@ class DefectSystem:
           ``as_dict`` only when set. Defaults to None.
 
     Raises:
-        ValueError: if two entries in `defect_species` share a name, a pool
+        ValueError: if `volume` or `temperature` is not finite and > 0, two
+          entries in `defect_species` share a name, a pool
           references a species not in `defect_species`, a pool lists a
           species more than once, a species appears in more than one site
           pool, `formation_energy_corrections` references a `DefectChargeState`
@@ -221,6 +238,8 @@ class DefectSystem:
         occupancy_warning_threshold: float | None = 0.01,
         label: str | None = None,
     ):
+        _require_finite_positive(volume, "volume")
+        _require_finite_positive(temperature, "temperature")
         self._volume = volume
         self._dos = dos
         delta_gap = cbm_shift - vbm_shift
@@ -1412,7 +1431,8 @@ class DefectSystemFactory:
         defect_species (list[DefectSpecies]): List of ``DefectSpecies`` objects
           which are present in the ``DefectSystem``.
         dos (DOS): the ``DOS`` object associated with the unit cell.
-        volume (float): volume of the unit cell in Angstroms cubed.
+        volume (float): volume of the unit cell in Angstroms cubed. Must be
+          finite and > 0.
         convergence_tolerance (float, optional): Tolerance for the Fermi energy
           convergence in eV, passed to every `DefectSystem` built by `at()`.
         site_pools (dict[str, SitePool] | None, optional):
@@ -1443,6 +1463,11 @@ class DefectSystemFactory:
           Defaults to 0.01.
         label (str | None, optional): passed to every `DefectSystem` built by
           `at()`, unless overridden per call. Defaults to None.
+
+    Raises:
+        ValueError: if `volume` is not finite and > 0. The `temperature`
+          passed to `at()` is validated there, when the `DefectSystem` is
+          built.
     """
 
     def __init__(
@@ -1462,6 +1487,7 @@ class DefectSystemFactory:
         occupancy_warning_threshold: float | None = 0.01,
         label: str | None = None,
     ):
+        _require_finite_positive(volume, "volume")
         self.defect_species = defect_species
         self.dos = dos
         self.volume = volume
@@ -1488,10 +1514,10 @@ class DefectSystemFactory:
         Args:
             temperature (float): temperature (in K) at which to evaluate the
               shift/correction functions and solve the resulting
-              `DefectSystem`.
+              `DefectSystem`. Must be finite and > 0.
             **overrides: keyword arguments forwarded to `DefectSystem.__init__`,
               overriding any of this factory's corresponding attributes (e.g.
-              `temperature` itself, or `fixed_concentrations`, a
+              `fixed_concentrations`, a
               `dict[FixedConcentrationKey, float]` mapping a species name (or a
               ``(species_name, charge_state_name)`` pair, fixing that single
               charge state) to a fixed concentration per unit cell). Passing
@@ -1503,7 +1529,11 @@ class DefectSystemFactory:
 
         Returns:
             DefectSystem: a new, independent `DefectSystem` for `temperature`.
+
+        Raises:
+            ValueError: if `temperature` is not finite and > 0.
         """
+        _require_finite_positive(temperature, "temperature")
         vbm_shift = self.vbm_shift_fn(temperature) if self.vbm_shift_fn else 0.0
         cbm_shift = self.cbm_shift_fn(temperature) if self.cbm_shift_fn else 0.0
         formation_energy_corrections = {
