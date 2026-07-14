@@ -1517,7 +1517,7 @@ class DefectSystemFactory:
               `DefectSystem`. Must be finite and > 0.
             **overrides: keyword arguments forwarded to `DefectSystem.__init__`,
               overriding any of this factory's corresponding attributes (e.g.
-              `temperature` itself, or `fixed_concentrations`, a
+              `fixed_concentrations`, a
               `dict[FixedConcentrationKey, float]` mapping a species name (or a
               ``(species_name, charge_state_name)`` pair, fixing that single
               charge state) to a fixed concentration per unit cell). Passing
