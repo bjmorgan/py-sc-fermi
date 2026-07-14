@@ -542,9 +542,30 @@ class TestDefectSpecies(unittest.TestCase):
             with_fixed.tl_profile(0, 5), without_fixed.tl_profile(0, 5)
         )
 
+    def test_tl_profile_ignores_fixed_charge_state_between_variable_charges(self):
+        # The canonical case: a fixed charge state whose charge sits between the
+        # variable charges. It is within the charge range but still non-variable,
+        # so a walk that merely clamped to the variable charge range would wrongly
+        # include it. The profile must match the species without it (previously a
+        # KeyError).
+        variable_states = [
+            DefectChargeState(charge=0, energy=2, degeneracy=1),
+            DefectChargeState(charge=2, energy=-1, degeneracy=1),
+        ]
+        without_fixed = DefectSpecies("foo", 1, variable_states)
+        with_fixed = DefectSpecies(
+            "foo",
+            1,
+            [*variable_states, DefectChargeState(charge=1, fixed_concentration=1e-3)],
+        )
+        np.testing.assert_array_almost_equal(
+            with_fixed.tl_profile(0, 5), without_fixed.tl_profile(0, 5)
+        )
+
     def test_tl_profile_ignores_fixed_charge_state_above_variable_range(self):
-        # The mirror case: a fixed charge state above the variable range must
-        # likewise leave the variable-only profile unchanged.
+        # A fixed charge above the variable range is never reached by the
+        # descending walk, so this case did not crash pre-fix; the test guards
+        # against the fix perturbing that already-correct path.
         variable_states = [
             DefectChargeState(charge=0, energy=2, degeneracy=1),
             DefectChargeState(charge=2, energy=-1, degeneracy=1),
@@ -576,8 +597,9 @@ class TestDefectSpecies(unittest.TestCase):
         self.assertIn("V_O", str(cm.exception))
 
     def test_tl_profile_with_single_variable_charge_state(self):
-        # A single variable charge state admits no transitions; the profile is
-        # the flat formation-energy line between the two Fermi-energy bounds.
+        # A single variable charge state admits no transitions, so the profile
+        # is just that state's formation-energy line at the two bounds (flat
+        # here because the charge is 0).
         defect = DefectSpecies(
             "foo", 1, [DefectChargeState(charge=0, energy=2, degeneracy=1)]
         )
