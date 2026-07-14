@@ -5,7 +5,7 @@ import math
 import sys
 import warnings
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, NamedTuple
@@ -238,7 +238,7 @@ class DefectSystem:
         )
         self._occupancy_warning_emitted = False
 
-        self._defect_species = copy.deepcopy(defect_species)
+        self._defect_species = tuple(copy.deepcopy(defect_species))
         self._site_pools: dict[str, SitePool] = dict(site_pools or {})
         self._element_pools: dict[str, ElementPool] = dict(element_pools or {})
         self._validate_pools()
@@ -284,16 +284,16 @@ class DefectSystem:
         return self._rigid_shift
 
     @property
-    def defect_species(self) -> list[DefectSpecies]:
+    def defect_species(self) -> tuple[DefectSpecies, ...]:
         return self._defect_species
 
     @property
-    def site_pools(self) -> dict[str, SitePool]:
-        return self._site_pools
+    def site_pools(self) -> Mapping[str, SitePool]:
+        return MappingProxyType(self._site_pools)
 
     @property
-    def element_pools(self) -> dict[str, ElementPool]:
-        return self._element_pools
+    def element_pools(self) -> Mapping[str, ElementPool]:
+        return MappingProxyType(self._element_pools)
 
     @property
     def occupancy_warning_threshold(self) -> float | None:
@@ -482,12 +482,12 @@ class DefectSystem:
                     )
         for element, element_pool in self.element_pools.items():
             self._check_unknown_species(
-                "element pool", element, list(element_pool.members), roster
+                "element pool", element, element_pool.members, roster
             )
 
     @staticmethod
     def _check_unknown_species(
-        kind: str, pool_name: str, members: list[str], roster: set[str]
+        kind: str, pool_name: str, members: Iterable[str], roster: set[str]
     ) -> None:
         """Raise if any member name is not in ``roster``."""
         unknown = sorted(set(members) - roster)
@@ -499,7 +499,7 @@ class DefectSystem:
 
     @staticmethod
     def _check_duplicate_species(
-        kind: str, pool_name: str, members: list[str]
+        kind: str, pool_name: str, members: Iterable[str]
     ) -> None:
         """Raise if any member name appears more than once (site pools only)."""
         repeated = sorted(
@@ -721,10 +721,12 @@ class DefectSystem:
         return {
             elem: ResolvedElementPool(
                 target=pool.target,
-                members={
-                    self._resolve_species(name): stoich
-                    for name, stoich in pool.members.items()
-                },
+                members=MappingProxyType(
+                    {
+                        self._resolve_species(name): stoich
+                        for name, stoich in pool.members.items()
+                    }
+                ),
             )
             for elem, pool in self.element_pools.items()
         }

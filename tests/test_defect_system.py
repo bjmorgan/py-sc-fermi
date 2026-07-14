@@ -110,6 +110,14 @@ class TestDefectSystem(unittest.TestCase):
     def test_defect_species_names(self):
         self.assertEqual(self.defect_system.defect_species_names, ["v_O", "O_i"])
 
+    def test_defect_species_is_a_read_only_tuple(self):
+        species = self.defect_system.defect_species
+        self.assertIsInstance(species, tuple)
+        with self.assertRaises(AttributeError):
+            species.append(species[0])
+        with self.assertRaises(TypeError):
+            species[0] = species[0]
+
     def test_public_attributes_are_read_only(self):
         new_values = {
             "volume": 1.0,
@@ -746,6 +754,20 @@ class TestDefectSystemSitePools(unittest.TestCase):
         self.assertIn("[A, B]", repr(system))
         self.assertIn("dE: 1 per cell", repr(system))
         self.assertIn("A ×2", repr(system))
+
+    def test_site_pools_mapping_is_read_only(self):
+        system = DefectSystem(
+            defect_species=[self.species_a],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            site_pools={"shared": SitePool(n_sites=10.0, species=[self.species_a])},
+        )
+        key = next(iter(system.site_pools))
+        with self.assertRaises(TypeError):
+            system.site_pools[key] = system.site_pools[key]
+        with self.assertRaises(TypeError):
+            del system.site_pools[key]
 
 
 class TestDefectSystemSitePercentages(unittest.TestCase):
@@ -1476,6 +1498,32 @@ class TestDefectSystemElementPools(unittest.TestCase):
         )
         with self.assertRaises(ElementPoolError):
             system.element_chemical_potential_shifts()
+
+    def test_element_pools_mapping_is_read_only(self):
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": ElementPool(target=0.0, members={self.species: 1.0})},
+        )
+        key = next(iter(system.element_pools))
+        with self.assertRaises(TypeError):
+            system.element_pools[key] = system.element_pools[key]
+
+    def test_resolved_element_pool_members_are_read_only(self):
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            element_pools={"Mg": ElementPool(target=0.0, members={self.species: 1.0})},
+        )
+        resolved = system._resolve_element_pools()
+        pool = next(iter(resolved.values()))
+        key = next(iter(pool.members))
+        with self.assertRaises(TypeError):
+            pool.members[key] = 1.0
 
 
 class TestDefectSystemElementPoolConvergence(unittest.TestCase):

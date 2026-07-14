@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TypedDict
 
 from py_sc_fermi.defect_species import DefectSpecies
@@ -67,7 +69,7 @@ class SitePool:
         if not species:
             raise ValueError("SitePool must list at least one species.")
         self._n_sites = n_sites
-        self._species: list[str] = species
+        self._species: tuple[str, ...] = tuple(species)
 
     @property
     def n_sites(self) -> float:
@@ -75,9 +77,9 @@ class SitePool:
         return self._n_sites
 
     @property
-    def species(self) -> list[str]:
-        """The pooled species, by name."""
-        return list(self._species)
+    def species(self) -> tuple[str, ...]:
+        """The pooled species, by name (read-only)."""
+        return self._species
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SitePool):
@@ -158,9 +160,9 @@ class ElementPool:
         return self._target
 
     @property
-    def members(self) -> dict[str, float]:
-        """Mapping of pooled species name to stoichiometry."""
-        return dict(self._members)
+    def members(self) -> Mapping[str, float]:
+        """Mapping of pooled species name to stoichiometry (read-only)."""
+        return MappingProxyType(self._members)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ElementPool):
@@ -192,8 +194,8 @@ class ResolvedElementPool:
     Built internally by ``DefectSystem._resolve_element_pools`` from a validated
     ``ElementPool``; carries no validation of its own. Equality is by identity
     (``eq=False``) -- it is built once and never compared by value, and a
-    synthesised value ``__hash__`` over its ``dict`` field would raise.
+    synthesised value ``__hash__`` over its ``members`` mapping would raise.
     """
 
     target: float
-    members: dict[DefectSpecies, float]
+    members: Mapping[DefectSpecies, float]

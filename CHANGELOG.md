@@ -214,6 +214,14 @@
   solves once on first access and caches the result (it is an immutable
   snapshot). `DefectSystem` and `DefectSystemFactory` also gained an optional
   `label`, a human-readable tag copied into `result` and serialised when set.
+- `DefectSystem` and the pool classes now return read-only views from their
+  container accessors, so the immutable-snapshot contract holds at the
+  container level (previously some accessors leaked live-mutable internals
+  and others returned defensive copies). `DefectSystem.defect_species` and
+  `SitePool.species` return tuples; `DefectSystem.site_pools` /
+  `element_pools` and `ElementPool.members` return read-only mappings. All
+  documented use is read-only, so this is non-breaking; to obtain a mutable
+  copy, wrap explicitly (`list(...)`, `dict(...)`).
 
 ### Bug Fixes
 
