@@ -1500,40 +1500,24 @@ class TestDefectSystemElementPools(unittest.TestCase):
             system.element_chemical_potential_shifts()
 
     def test_element_pools_mapping_is_read_only(self):
-        o_i = DefectSpecies(
-            "O_i", nsites=4,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
-        )
-        v_o = DefectSpecies(
-            "V_O", nsites=4,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
-        )
         system = DefectSystem(
-            defect_species=[o_i, v_o],
+            defect_species=[self.species],
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": ElementPool(target=0.0, members={o_i: 2.0, "V_O": -3.0})},
+            element_pools={"Mg": ElementPool(target=0.0, members={self.species: 1.0})},
         )
         key = next(iter(system.element_pools))
         with self.assertRaises(TypeError):
             system.element_pools[key] = system.element_pools[key]
 
     def test_resolved_element_pool_members_are_read_only(self):
-        o_i = DefectSpecies(
-            "O_i", nsites=4,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
-        )
-        v_o = DefectSpecies(
-            "V_O", nsites=4,
-            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
-        )
         system = DefectSystem(
-            defect_species=[o_i, v_o],
+            defect_species=[self.species],
             dos=self.dos,
             volume=100,
             temperature=300,
-            element_pools={"dO": ElementPool(target=0.0, members={o_i: 2.0, "V_O": -3.0})},
+            element_pools={"Mg": ElementPool(target=0.0, members={self.species: 1.0})},
         )
         resolved = system._resolve_element_pools()
         pool = next(iter(resolved.values()))
