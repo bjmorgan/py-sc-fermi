@@ -246,6 +246,12 @@
   each species' occupancy is now divided by the sites available to it (its own
   `nsites`, or the shared `site_pools` size for a pooled species), so every
   reported occupancy is at most 100%.
+- `DefectSpecies.tl_profile` and `DefectSystem.get_transition_levels` now ignore
+  a species' fixed-concentration charge states, which carry no formation energy
+  and so define no transition level; previously such a state could raise
+  `KeyError`. Calling `DefectSpecies.get_transition_level_and_energy` directly
+  with a non-variable charge now raises a descriptive `ValueError` rather than a
+  bare `KeyError`.
 
 ## V2.2.2
 

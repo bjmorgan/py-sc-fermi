@@ -380,6 +380,10 @@ class DefectSpecies:
         """get transition level profile for this ``DefectSpecies`` between a
         minimum and maximum Fermi energy.
 
+        Only variable-concentration charge states define transition levels;
+        fixed-concentration charge states carry no formation energy and are
+        excluded from the profile.
+
         Args:
             efermi_min (float): minimum Fermi energy
             efermi_max (float): maximum Fermi energy
@@ -405,8 +409,8 @@ class DefectSpecies:
             )
         q1 = min(form_eners, key=form_eners.__getitem__)
         points = [(efermi_min, form_eners[q1])]
-        while q1 != min(self.charges):
-            qlist = [q for q in self.charges if q < q1]
+        while q1 != min(form_eners):
+            qlist = [q for q in form_eners if q < q1]
             nextp, nextq = min(
                 (
                     (
@@ -446,9 +450,21 @@ class DefectSpecies:
             tuple[float, float]: Fermi energy and formation energy of the
             transition level between ``DefectChargeState`` objects with charges
             q1 and q2.
+
+        Raises:
+            ValueError: if either ``q1`` or ``q2`` is not a
+                variable-concentration charge of this species, and so has no
+                formation energy from which to define a transition level.
         """
 
         form_eners = self.get_formation_energies(0, temperature=temperature)
+        for q in (q1, q2):
+            if q not in form_eners:
+                raise ValueError(
+                    f"DefectSpecies '{self.name}': charge {q:+} has no "
+                    "formation energy; transition levels are defined only "
+                    "between variable-concentration charge states."
+                )
         trans_level = (form_eners[q2] - form_eners[q1]) / (q1 - q2)
         energy = q1 * trans_level + form_eners[q1]
         return (trans_level, energy)

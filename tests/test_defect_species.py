@@ -523,6 +523,102 @@ class TestDefectSpecies(unittest.TestCase):
         # the q=+1 endpoint reflects the lower-energy (0.5 eV) state
         self.assertAlmostEqual(profile_a[0][1], 0.5)
 
+    def test_tl_profile_ignores_fixed_charge_state_below_variable_range(self):
+        # A fixed-concentration charge state whose charge lies below the
+        # variable charges has no formation energy, so it cannot be a
+        # transition-level endpoint. The walk must ignore it and return the
+        # same profile as the species without it (previously a KeyError).
+        variable_states = [
+            DefectChargeState(charge=0, energy=2, degeneracy=1),
+            DefectChargeState(charge=2, energy=-1, degeneracy=1),
+        ]
+        without_fixed = DefectSpecies("foo", 1, variable_states)
+        with_fixed = DefectSpecies(
+            "foo",
+            1,
+            [*variable_states, DefectChargeState(charge=-1, fixed_concentration=1e-3)],
+        )
+        np.testing.assert_array_almost_equal(
+            with_fixed.tl_profile(0, 5), without_fixed.tl_profile(0, 5)
+        )
+
+    def test_tl_profile_ignores_fixed_charge_state_between_variable_charges(self):
+        # The canonical case: a fixed charge state whose charge sits between the
+        # variable charges. It is within the charge range but still non-variable,
+        # so a walk that merely clamped to the variable charge range would wrongly
+        # include it. The profile must match the species without it (previously a
+        # KeyError).
+        variable_states = [
+            DefectChargeState(charge=0, energy=2, degeneracy=1),
+            DefectChargeState(charge=2, energy=-1, degeneracy=1),
+        ]
+        without_fixed = DefectSpecies("foo", 1, variable_states)
+        with_fixed = DefectSpecies(
+            "foo",
+            1,
+            [*variable_states, DefectChargeState(charge=1, fixed_concentration=1e-3)],
+        )
+        np.testing.assert_array_almost_equal(
+            with_fixed.tl_profile(0, 5), without_fixed.tl_profile(0, 5)
+        )
+
+    def test_tl_profile_ignores_fixed_charge_state_above_variable_range(self):
+        # A fixed charge above the variable range is never reached by the
+        # descending walk, so this case did not crash pre-fix; the test guards
+        # against the fix perturbing that already-correct path.
+        variable_states = [
+            DefectChargeState(charge=0, energy=2, degeneracy=1),
+            DefectChargeState(charge=2, energy=-1, degeneracy=1),
+        ]
+        without_fixed = DefectSpecies("foo", 1, variable_states)
+        with_fixed = DefectSpecies(
+            "foo",
+            1,
+            [*variable_states, DefectChargeState(charge=3, fixed_concentration=1e-3)],
+        )
+        np.testing.assert_array_almost_equal(
+            with_fixed.tl_profile(0, 5), without_fixed.tl_profile(0, 5)
+        )
+
+    def test_tl_profile_raises_with_no_variable_charge_states(self):
+        # An all-fixed species has no formation-energy line anywhere, so a
+        # transition-level profile is undefined, matching
+        # min_energy_charge_state and effective_formation_energy.
+        defect = DefectSpecies(
+            "V_O",
+            1,
+            [
+                DefectChargeState(charge=0, fixed_concentration=0.5),
+                DefectChargeState(charge=1, fixed_concentration=0.3),
+            ],
+        )
+        with self.assertRaises(ValueError) as cm:
+            defect.tl_profile(0, 5)
+        self.assertIn("V_O", str(cm.exception))
+
+    def test_tl_profile_with_single_variable_charge_state(self):
+        # A single variable charge state admits no transitions, so the profile
+        # is just that state's formation-energy line at the two bounds (flat
+        # here because the charge is 0).
+        defect = DefectSpecies(
+            "foo", 1, [DefectChargeState(charge=0, energy=2, degeneracy=1)]
+        )
+        np.testing.assert_array_almost_equal(defect.tl_profile(0, 5), [[0, 2], [5, 2]])
+
+    def test_get_transition_level_and_energy_raises_for_non_variable_charge(self):
+        # Called directly with a fixed (non-variable) charge, a clear ValueError
+        # is raised rather than a bare KeyError.
+        defect = DefectSpecies(
+            "foo",
+            1,
+            [
+                DefectChargeState(charge=0, energy=0.0, degeneracy=1),
+                DefectChargeState(charge=-1, fixed_concentration=1e-3),
+            ],
+        )
+        with self.assertRaisesRegex(ValueError, "no formation energy"):
+            defect.get_transition_level_and_energy(0, -1)
+
     def test__repr__(self):
         self.defect_species._charge_states = [
             DefectChargeState(2, energy=-1, degeneracy=1)
