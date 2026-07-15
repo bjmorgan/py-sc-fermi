@@ -341,7 +341,7 @@ class DefectSpecies:
             temperature (float, optional): if 0 (the default), the formation
                 energy of a charge is that of its lowest-energy
                 ``DefectChargeState``. If > 0, charges with multiple
-                ``DefectChargeState``s (metastable forms) instead use the
+                ``DefectChargeState`` objects (metastable forms) instead use the
                 Boltzmann-weighted effective formation energy of those forms.
                 Defaults to 0.
 
@@ -371,7 +371,7 @@ class DefectSpecies:
             efermi_min (float): minimum Fermi energy
             efermi_max (float): maximum Fermi energy
             temperature (float, optional): temperature used to combine
-                metastable ``DefectChargeState``s sharing a formal charge, via
+                metastable ``DefectChargeState`` objects sharing a formal charge, via
                 ``get_formation_energies``/``get_transition_level_and_energy``.
                 Defaults to 0, in which case each charge is represented by its
                 lowest-energy state.
@@ -426,7 +426,7 @@ class DefectSpecies:
             q1 (int): charge on first ``DefectChargeState`` of interest
             q2 (int): charge on second ``DefectChargeState`` of interest
             temperature (float, optional): temperature used to combine
-                metastable ``DefectChargeState``s sharing a formal charge, via
+                metastable ``DefectChargeState`` objects sharing a formal charge, via
                 ``get_formation_energies``. Defaults to 0.
 
         Returns:
