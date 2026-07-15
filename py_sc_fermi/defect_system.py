@@ -1160,8 +1160,7 @@ class DefectSystem:
         to their own call rather than to an internal solve method.
 
         The same verdict is always available, filter-independent, as
-        ``result.high_occupancy_species``; this warning is a convenience signal
-        on top of it.
+        ``result.high_occupancy_species``.
 
         Args:
             e_fermi (float): the self-consistent Fermi energy from

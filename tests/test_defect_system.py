@@ -3641,27 +3641,31 @@ class TestDiluteLimitWarning(unittest.TestCase):
         self.assertEqual(calls["n"], 1)
 
     def test_result_high_occupancy_species_lists_offenders_worst_first(self):
-        # Two neutral (e_fermi-independent) states at distinct occupancies; the
-        # lower-occupancy species is listed FIRST at construction, so the test
-        # fails unless high_occupancy_species is re-ordered worst-first. The
-        # fractions are the same solved values site_percentages reports.
-        low = DefectSpecies(
-            "low_occ",
-            nsites=1,
-            charge_states=[DefectChargeState(charge=0, energy=0.1, degeneracy=1)],
+        # Three neutral (e_fermi-independent) states at distinct occupancies,
+        # declared in non-monotonic order (mid, high, low): the verdict must be
+        # value-sorted worst-first (high, mid, low). A plain insertion-order
+        # pass-through or a mere reversal would each order it differently, so
+        # this pins the sort rather than an accidental ordering. The fractions
+        # are the same solved values site_percentages reports.
+        def neutral(name, energy):
+            return DefectSpecies(
+                name,
+                nsites=1,
+                charge_states=[
+                    DefectChargeState(charge=0, energy=energy, degeneracy=1)
+                ],
+            )
+
+        system = self._make_system(
+            [neutral("mid_occ", 0.05), neutral("high_occ", 0.0), neutral("low_occ", 0.1)],
+            occupancy_warning_threshold=0.01,
         )
-        high = DefectSpecies(
-            "high_occ",
-            nsites=1,
-            charge_states=[DefectChargeState(charge=0, energy=0.0, degeneracy=1)],
-        )
-        system = self._make_system([low, high], occupancy_warning_threshold=0.01)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             hos = system.result.high_occupancy_species
             percentages = system.site_percentages()
-        self.assertEqual(list(hos), ["high_occ", "low_occ"])
-        for name in ("high_occ", "low_occ"):
+        self.assertEqual(list(hos), ["high_occ", "mid_occ", "low_occ"])
+        for name in ("high_occ", "mid_occ", "low_occ"):
             self.assertAlmostEqual(hos[name], percentages[name] / 100, places=10)
 
     def test_result_high_occupancy_species_empty_when_all_dilute(self):
@@ -3683,15 +3687,19 @@ class TestDiluteLimitWarning(unittest.TestCase):
 
     def test_result_high_occupancy_species_is_read_only(self):
         # result caches one object; a mutable mapping would let a caller corrupt
-        # the cache in place. Consistent with charge_state_concentrations_per_cell.
-        system = self._make_system(
-            [self._saturating_species("S")], occupancy_warning_threshold=0.01
+        # the cache in place. A mappingproxy rejects assignment even when empty,
+        # so a dilute species exercises the read-only contract without any
+        # warning-suppression machinery. Consistent with
+        # charge_state_concentrations_per_cell.
+        dilute = DefectSpecies(
+            "D",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
         )
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            hos = system.result.high_occupancy_species
+        system = self._make_system([dilute])  # empty verdict, emits no warning
+        hos = system.result.high_occupancy_species
         with self.assertRaises(TypeError):
-            hos["S"] = 0.0
+            hos["D"] = 0.0
 
     def test_high_occupancy_species_survives_warning_suppression(self):
         # The regression this change fixes: a batch sweep under

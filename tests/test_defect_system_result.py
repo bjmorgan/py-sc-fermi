@@ -90,7 +90,8 @@ class DefectSystemResultSerialisationTestCase(unittest.TestCase):
             p0_per_cell=2.0,
             n0_per_cell=4.0,
             charge_state_concentrations_per_cell={"V_O": {"q+2": 1.0, "q0": 3.0}},
-            high_occupancy_species={},
+            # non-empty so the as_dict key-set assertion is a real exclusion guard
+            high_occupancy_species={"V_O": 0.9},
         )
 
     def test_as_dict_shape_keys_and_units(self):
