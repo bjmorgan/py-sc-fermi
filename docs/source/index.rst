@@ -9,6 +9,7 @@ py-sc-fermi
 
    installation
    migrating_to_v3
+   theory
    usage_notes
    tutorials
    FAQs
@@ -85,8 +86,10 @@ Features
 - Metastable charge states, and Boltzmann-weighted effective formation energies.
 - Defect transition-level diagrams.
 
-Upgrading from v2? The :doc:`migrating_to_v3` guide covers the breaking changes
-and the new default statistics.
+The :doc:`theory` page sets out the model behind these features: the
+site-exclusion statistics, the charge-neutrality solve, and the pool
+constraints. Upgrading from v2? The :doc:`migrating_to_v3` guide covers the
+breaking changes and the new default statistics.
 
 py-sc-fermi's self-consistent Fermi-level algorithm was originally based on that
 of the FORTRAN code `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
