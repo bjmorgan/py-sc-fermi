@@ -115,7 +115,7 @@ class DefectSpecies:
     def charge_states(
         self,
     ) -> tuple[DefectChargeState, ...]:
-        """
+        """The charge states that comprise this ``DefectSpecies``.
 
         Returns:
             tuple[DefectChargeState, ...]: the ``DefectChargeState`` objects
@@ -153,23 +153,6 @@ class DefectSpecies:
             list[int]: list of charge states of this ``DefectSpecies``
         """
         return [cs.charge for cs in self._charge_states]
-    
-    def site_weights(
-        self, e_fermi: float, temperature: float
-    ) -> list[tuple[float, DefectChargeState, float]]:
-        """
-        For *variable* charge‐states only, return
-            (nsites, DefectChargeState, weight)
-        where
-            weight = g * exp( - E_f(e_fermi) / (k_B * T) )
-        """
-        weights: list[tuple[float, DefectChargeState, float]] = []
-        for cs in self.variable_conc_charge_states():
-            Ef = cs.get_formation_energy(e_fermi)
-            w  = cs.degeneracy * np.exp(-Ef / (kboltz * temperature))
-            weights.append((self.nsites, cs, w))
-        return weights
-
 
     @property
     def fixed_concentration(self) -> float | None:
@@ -484,7 +467,7 @@ class DefectSpecies:
             If this ``DefectSpecies`` has a set fixed concentration, then this
             will be returned.
         """
-        # Honor a forced total immediately
+        # Honour a forced total immediately
         if self.fixed_concentration is not None:
             return self.fixed_concentration
 
@@ -527,7 +510,7 @@ class DefectSpecies:
 
         - For states with `fixed_concentration` set: that value is used directly.
         - For variable states: c_cell = c_site * nsites, where
-            c_site = exp(–E_f/EkBT)·degeneracy per site.
+            c_site = exp(-E_f / (kB * T)) * degeneracy per site.
 
         If the species itself has `fixed_concentration` set, all variable-state
         concentrations are rescaled as a group so that

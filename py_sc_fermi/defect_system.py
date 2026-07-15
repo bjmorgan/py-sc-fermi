@@ -1228,7 +1228,18 @@ class DefectSystem:
             f"level. {caveat}"
         )
 
-    def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float,float]:
+    def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float, float]:
+        """Sum the defects' charge contributions at a given Fermi energy.
+
+        Args:
+            e_fermi (float): Fermi energy.
+
+        Returns:
+            tuple[float, float]: the total positive defect charge and the total
+            absolute negative defect charge per unit cell at ``e_fermi``, each a
+            sum of ``concentration * |charge|`` over the charge states of that
+            sign.
+        """
         lhs = rhs = 0.0
         for cs, conc in self._global_defect_concs(e_fermi).items():
             if cs.charge > 0:
@@ -1240,8 +1251,8 @@ class DefectSystem:
     def q_tot(self, e_fermi: float) -> float:
         """for a given Fermi energy, calculate the net charge density of the
         ``DefectSystem`` as the difference between charge contributions from all
-        positive species (including holes) and all negative species (including
-        electrons).
+        negative species (including electrons) and all positive species
+        (including holes).
 
         Args:
             e_fermi (float): Fermi energy
@@ -1257,9 +1268,10 @@ class DefectSystem:
         return diff
 
     def get_transition_levels(self) -> dict[str, list[list]]:
-        """Return transition_levels transition levels profiles of all ``DefectSpecies``
-        all defects as dictionary of ``{DefectSpecies.name : [e_fermi, e_formation]}``
-        over the whole density of states energy range.
+        """Return the transition-level profile of every ``DefectSpecies`` in the
+        system, as a dictionary of
+        ``{name: [e_fermi_values, e_formation_values]}`` over the full
+        density-of-states energy range.
 
         Returns:
             dict[str, list[list]]: Dictionary giving per-defect transition-level
