@@ -17,10 +17,13 @@ class DefectChargeState:
 
     Args:
          charge (int): charge of this ``DefectChargeState``
-         degeneracy (float): degeneracy of this charge state
-         energy (float): formation energy at E[Fermi] = 0
-         fixed_concentration (float): fixed concentration per unit cell.
-           Must be finite and non-negative.
+         degeneracy (float, optional): degeneracy of this charge state.
+           Defaults to 1.
+         energy (float | None, optional): formation energy at E[Fermi] = 0.
+           Defaults to None; either ``energy`` or ``fixed_concentration`` must
+           be given.
+         fixed_concentration (float | None, optional): fixed concentration per
+           unit cell. Must be finite and non-negative. Defaults to None.
          name (str | None): identifying label for this charge state, used as
            the key in ``DefectSystem.result.charge_state_concentrations``
            (keyed by species name then charge-state name). Defaults to the

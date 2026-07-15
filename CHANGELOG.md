@@ -65,6 +65,10 @@
 
 ### Improvements
 
+- Corrected stale docstrings to match the current code (`DOS.from_vasprun`'s
+  `nelect` handling, `DOS.as_dict`'s `spin_pol` note, and the sign in
+  `DefectSystem.q_tot`'s description of the returned net charge), and removed the
+  unused `DefectSpecies.site_weights` method.
 - `DefectChargeState` has a `name` attribute, used as the key in
   `DefectSystem.result.charge_state_concentrations`. It defaults to the charge
   string (`"q+2"`); explicit names are required for metastable states sharing a

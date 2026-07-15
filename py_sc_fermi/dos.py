@@ -125,16 +125,25 @@ class DOS:
         nelect: int | None = None,
         bandgap: float | None = None,
     ) -> DOS:
-        """Generate DOS object from a VASP vasprun.xml
-        file. As this is parsed using pymatgen, the number of electrons is not
-        contained in the vasprun data and must be passed in. On the other hand,
-        If the bandgap is not passed in, it can be read from the vasprun file.
+        """Generate a ``DOS`` object from a VASP ``vasprun.xml`` file, parsed
+        with pymatgen. If ``nelect`` is not given it is read from the vasprun's
+        ``NELECT`` parameter; if ``bandgap`` is not given it is read from the
+        vasprun's eigenvalue band properties.
 
         Args:
-            path_to_vasprun (str): path to vasprun file
-            nelect (int): number of electrons in vasp calculation associated with
-              the vasprun
-            bandgap (float | None, optional): bandgap. Defaults to None.
+            path_to_vasprun (str): path to the vasprun file.
+            nelect (int | None, optional): number of electrons in the VASP
+              calculation. Defaults to None (read from the vasprun's ``NELECT``
+              parameter).
+            bandgap (float | None, optional): band gap. Defaults to None (read
+              from the vasprun).
+
+        Returns:
+            DOS: a ``DOS`` object built from the vasprun data.
+
+        Raises:
+            TypeError: if pymatgen's ``eigenvalue_band_properties`` does not have
+              the expected ``tuple[float, float, float, bool]`` format.
         """
         vr = Vasprun(
             path_to_vasprun,
@@ -199,11 +208,9 @@ class DOS:
             dict: DOS as dictionary
 
         Note:
-            The defect dictionary will always report the DOS data is not spin
-            polarised, even if the input data was. This is an artefact related
-            to maintaining the ability of `py-sc-fermi` to read files formatted
-            for the FORTRAN SC-Fermi code. Future versions will consider how
-            the code parses these files such that this is no longer an issue.
+            ``spin_pol`` is always ``False``: a spin-polarised DOS is summed
+            into a single total at construction, so the stored density is
+            single-channel and reloads identically from this dictionary.
         """
 
         return dict(

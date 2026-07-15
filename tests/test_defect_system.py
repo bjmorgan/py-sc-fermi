@@ -3,7 +3,7 @@ import math
 import os
 import unittest
 import warnings
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import yaml
@@ -3713,6 +3713,48 @@ class TestDiluteLimitWarning(unittest.TestCase):
             result = system.result
         self.assertIn("S", result.high_occupancy_species)
         self.assertGreater(result.high_occupancy_species["S"], 0.01)
+
+
+class TestConvergenceTolerance(unittest.TestCase):
+    """``convergence_tolerance`` sets the ``brentq`` precision of the
+    self-consistent Fermi-energy solve: it is forwarded as ``xtol``, and omitted
+    (leaving scipy's default) when ``None``. Pins the wiring so a regression that
+    dropped it (silently making the tolerance a no-op) is caught."""
+
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101), edos=np.linspace(-5.0, 5.0, 101), bandgap=2.0, nelect=10
+        )
+        self.species = DefectSpecies(
+            "V",
+            nsites=10,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=1.3, degeneracy=1),
+            ],
+        )
+
+    def _system(self, convergence_tolerance):
+        return DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            convergence_tolerance=convergence_tolerance,
+            occupancy_warning_threshold=None,
+        )
+
+    def test_convergence_tolerance_passed_to_brentq_as_xtol(self):
+        system = self._system(1e-3)
+        with patch("py_sc_fermi.defect_system.brentq", return_value=0.5) as mock_brentq:
+            system.get_sc_fermi()
+        self.assertEqual(mock_brentq.call_args.kwargs.get("xtol"), 1e-3)
+
+    def test_no_xtol_passed_when_convergence_tolerance_is_none(self):
+        system = self._system(None)
+        with patch("py_sc_fermi.defect_system.brentq", return_value=0.5) as mock_brentq:
+            system.get_sc_fermi()
+        self.assertNotIn("xtol", mock_brentq.call_args.kwargs)
 
 
 if __name__ == "__main__":
