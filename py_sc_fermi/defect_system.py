@@ -1048,6 +1048,7 @@ class DefectSystem:
             e_fermi, _ = self.get_sc_fermi()
             p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
             per_cell = self._per_charge_state_concs(e_fermi)
+            offenders = self._high_occupancy_offenders(e_fermi)
             self._result = DefectSystemResult(
                 temperature=float(self.temperature),
                 fermi_energy=float(e_fermi),
@@ -1061,6 +1062,7 @@ class DefectSystem:
                         for species, states in per_cell.items()
                     }
                 ),
+                high_occupancy_species=MappingProxyType(dict(offenders)),
             )
         return self._result
 
@@ -1109,30 +1111,30 @@ class DefectSystem:
         self._warn_if_high_occupancy(e_fermi)
         return e_fermi, residual
 
-    def _warn_if_high_occupancy(self, e_fermi: float) -> None:
-        """Emit a ``DiluteLimitWarning`` if any species' solved site occupancy
-        exceeds ``occupancy_warning_threshold``.
+    def _high_occupancy_offenders(self, e_fermi: float) -> list[tuple[str, float]]:
+        """Species whose solved site occupancy exceeds
+        ``occupancy_warning_threshold``, ordered worst (highest occupancy)
+        first.
 
-        Does nothing when the threshold is ``None`` or when this system has
-        already warned. Otherwise computes the per-species occupancy fractions
-        at the converged ``e_fermi`` and, if any species is above the threshold,
-        emits one warning naming every offending species and its occupancy,
-        worst first. The warning fires at most once per ``DefectSystem``: the
-        occupancy verdict is deterministic for an immutable snapshot, so a user
-        inspecting one solved system through several routes (a direct
-        ``get_sc_fermi``, or the deeper ``result``, ``site_percentages`` or
-        ``element_chemical_potential_shifts``) sees a single warning, attributed
-        to their own call rather than to an internal solve method.
+        Returns an empty list when the threshold is ``None`` (the dilute-limit
+        check is disabled) or no species exceeds it. Shared by the
+        ``DiluteLimitWarning`` and ``DefectSystemResult.high_occupancy_species``
+        so the fire-once warning and the always-inspectable data report the same
+        verdict from a single solved ``e_fermi``.
 
         Args:
-            e_fermi (float): the self-consistent Fermi energy from
+            e_fermi (float): a self-consistent Fermi energy, as returned by
               ``get_sc_fermi``.
+
+        Returns:
+            list[tuple[str, float]]: ``(species name, occupancy fraction)``
+            pairs for the species above the threshold, highest occupancy first.
         """
         threshold = self.occupancy_warning_threshold
-        if self._occupancy_warning_emitted or threshold is None:
-            return
+        if threshold is None:
+            return []
         fractions = self._site_occupancy_fractions(e_fermi)
-        offenders = sorted(
+        return sorted(
             (
                 (name, fraction)
                 for name, fraction in fractions.items()
@@ -1141,6 +1143,32 @@ class DefectSystem:
             key=lambda item: item[1],
             reverse=True,
         )
+
+    def _warn_if_high_occupancy(self, e_fermi: float) -> None:
+        """Emit a ``DiluteLimitWarning`` if any species' solved site occupancy
+        exceeds ``occupancy_warning_threshold``.
+
+        Does nothing when the threshold is ``None`` or when this system has
+        already warned. Otherwise, if any species is above the threshold
+        (``_high_occupancy_offenders``), emits one warning naming every
+        offending species and its occupancy, worst first. The warning fires at
+        most once per ``DefectSystem``: the occupancy verdict is deterministic
+        for an immutable snapshot, so a user inspecting one solved system
+        through several routes (a direct ``get_sc_fermi``, or the deeper
+        ``result``, ``site_percentages`` or
+        ``element_chemical_potential_shifts``) sees a single warning, attributed
+        to their own call rather than to an internal solve method.
+
+        The same verdict is always available, filter-independent, as
+        ``result.high_occupancy_species``.
+
+        Args:
+            e_fermi (float): the self-consistent Fermi energy from
+              ``get_sc_fermi``.
+        """
+        if self._occupancy_warning_emitted:
+            return
+        offenders = self._high_occupancy_offenders(e_fermi)
         if not offenders:
             return
         warnings.warn(

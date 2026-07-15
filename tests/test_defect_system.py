@@ -3640,6 +3640,80 @@ class TestDiluteLimitWarning(unittest.TestCase):
         _ = system.element_chemical_potential_shifts()
         self.assertEqual(calls["n"], 1)
 
+    def test_result_high_occupancy_species_lists_offenders_worst_first(self):
+        # Three neutral (e_fermi-independent) states at distinct occupancies,
+        # declared in non-monotonic order (mid, high, low): the verdict must be
+        # value-sorted worst-first (high, mid, low). A plain insertion-order
+        # pass-through or a mere reversal would each order it differently, so
+        # this pins the sort rather than an accidental ordering. The fractions
+        # are the same solved values site_percentages reports.
+        def neutral(name, energy):
+            return DefectSpecies(
+                name,
+                nsites=1,
+                charge_states=[
+                    DefectChargeState(charge=0, energy=energy, degeneracy=1)
+                ],
+            )
+
+        system = self._make_system(
+            [neutral("mid_occ", 0.05), neutral("high_occ", 0.0), neutral("low_occ", 0.1)],
+            occupancy_warning_threshold=0.01,
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            hos = system.result.high_occupancy_species
+            percentages = system.site_percentages()
+        self.assertEqual(list(hos), ["high_occ", "mid_occ", "low_occ"])
+        for name in ("high_occ", "mid_occ", "low_occ"):
+            self.assertAlmostEqual(hos[name], percentages[name] / 100, places=10)
+
+    def test_result_high_occupancy_species_empty_when_all_dilute(self):
+        species = DefectSpecies(
+            "D",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = self._make_system([species])  # default threshold 0.01
+        self.assertEqual(dict(system.result.high_occupancy_species), {})
+
+    def test_result_high_occupancy_species_empty_when_threshold_none(self):
+        # The saturating species would be an offender at any set threshold, but
+        # a None threshold disables the check, so the verdict is empty.
+        system = self._make_system(
+            [self._saturating_species("S")], occupancy_warning_threshold=None
+        )
+        self.assertEqual(dict(system.result.high_occupancy_species), {})
+
+    def test_result_high_occupancy_species_is_read_only(self):
+        # result caches one object; a mutable mapping would let a caller corrupt
+        # the cache in place. A mappingproxy rejects assignment even when empty,
+        # so a dilute species exercises the read-only contract without any
+        # warning-suppression machinery. Consistent with
+        # charge_state_concentrations_per_cell.
+        dilute = DefectSpecies(
+            "D",
+            nsites=1,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = self._make_system([dilute])  # empty verdict, emits no warning
+        hos = system.result.high_occupancy_species
+        with self.assertRaises(TypeError):
+            hos["D"] = 0.0
+
+    def test_high_occupancy_species_survives_warning_suppression(self):
+        # The regression this change fixes: a batch sweep under
+        # simplefilter("ignore") filters the DiluteLimitWarning away and trips
+        # the once-per-instance latch, so a later look at the warning alone
+        # finds nothing. The data path on the result carries the verdict
+        # regardless of the warnings filter.
+        system = self._make_system([self._saturating_species("S")])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = system.result
+        self.assertIn("S", result.high_occupancy_species)
+        self.assertGreater(result.high_occupancy_species["S"], 0.01)
+
 
 if __name__ == "__main__":
     unittest.main()
