@@ -17,6 +17,22 @@ class DefectSystemResultViewsTestCase(unittest.TestCase):
                 "V_O": {"q+2": 1.0, "q0": 3.0},
                 "Ti_i": {"q+4": 5.0},
             },
+            high_occupancy_species={},
+        )
+
+    def test_high_occupancy_species_stored_verbatim(self):
+        r = DefectSystemResult(
+            temperature=300.0,
+            fermi_energy=0.5,
+            volume=100.0,
+            label=None,
+            p0_per_cell=2.0,
+            n0_per_cell=4.0,
+            charge_state_concentrations_per_cell={"V_O": {"q+2": 1.0}},
+            high_occupancy_species={"hi": 0.9, "lo": 0.2},
+        )
+        self.assertEqual(
+            list(r.high_occupancy_species.items()), [("hi", 0.9), ("lo", 0.2)]
         )
 
     def test_per_cell_fields_stored_verbatim(self):
@@ -74,6 +90,7 @@ class DefectSystemResultSerialisationTestCase(unittest.TestCase):
             p0_per_cell=2.0,
             n0_per_cell=4.0,
             charge_state_concentrations_per_cell={"V_O": {"q+2": 1.0, "q0": 3.0}},
+            high_occupancy_species={},
         )
 
     def test_as_dict_shape_keys_and_units(self):
@@ -128,6 +145,7 @@ class DefectSystemResultStrTestCase(unittest.TestCase):
             p0_per_cell=2.0,
             n0_per_cell=4.0,
             charge_state_concentrations_per_cell={"V_O": {"q+2": 3.0, "q0": 1.0}},
+            high_occupancy_species={},
         )
 
     def test_str_reports_solution_only(self):
@@ -150,6 +168,7 @@ class DefectSystemResultStrTestCase(unittest.TestCase):
             temperature=300.0, fermi_energy=0.5, volume=100.0, label=None,
             p0_per_cell=2.0, n0_per_cell=4.0,
             charge_state_concentrations_per_cell={"X": {"q0": 0.0}},
+            high_occupancy_species={},
         )
         text = str(r)
         self.assertIn("0.00%", text)

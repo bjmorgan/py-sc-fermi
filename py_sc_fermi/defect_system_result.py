@@ -27,6 +27,14 @@ class DefectSystemResult:
         n0_per_cell: electron concentration per unit cell.
         charge_state_concentrations_per_cell: per-unit-cell concentrations keyed
             by species name then charge-state name.
+        high_occupancy_species: species whose solved site occupancy exceeds the
+            originating system's ``occupancy_warning_threshold``, mapped to that
+            occupancy fraction (0.0-1.0) and ordered worst (highest occupancy)
+            first. Empty when no species exceeds the threshold, or when the
+            threshold is ``None`` (the dilute-limit check is disabled). This is
+            the same verdict the ``DiluteLimitWarning`` reports, exposed as data
+            so it is always inspectable regardless of the warnings filter -- a
+            solve run under suppressed warnings still records it here.
     """
 
     temperature: float
@@ -36,6 +44,7 @@ class DefectSystemResult:
     p0_per_cell: float
     n0_per_cell: float
     charge_state_concentrations_per_cell: Mapping[str, Mapping[str, float]]
+    high_occupancy_species: Mapping[str, float]
 
     # @dataclass synthesises __hash__ onto this class; setting __hash__ = None
     # keeps instances unhashable, as they hold dict/mapping fields that a

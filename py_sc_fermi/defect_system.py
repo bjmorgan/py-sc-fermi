@@ -1048,6 +1048,7 @@ class DefectSystem:
             e_fermi, _ = self.get_sc_fermi()
             p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
             per_cell = self._per_charge_state_concs(e_fermi)
+            offenders = self._high_occupancy_offenders(e_fermi)
             self._result = DefectSystemResult(
                 temperature=float(self.temperature),
                 fermi_energy=float(e_fermi),
@@ -1061,6 +1062,7 @@ class DefectSystem:
                         for species, states in per_cell.items()
                     }
                 ),
+                high_occupancy_species=MappingProxyType(dict(offenders)),
             )
         return self._result
 

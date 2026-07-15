@@ -189,6 +189,15 @@
   high occupancy flags a regime in which un-modelled defect-defect interactions
   may make the results non-physical. The threshold is a reporting preference
   and is not serialised.
+- Added `DefectSystemResult.high_occupancy_species`, a read-only mapping of the
+  species whose solved site occupancy exceeds the system's
+  `occupancy_warning_threshold` to that occupancy fraction, ordered worst first
+  (empty when none exceed it, or when the threshold is `None`). This is the same
+  verdict the `DiluteLimitWarning` reports, exposed as inspectable data on the
+  cached `result`, so it survives warning suppression: a solve run under
+  `warnings.catch_warnings()` / `simplefilter("ignore")` (e.g. a batch
+  temperature sweep) still records the verdict, where relying on the fire-once
+  warning alone would lose it.
 - Added a `PyScFermiWarning` base class so all py-sc-fermi warnings can be
   filtered as a group. `DiluteLimitWarning` now subclasses it, and
   `DefectChargeState.from_dict` emits the new `UnrecognisedKeyWarning` for
