@@ -12,7 +12,6 @@ py-sc-fermi
    theory
    usage_notes
    tutorial
-   FAQs
    citing
    py_sc_fermi
 
