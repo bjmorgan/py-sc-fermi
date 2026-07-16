@@ -13,6 +13,7 @@ py-sc-fermi
    usage_notes
    tutorials
    FAQs
+   citing
    py_sc_fermi
 
 :py:mod:`py-sc-fermi` is an open-source Python package for calculating
@@ -73,8 +74,8 @@ blocks, and the features below, in full.
 Features
 ========
 
-- The self-consistent Fermi level and equilibrium defect, electron, and hole
-  concentrations at a fixed temperature.
+- Self-consistent solution of charge neutrality for the Fermi level, and the
+  equilibrium defect, electron, and hole concentrations at a fixed temperature.
 - Site-exclusion (Langmuir) statistics by default, capping each defect at its
   available sites; the dilute Boltzmann limit is recovered automatically.
 - Temperature series and temperature-dependent band-edge shifts through
@@ -83,27 +84,17 @@ Features
 - Constraints on the defect populations: a shared budget of sites across
   species (``site_pools``), and a fixed total content of an element solved
   through its chemical potential (``element_pools``).
-- Metastable charge states, and Boltzmann-weighted effective formation energies.
+- Metastable charge states, combined into Boltzmann-weighted effective formation
+  energies.
 - Defect transition-level diagrams.
 
-The :doc:`theory` page sets out the model behind these features: the
-site-exclusion statistics, the charge-neutrality solve, and the pool
-constraints. Upgrading from v2? The :doc:`migrating_to_v3` guide covers the
-breaking changes and the new default statistics.
+The physical model behind these features is set out in :doc:`theory`.
+
+Upgrading from v2? The :doc:`migrating_to_v3` guide covers the breaking changes.
 
 py-sc-fermi's self-consistent Fermi-level algorithm was originally based on that
 of the FORTRAN code `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_
 (`Buckeridge 2019 <https://www.sciencedirect.com/science/article/pii/S0010465519302048>`_).
-
-Papers that use :py:mod:`py-sc-fermi`
-======================================
-
-- Haouari et al., Impact of Solution Chemistry on Growth and Structural Features of Mo-Substituted Spinel Iron Oxides, 2021, `10.1021/acs.inorgchem.1c00278 <https://pubs.acs.org/doi/abs/10.1021/acs.inorgchem.1c00278>`_
-- Squires et al., Low Electronic Conductivity of Li\ :sub:`7`\ La\ :sub:`3`\ Zr\ :sub:`2`\ O\ :sub:`12`\  Solid Electrolytes from First Principles, 2022, `10.1103/PhysRevMaterials.6.085401 <https://journals.aps.org/prmaterials/abstract/10.1103/PhysRevMaterials.6.085401>`_
-- Jackson, Parret and Willis et al., Computational Prediction and Experimental Realization of Earth-Abundant Transparent Conducting Oxide Ga-Doped ZnSb\ :sub:`2`\ O\ :sub:`6`\ , 2022, `10.1021/acsenergylett.2c01961 <https://doi.org/10.1021/acsenergylett.2c01961>`_
-- Cen et al., Cation disorder dominates the defect chemistry of high-voltage LiMn\ :sub:`1.5`\ Ni \ :sub:`0.5`\ O \ :sub:`4`\ (LMNO) spinel cathodes, 2023, `10.1039/D3TA00532A <https://doi.org/10.1039/D3TA00532A>`_
-- Nicolson et al., Cu\ :sub:`2`\SiSe\ :sub:`3`\  as a promising solar absorber: harnessing cation dissimilarity to avoid killer antisites, 2023, `10.1039/D3TA02429F <https://doi.org/10.1039/D3TA02429F>`_
-
 
 Searching
 =========
