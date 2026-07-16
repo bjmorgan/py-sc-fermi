@@ -11,7 +11,7 @@ py-sc-fermi
    migrating_to_v3
    theory
    usage_notes
-   tutorials
+   tutorial
    FAQs
    citing
    py_sc_fermi
@@ -68,7 +68,7 @@ Quickstart
     result.fermi_energy     # Fermi level (eV, referenced to the valence-band maximum)
     result.concentrations   # {defect name: concentration in cm^-3}
 
-The :doc:`tutorials` page walks through a complete example with these building
+The :doc:`tutorial` page walks through a complete example with these building
 blocks, and the features below, in full.
 
 Features
