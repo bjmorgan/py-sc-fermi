@@ -1,8 +1,8 @@
 Usage notes
 ===========
 
-Conventions and units. For the model behind the calculation — the statistics,
-the charge-neutrality solve, and the pool constraints — see :doc:`theory`.
+Conventions and units. For the model behind the calculation (the statistics,
+the charge-neutrality solve, and the pool constraints), see :doc:`theory`.
 
 - "Unit cell" throughout means the cell for which the density-of-states data
   was calculated. Volumes, degeneracies, and electron counts must all be
@@ -14,9 +14,9 @@ the charge-neutrality solve, and the pool constraints — see :doc:`theory`.
 
   - energy: electron volts
   - temperature: Kelvin
-  - volume: Angstroms :superscript:`3`
+  - volume: Angstroms\ :superscript:`3`
 
-- Concentrations are reported in cm :superscript:`-3`. Internally py-sc-fermi
+- Concentrations are reported in cm\ :superscript:`-3`. Internally py-sc-fermi
   works in per-unit-cell counts, and every concentration on
   ``DefectSystem.result`` has a ``_per_cell`` counterpart. Each function's
   documentation states which it expects or returns; if one does not, that is a

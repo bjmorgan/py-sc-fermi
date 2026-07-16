@@ -64,11 +64,11 @@ Quickstart
 
     result = system.result
     print(result)           # self-consistent Fermi level, carriers, and defect concentrations
-    result.fermi_energy     # Fermi level (eV, referenced to the VBM)
+    result.fermi_energy     # Fermi level (eV, referenced to the valence-band maximum)
     result.concentrations   # {defect name: concentration in cm^-3}
 
-The :doc:`tutorials` page works through this example and the features below in
-full.
+The :doc:`tutorials` page walks through a complete example with these building
+blocks, and the features below, in full.
 
 Features
 ========

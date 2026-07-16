@@ -36,7 +36,7 @@ where ``g_i`` is the state's degeneracy and ``kT`` the thermal energy.
 Because the charge states of a species draw on the same finite set of sites,
 they compete for occupancy. Each site is either empty or in one of the
 competing states, so its occupation follows a single-site partition function
-``1 + sum_j w_j`` — the ``1`` for the empty site, one ``w_j`` for each state
+``1 + sum_j w_j``: the ``1`` for the empty site, one ``w_j`` for each state
 that can occupy it. The concentration of state ``i`` is then::
 
     c_i = N_free * w_i / (1 + sum_j w_j)
@@ -59,11 +59,10 @@ This is the defect concentration of the standard dilute model (`Zhang and
 Northrup, 1991 <https://doi.org/10.1103/PhysRevLett.67.2339>`_), and the
 statistics used by py-sc-fermi v2 and the original SC-Fermi code. Site
 exclusion and the dilute limit therefore agree wherever defects are dilute, and
-part ways only as a species approaches its site budget — at low formation
-energies, high temperatures, or otherwise high occupancy — where site exclusion
+part ways only as a species approaches its site budget (at low formation
+energies, high temperatures, or otherwise high occupancy), where site exclusion
 holds the concentration below the unbounded dilute value. The difference grows
-smoothly with occupancy; there is no occupancy below which the two are exactly
-equal.
+smoothly with occupancy, vanishing only in the dilute limit.
 
 
 When site exclusion is not enough
@@ -92,10 +91,9 @@ Shared site pools
 
 By default each species has its own budget of ``nsites`` sites, and only its
 own charge states compete for them. When several species genuinely share one
-set of physical sites — substitutional species that can each sit on the same
-sublattice, say — group them in a ``site_pools`` entry. Site exclusion is then
-applied across the group: the members draw on one shared ``N_free`` and
-together occupy at most all of it.
+set of physical sites, as substitutional species sharing a sublattice do, group
+them in a ``site_pools`` entry. Site exclusion is then applied across the group:
+the members draw on one shared ``N_free`` and together occupy at most all of it.
 
 
 The self-consistent Fermi level
@@ -155,23 +153,23 @@ constraint is::
 
     sum_i stoichiometry_i * c_i = target
 
-py-sc-fermi enforces it by introducing a chemical potential ``mu`` for the
-element and folding it into each member's weight, ``w_i -> w_i * exp(s_i *
-mu)``, then solving for the ``mu`` at which the content meets the target. This
-is mass action: raising ``mu`` makes the element's interstitials cheaper and
-its vacancies more costly, feeding atoms into the cell; lowering it does the
-reverse. A target of zero with mixed-sign stoichiometry pins exact
-stoichiometry, with interstitials balancing vacancies; a negative target sets an
-off-stoichiometric deficiency; and a scan can cross zero continuously.
+py-sc-fermi enforces it by shifting the element's chemical potential by
+``delta_mu`` and folding that into each member's weight,
+``w_i -> w_i * exp(s_i * delta_mu / kT)``, then solving for the ``delta_mu`` at
+which the content meets the target. This is mass action: raising ``delta_mu``
+makes the element's interstitials cheaper and its vacancies more costly, feeding
+atoms into the cell; lowering it does the reverse. A target of zero with
+mixed-sign stoichiometry pins exact stoichiometry, with interstitials balancing
+vacancies; a negative target sets an off-stoichiometric deficiency; and a scan
+can cross zero continuously.
 
 
 What the model can and cannot judge
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-py-sc-fermi solves for the chemical potential and reports it, through
-``element_chemical_potential_shifts``, as a shift ``delta_mu`` relative to the
-reference at which the formation energies were defined: a target above the
-element's unconstrained content gives ``delta_mu > 0``, one below it
+``element_chemical_potential_shifts`` returns the solved ``delta_mu``, measured
+relative to the reference at which the formation energies were defined: a target
+above the element's unconstrained content gives ``delta_mu > 0``, one below it
 ``delta_mu < 0``.
 
 Two limits bound the target, and only one of them is the model's to enforce.
@@ -188,8 +186,8 @@ that the equilibrium solve will still report if asked.
 Metastable states and transition levels
 ----------------------------------------
 
-A single formal charge can correspond to more than one atomic configuration —
-two geometries of a 2+ oxygen vacancy, say. py-sc-fermi represents these
+A single formal charge can correspond to more than one atomic configuration,
+such as two geometries of a 2+ oxygen vacancy. py-sc-fermi represents these
 metastable states as separate ``DefectChargeState`` objects that share a formal
 charge and are given distinct names.
 
@@ -238,18 +236,18 @@ read-only. A snapshot therefore has a single well-defined solved state, computed
 on first access to ``result`` and cached.
 
 A temperature series is a series of such snapshots. ``DefectSystemFactory``
-holds the temperature-dependent inputs — band-edge shifts and formation-energy
-corrections as functions of temperature — and ``at(T)`` evaluates them and
+holds the temperature-dependent inputs (band-edge shifts and formation-energy
+corrections as functions of temperature), and ``at(T)`` evaluates them and
 builds a fresh, independent ``DefectSystem`` for each temperature. The snapshots
 share no state, so a sweep is a straightforward series of independent solves.
 
 Band-edge shifts enter a snapshot through the density of states. ``vbm_shift``
 and ``cbm_shift`` scissor the DOS, changing the band gap by
 ``cbm_shift - vbm_shift`` and so moving the carrier concentrations and the Fermi
-level; optionally they also shift the defect formation energies, for the case
-where the defect levels are taken to stay fixed in absolute energy as the bands
-move rather than riding rigidly with them. Supplied as functions on the factory,
-the shifts are re-evaluated at every temperature in a sweep.
+level. Optionally, ``vbm_shift`` also shifts the defect formation energies, for
+the case where the defect levels are taken to stay fixed in absolute energy as
+the bands move rather than riding rigidly with them. Supplied as functions on
+the factory, the shifts are re-evaluated at every temperature in a sweep.
 
 Anneal and quench uses the snapshot model directly. Defect populations are often
 set at a high growth or annealing temperature and then frozen in as the material
