@@ -76,14 +76,14 @@ Features
 
 - Self-consistent solution of charge neutrality for the Fermi level, and the
   equilibrium defect, electron, and hole concentrations at a fixed temperature.
-- Site-exclusion (Langmuir) statistics by default, capping each defect at its
-  available sites; the dilute Boltzmann limit is recovered automatically.
+- Site-exclusion (Langmuir) statistics, capping each defect at its available
+  sites.
 - Temperature series and temperature-dependent band-edge shifts through
   ``DefectSystemFactory``.
 - Frozen-defect and anneal-and-quench workflows through ``fixed_concentrations``.
-- Constraints on the defect populations: a shared budget of sites across
-  species (``site_pools``), and a fixed total content of an element solved
-  through its chemical potential (``element_pools``).
+- Share one set of sites among several defect species (``site_pools``), or
+  constrain an element's total amount with the chemical potential solved to
+  match (``element_pools``).
 - Metastable charge states, combined into Boltzmann-weighted effective formation
   energies.
 - Defect transition-level diagrams.
