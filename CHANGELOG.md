@@ -112,11 +112,10 @@
   (`N_free` becomes the pool size rather than each species' own `nsites`), and
   `element_pools` constrains the total content of a dopant element across one
   or more species to a fixed target, by solving for the element's chemical
-  potential. Multiple `element_pools` are solved jointly via
-  `scipy.optimize.minimize`, so targets that couple through a shared species
-  are satisfied simultaneously. Note: within a shared `site_pools` group, only
-  each charge state's `degeneracy` (not its species' `nsites`) sets its
-  relative weight.
+  potential. Multiple `element_pools` are solved jointly, so targets that
+  couple through a shared species are satisfied simultaneously. Note: within
+  a shared `site_pools` group, only each charge state's `degeneracy` (not its
+  species' `nsites`) sets its relative weight.
 - `DefectSystem.as_dict`/`from_dict` now serialise `site_pools` and
   `element_pools`, so a system with site or element constraints round-trips
   through JSON and YAML (previously the pools were silently dropped). Each pool
