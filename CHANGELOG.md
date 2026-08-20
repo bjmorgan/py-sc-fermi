@@ -160,8 +160,9 @@
   independently. If `rigid_shift` is True (the default), the band structure
   and defect levels are assumed to move together as a rigid body, so any
   variable-concentration charge state not covered by
-  `formation_energy_corrections` is unchanged; if False, such charge states
-  have their formation energy shifted by `-charge * vbm_shift`. The DOS
+  `formation_energy_corrections` is unchanged; if False, the defect levels
+  are fixed in absolute energy while the band edges move, and such charge
+  states have their formation energy shifted by `charge * vbm_shift`. The DOS
   scissor and the formation-energy channel are independent. `DefectSystem`
   is an immutable, fixed-temperature snapshot:
   corrections are applied once at construction to copies of `defect_species`
