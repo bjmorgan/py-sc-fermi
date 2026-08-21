@@ -79,7 +79,7 @@ from isolated-defect energies become unreliable.
 py-sc-fermi cannot model those interactions, but it can flag when they are
 likely to matter. When a solve leaves a species above
 ``occupancy_warning_threshold`` (one per cent of its sites by default), it
-raises a ``DiluteLimitWarning`` naming the species and its occupancy. The same
+emits a ``DiluteLimitWarning`` naming the species and its occupancy. The same
 verdict is available without the warning as ``result.high_occupancy_species``,
 and the solved occupancy of every species as ``system.site_percentages()``. The
 threshold is a prompt to check the model against your system, not a boundary

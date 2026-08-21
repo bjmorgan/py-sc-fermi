@@ -7,7 +7,7 @@ Installation
 
    pip install py-sc-fermi
 
-Alternatively, the latest development build can be found `Github`_, which can be installed by cloning the repository and installing with :code:`pip`:
+Alternatively, the latest development build can be found on `Github`_ and installed by cloning the repository and installing with :code:`pip`:
 
 .. code-block:: bash
 
