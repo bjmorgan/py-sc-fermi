@@ -222,6 +222,12 @@ class DefectChargeState:
         specified Fermi energy and temperature, per site in the unit
         cell.
 
+        For a variable-concentration state this is the dilute-limit
+        (Boltzmann) expression ``degeneracy * exp(-E_f / kT)``, with no site
+        exclusion: it is unbounded and can exceed one per site. A solved
+        ``DefectSystem`` applies site-exclusion statistics instead, which
+        agree with this expression only at low occupancy.
+
         Args:
             e_fermi (float): Fermi energy.
             temperature (float): Temperature.
