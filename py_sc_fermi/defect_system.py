@@ -163,8 +163,7 @@ class DefectSystem:
           unchanged. If False, the defect levels are fixed in absolute energy
           while the band edges move, so such charge states have their formation
           energy shifted by `charge * vbm_shift`: in the VBM = 0 working frame
-          the transition levels drop by `vbm_shift`, transforming exactly as an
-          absolutely-fixed band edge does under the scissor.
+          the transition levels drop by `vbm_shift`.
         fixed_concentrations (dict[FixedConcentrationKey, float] | None, optional):
           mapping of species name -> fixed total concentration (per unit
           cell), or ``(species_name, charge_state_name)`` -> fixed
@@ -1424,9 +1423,10 @@ class DefectSystem:
 
         The serialised DOS and formation energies already include any
         corrections applied at construction: ``vbm_shift``/``cbm_shift`` are
-        baked into the DOS as a band-gap scissor, and (under
-        ``rigid_shift=False``) ``vbm_shift`` plus any
-        ``formation_energy_corrections`` are baked into the formation energies.
+        baked into the DOS as a band-gap scissor, and each variable charge
+        state's formation energy includes its ``formation_energy_corrections``
+        entry or, for an uncorrected state under ``rigid_shift=False``,
+        ``charge * vbm_shift``.
         Those constructor parameters are deliberately not round-tripped, since
         re-applying a baked correction on load would double-count it.
 
