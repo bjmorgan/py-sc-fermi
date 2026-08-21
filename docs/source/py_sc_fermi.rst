@@ -25,6 +25,14 @@ py\_sc\_fermi.defect\_system module
    :undoc-members:
    :show-inheritance:
 
+py\_sc\_fermi.defect\_system\_result module
+--------------------------------------------
+
+.. automodule:: py_sc_fermi.defect_system_result
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 py\_sc\_fermi.dos module
 ------------------------
 
