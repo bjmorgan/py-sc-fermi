@@ -16,11 +16,20 @@ class DOS:
     Class for handling density-of-states data and its integration.
 
     Args:
-        dos (np.ndarray): density-of-states data.
-        edos (np.ndarray): energies associated with density-of-states data.
+        dos (np.ndarray): density-of-states data, of shape ``(len(edos),)``,
+            or ``(2, len(edos))`` (one row per spin channel) when
+            ``spin_polarised`` is True.
+        edos (np.ndarray): energies associated with density-of-states data,
+            strictly increasing, with the valence-band maximum at E = 0.
         bandgap (float): band gap
         nelect (int): number of electrons in density-of-states calculation
         spin_polarised (bool): is the calculated density-of-states spin polarised?
+
+    Raises:
+        ValueError: if ``dos`` does not have the shape implied by
+            ``spin_polarised`` and ``len(edos)``, ``edos`` is not strictly
+            increasing or does not bracket zero, or ``bandgap`` is negative
+            or above ``max(edos)``.
     """
 
     def __init__(
@@ -31,6 +40,16 @@ class DOS:
         nelect: int,
         spin_polarised: bool = False,
     ):
+        expected_shape = (2, len(edos)) if spin_polarised else (len(edos),)
+        if np.shape(dos) != expected_shape:
+            raise ValueError(
+                f"dos has shape {np.shape(dos)}; with "
+                f"spin_polarised={spin_polarised} and {len(edos)} energy "
+                f"points it must have shape {expected_shape} (a "
+                "spin-polarised DOS is given as one row per spin channel)."
+            )
+        if not np.all(np.diff(edos) > 0):
+            raise ValueError("edos must be strictly increasing.")
         self._edos = edos
         self._bandgap = bandgap
         self._nelect = nelect
