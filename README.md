@@ -5,9 +5,9 @@
 [![status](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7/status.svg)](https://joss.theoj.org/papers/2fa8b3d80281c36371472485adbc83e7)
 [![PyPI version](https://badge.fury.io/py/py-sc-fermi.svg)](https://badge.fury.io/py/py-sc-fermi)
 
-`py-sc-fermi` is a materials modelling code for calculating self-consistent Fermi energies and defect concentrations under thermodynamic equilibrium (or quasi-equilibrium) in the dilute limit given pre-calculated defect formation energies. For the theory, see [this paper](https://doi.org/10.1016/j.cpc.2019.06.017).   
+`py-sc-fermi` is a materials modelling code for calculating equilibrium point-defect and carrier concentrations in crystalline semiconductors, given pre-calculated defect formation energies. It solves self-consistently for the Fermi energy that enforces charge neutrality, using site-exclusion defect statistics that reduce to the standard dilute-limit model ([Buckeridge 2019](https://doi.org/10.1016/j.cpc.2019.06.017)) at low defect concentrations.
 
-The necessary inputs are (charged) defect formation energies, an (electronic) density of states, and the volume of the unit cell. Having this data, a `DefectSystem` object can be inititalised, from which the self consistent Fermi energy, defect concentrations, defect transition levels and electron and hole concentrations can be calculated. 
+The necessary inputs are (charged) defect formation energies, an (electronic) density of states, and the volume of the unit cell. Having this data, a `DefectSystem` object can be initialised, from which the self-consistent Fermi energy, defect concentrations, defect transition levels and electron and hole concentrations can be calculated. 
 
 Documentation and usage guides can be found [here](https://py-sc-fermi.readthedocs.io/en/latest/).
 
