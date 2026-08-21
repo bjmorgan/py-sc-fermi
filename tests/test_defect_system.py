@@ -2448,6 +2448,28 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
                     formation_energy_corrections={key: 0.2},
                 )
 
+    def test_correction_for_state_with_energy_and_fixed_concentration_raises(self):
+        # A state constructed with both an energy and a fixed concentration is
+        # solved at the fixed concentration, so its energy is unused; a
+        # correction keyed to it would be silently inert rather than applied.
+        cs_var = DefectChargeState(charge=0, energy=1.0, name="X_a")
+        cs_both = DefectChargeState(
+            charge=1, energy=0.5, fixed_concentration=0.1, name="X_both"
+        )
+        ds = DefectSpecies(name="X", nsites=1, charge_states=[cs_var, cs_both])
+        dos = Mock(spec=DOS)
+        dos.bandgap = 1.0
+        dos.nelect = 10
+        for key in (cs_both, ("X", "X_both")):
+            with self.assertRaisesRegex(ValueError, "X_both.*cannot be corrected"):
+                DefectSystem(
+                    defect_species=[ds],
+                    volume=1.0,
+                    dos=dos,
+                    temperature=300,
+                    formation_energy_corrections={key: 0.2},
+                )
+
     def test_invalid_correction_key_shape_raises(self):
         # A bare string is neither key form and must not be misreported as
         # an unrecognised DefectChargeState object.
