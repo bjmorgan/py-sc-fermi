@@ -134,7 +134,7 @@ class DefectSystem:
           band gap (and hence the carrier concentrations from the Fermi-Dirac
           integration) changes by `cbm_shift - vbm_shift`; with the VBM pinned
           at E=0, `vbm_shift` narrows the gap. Separately, when
-          `rigid_shift=False`, `-charge * vbm_shift` is added to every
+          `rigid_shift=False`, `charge * vbm_shift` is added to every
           variable-concentration charge state's formation energy. Also sets the
           effective band gap shown by `__repr__`. Defaults to 0.0.
         cbm_shift (float, optional): a temperature-dependent shift of the
@@ -162,7 +162,8 @@ class DefectSystem:
           charge state not covered by `formation_energy_corrections` is left
           unchanged. If False, the defect levels are fixed in absolute energy
           while the band edges move, so such charge states have their formation
-          energy shifted by `-charge * vbm_shift`.
+          energy shifted by `charge * vbm_shift`: in the VBM = 0 working frame
+          the transition levels drop by `vbm_shift`.
         fixed_concentrations (dict[FixedConcentrationKey, float] | None, optional):
           mapping of species name -> fixed total concentration (per unit
           cell), or ``(species_name, charge_state_name)`` -> fixed
@@ -440,7 +441,7 @@ class DefectSystem:
         formation energy in `self.defect_species` (a copy of
         `original_defect_species`) by its entry in
         `formation_energy_corrections` if present, else
-        `-cs.charge * self.vbm_shift` if `self.rigid_shift` is False, else 0.
+        `cs.charge * self.vbm_shift` if `self.rigid_shift` is False, else 0.
         Keys are `DefectChargeState` objects or
         `(species_name, charge_state_name)` pairs, canonicalised to objects
         before use.
@@ -465,7 +466,7 @@ class DefectSystem:
             if original_cs in resolved_corrections:
                 delta = resolved_corrections[original_cs]
             elif not self.rigid_shift:
-                delta = -copied_cs.charge * self.vbm_shift
+                delta = copied_cs.charge * self.vbm_shift
             else:
                 delta = 0.0
             copied_cs._energy += delta
@@ -1422,9 +1423,10 @@ class DefectSystem:
 
         The serialised DOS and formation energies already include any
         corrections applied at construction: ``vbm_shift``/``cbm_shift`` are
-        baked into the DOS as a band-gap scissor, and (under
-        ``rigid_shift=False``) ``vbm_shift`` plus any
-        ``formation_energy_corrections`` are baked into the formation energies.
+        baked into the DOS as a band-gap scissor, and each variable charge
+        state's formation energy includes its ``formation_energy_corrections``
+        entry or, for an uncorrected state under ``rigid_shift=False``,
+        ``charge * vbm_shift``.
         Those constructor parameters are deliberately not round-tripped, since
         re-applying a baked correction on load would double-count it.
 

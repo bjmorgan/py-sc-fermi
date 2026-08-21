@@ -2303,14 +2303,37 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         system = self._make_system(vbm_shift=d_vbm, rigid_shift=False)
         self.assertAlmostEqual(
             system.defect_species[0].charge_states[0].energy,
-            1.0 - self.cs0.charge * d_vbm,
+            1.0 + self.cs0.charge * d_vbm,
         )
         self.assertAlmostEqual(
             system.defect_species[0].charge_states[1].energy,
-            1.5 - self.cs1.charge * d_vbm,
+            1.5 + self.cs1.charge * d_vbm,
         )
         self.assertEqual(self.cs0.energy, 1.0)
         self.assertEqual(self.cs1.energy, 1.5)
+
+    def test_non_rigid_shift_keeps_defect_level_fixed_in_absolute_energy(self):
+        # With cbm_shift=0 the CBM is fixed in absolute energy, and the scissor
+        # places it vbm_shift lower in the re-pinned (VBM = 0) frame. A defect
+        # level fixed in absolute energy must transform identically: the donor
+        # transition level eps(+/0) = E(0) - E(+1) drops by vbm_shift,
+        # preserving its separation from the CBM.
+        cs_plus = DefectChargeState(charge=1, energy=-0.4, degeneracy=1)
+        cs_zero = DefectChargeState(charge=0, energy=1.3, degeneracy=1)
+        donor = DefectSpecies("D", nsites=1, charge_states=[cs_plus, cs_zero])
+        d_vbm = 0.2
+        system = DefectSystem(
+            defect_species=[donor],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            vbm_shift=d_vbm,
+            rigid_shift=False,
+        )
+        shifted_plus, shifted_zero = system.defect_species[0].charge_states
+        transition_level = shifted_zero.energy - shifted_plus.energy
+        self.assertAlmostEqual(transition_level, 1.7 - d_vbm)
+        self.assertAlmostEqual(system.dos.bandgap - transition_level, 2.0 - 1.7)
 
     def test_formation_energy_correction_distinguishes_metastable_states(self):
         cs_a = DefectChargeState(charge=1, energy=0.5, degeneracy=1, name="X_i_1+_a")
@@ -2512,7 +2535,7 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
         shifted = self._make_system(vbm_shift=0.5, rigid_shift=False)  # delta_gap = -0.5
         self.assertAlmostEqual(shifted.dos.bandgap, base.dos.bandgap - 0.5)
         self.assertAlmostEqual(shifted.defect_species[0].charge_states[0].energy, 1.0)
-        self.assertAlmostEqual(shifted.defect_species[0].charge_states[1].energy, 1.5 - 0.5)
+        self.assertAlmostEqual(shifted.defect_species[0].charge_states[1].energy, 1.5 + 0.5)
         _, n_base = base.dos.carrier_concentrations(1.0, 600.0)
         _, n_sh = shifted.dos.carrier_concentrations(1.0, 600.0)
         self.assertGreater(n_sh, n_base)
@@ -2525,7 +2548,7 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
             shifted.dos.carrier_concentrations(1.0, 600.0),
             base.dos.carrier_concentrations(1.0, 600.0),
         )
-        self.assertAlmostEqual(shifted.defect_species[0].charge_states[1].energy, 1.5 - 0.3)
+        self.assertAlmostEqual(shifted.defect_species[0].charge_states[1].energy, 1.5 + 0.3)
 
     def test_repr_reports_scissored_gap_without_double_count(self):
         system = self._make_system(vbm_shift=0.05, cbm_shift=-0.02)  # delta_gap = -0.07
@@ -2553,7 +2576,7 @@ class TestDefectSystemFactory(unittest.TestCase):
         self.assertAlmostEqual(system.vbm_shift, 0.3)
         self.assertAlmostEqual(
             system.defect_species[0].charge_states[1].energy,
-            1.5 - self.cs1.charge * 0.3,
+            1.5 + self.cs1.charge * 0.3,
         )
 
     def test_at_sets_temperature(self):
@@ -2950,7 +2973,7 @@ class TestDefectSystemPoolSerialisation(unittest.TestCase):
 
     def test_baked_numpy_correction_keeps_as_dict_yaml_safe(self):
         # The documented temperature-dependent-shift workflow: a numpy vbm_shift
-        # with rigid_shift=False bakes -charge * vbm_shift into each energy,
+        # with rigid_shift=False bakes charge * vbm_shift into each energy,
         # promoting it to np.float64. The whole-system dict must stay YAML-safe.
         system = DefectSystem(
             defect_species=[self.species_a, self.species_b],
