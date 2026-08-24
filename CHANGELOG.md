@@ -81,8 +81,12 @@
   `formation_energy_correction_fns` (`DefectSystemFactory`) accept
   `(species_name, charge_state_name)` pairs as keys, alongside
   `DefectChargeState` objects. Referencing the same charge state through two
-  keys, keying a fixed-concentration state (which has no formation energy to
-  correct), or passing a key that is neither form raises `ValueError`.
+  keys, keying a fixed-concentration state (whose formation energy, if it has
+  one, is unused by the solve, so a correction would be silently inert), or
+  passing a key that is neither form raises `ValueError`. A charge state fixed
+  later, via `fixed_concentrations`, still composes with a correction: the
+  quench workflow passes both for one state, and the fixed state's energy is
+  then unused, as documented on `fixed_concentrations`.
 - `fixed_concentrations` (`DefectSystem`, and as a `factory.at()` override)
   accepts `(species_name, charge_state_name)` pairs as keys, fixing that
   single charge state at construction, alongside species-name keys for
@@ -144,6 +148,14 @@
   at construction: a value that is not finite and non-negative raises
   `ValueError`, rather than passing silently into budget sums (where a NaN
   defeats every comparison and a negative silently reduces the total).
+- `DOS` validates its inputs at construction (and therefore on `from_dict`):
+  the density must have the shape implied by `spin_polarised` and the energy
+  grid's length, the energy grid must be strictly increasing, `bandgap` must
+  be finite as well as non-negative, and the density integrated below mid-gap
+  must be finite and positive for the `nelect` normalisation to exist.
+  Previously these inputs produced opaque downstream errors or, for a NaN
+  `bandgap` or a mis-referenced energy grid, silently wrong carrier
+  concentrations. Plain-list inputs are coerced to float arrays.
 - Added band-edge corrections (`vbm_shift`, `cbm_shift`,
   `formation_energy_corrections`, `rigid_shift`) to `DefectSystem`. `vbm_shift`
   and `cbm_shift` are pre-evaluated shifts (in eV) that scissor the DOS at
@@ -201,7 +213,10 @@
   cached `result`, so it survives warning suppression: a solve run under
   `warnings.catch_warnings()` / `simplefilter("ignore")` (e.g. a batch
   temperature sweep) still records the verdict, where relying on the fire-once
-  warning alone would lose it.
+  warning alone would lose it. `result.as_dict()` includes
+  `high_occupancy_species`, so an exported record also keeps the verdict (the
+  export carries no site counts, so it could not otherwise be reconstructed);
+  the threshold itself remains unserialised.
 - Added a `PyScFermiWarning` base class so all py-sc-fermi warnings can be
   filtered as a group. `DiluteLimitWarning` now subclasses it, and
   `DefectChargeState.from_dict` emits the new `UnrecognisedKeyWarning` for
