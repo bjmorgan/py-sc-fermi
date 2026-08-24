@@ -150,11 +150,11 @@ class DefectSystem:
           a `(species_name, charge_state_name)` pair; the two forms may be
           mixed. Keying per charge state (rather than per formal charge)
           allows different corrections for metastable states that share a
-          formal charge. Every key must identify a charge state in
-          `defect_species` that has a formation energy (a fixed-concentration
-          state has nothing for a correction to act on), and no charge state
-          may be referenced twice. Defaults to None (no per-state
-          corrections).
+          formal charge. Every key must identify a variable-concentration
+          charge state in `defect_species` (a fixed-concentration state's
+          formation energy, if it has one, is unused by the solve, so a
+          correction on it would be inert), and no charge state may be
+          referenced twice. Defaults to None (no per-state corrections).
         rigid_shift (bool, optional): gates only the formation-energy channel;
           the DOS scissor from `vbm_shift`/`cbm_shift` is applied regardless. If
           True (the default), the band structure and defect levels are assumed
@@ -386,9 +386,10 @@ class DefectSystem:
 
         Raises:
             ValueError: if a key is neither form, a pair names an unknown
-                species or charge state, the charge state has no formation
-                energy for a correction to act on (fixed concentration), or
-                two keys resolve to the same charge state.
+                species or charge state, the charge state has a fixed
+                concentration (its formation energy, if any, is unused by the
+                solve, so a correction would be inert), or two keys resolve to
+                the same charge state.
         """
         species_by_name = {ds.name: ds for ds in defect_species}
         resolved: dict[DefectChargeState, float] = {}
@@ -410,15 +411,22 @@ class DefectSystem:
                     "DefectChargeState objects or "
                     f"(species_name, charge_state_name) pairs; got {key!r}."
                 )
-            if cs.energy is None:
+            if cs.fixed_concentration is not None:
                 owner = next(
                     (ds.name for ds in defect_species if cs in ds.charge_states),
-                    "<unknown>",
+                    None,
                 )
+                if owner is None:
+                    raise ValueError(
+                        "formation_energy_corrections references a "
+                        f"DefectChargeState ('{cs.name}') that is not part "
+                        "of `defect_species`."
+                    )
                 raise ValueError(
                     f"formation_energy_corrections references charge state "
-                    f"'{cs.name}' of species '{owner}', which has no formation "
-                    "energy (fixed concentration) and cannot be corrected."
+                    f"'{cs.name}' of species '{owner}', which has a fixed "
+                    "concentration and cannot be corrected (the solve does "
+                    "not use its formation energy)."
                 )
             if cs in resolved:
                 owner = next(

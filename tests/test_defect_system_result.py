@@ -1,5 +1,7 @@
+import json
 import unittest
 from dataclasses import FrozenInstanceError
+from types import MappingProxyType
 
 from py_sc_fermi.defect_system_result import DefectSystemResult
 
@@ -90,7 +92,6 @@ class DefectSystemResultSerialisationTestCase(unittest.TestCase):
             p0_per_cell=2.0,
             n0_per_cell=4.0,
             charge_state_concentrations_per_cell={"V_O": {"q+2": 1.0, "q0": 3.0}},
-            # non-empty so the as_dict key-set assertion is a real exclusion guard
             high_occupancy_species={"V_O": 0.9},
         )
 
@@ -108,6 +109,7 @@ class DefectSystemResultSerialisationTestCase(unittest.TestCase):
                 "label",
                 "concentrations",
                 "charge_state_concentrations",
+                "high_occupancy_species",
             },
         )
         self.assertEqual(d["fermi_energy"], 0.5)
@@ -118,9 +120,27 @@ class DefectSystemResultSerialisationTestCase(unittest.TestCase):
             d["charge_state_concentrations"],
             {"V_O": {"q+2": 1.0 * scale, "q0": 3.0 * scale}},
         )
+        self.assertEqual(d["high_occupancy_species"], {"V_O": 0.9})
 
     def test_as_dict_label_is_none_when_unset(self):
         self.assertIsNone(self._result().as_dict()["label"])
+
+    def test_as_dict_is_json_safe_with_mapping_proxy_fields(self):
+        # DefectSystem.result stores its mapping fields as MappingProxyType;
+        # the export must be serialisable regardless.
+        r = DefectSystemResult(
+            temperature=300.0,
+            fermi_energy=0.5,
+            volume=100.0,
+            label=None,
+            p0_per_cell=2.0,
+            n0_per_cell=4.0,
+            charge_state_concentrations_per_cell=MappingProxyType(
+                {"V_O": MappingProxyType({"q+2": 1.0})}
+            ),
+            high_occupancy_species=MappingProxyType({"V_O": 0.9}),
+        )
+        json.dumps(r.as_dict())
 
     def test_repr_is_concise(self):
         text = repr(self._result(label="O-rich"))

@@ -106,7 +106,9 @@ class DefectSystemResult:
             dict: ``fermi_energy`` (eV), ``p0`` and ``n0`` (cm^-3),
             ``temperature`` (K), ``volume`` (cubic Angstrom), ``label``,
             ``concentrations`` and ``charge_state_concentrations`` (per-species
-            totals and per-charge-state, in cm^-3).
+            totals and per-charge-state, in cm^-3), and
+            ``high_occupancy_species`` (species name to occupancy fraction, as
+            recorded on this result).
         """
         return {
             "fermi_energy": self.fermi_energy,
@@ -117,6 +119,7 @@ class DefectSystemResult:
             "label": self.label,
             "concentrations": self.concentrations,
             "charge_state_concentrations": self.charge_state_concentrations,
+            "high_occupancy_species": dict(self.high_occupancy_species),
         }
 
     def __repr__(self) -> str:

@@ -32,6 +32,70 @@ class TestDOSInit(unittest.TestCase):
         self.assertEqual(dos._nelect, self.nelect)
 
 
+class TestDOSInputValidation(unittest.TestCase):
+    def setUp(self):
+        self.edos = np.linspace(-10.0, 10.0, 100)
+        self.dos_data = np.where((self.edos <= 0) | (self.edos >= 3.0), 1.0, 0.0)
+
+    def _make(self, **overrides):
+        kwargs = dict(dos=self.dos_data, edos=self.edos, bandgap=3.0, nelect=10)
+        kwargs.update(overrides)
+        return DOS(**kwargs)
+
+    def test_spin_polarised_with_1d_dos_raises(self):
+        with self.assertRaisesRegex(ValueError, "spin_polarised"):
+            self._make(spin_polarised=True)
+
+    def test_non_spin_polarised_with_2d_dos_raises(self):
+        with self.assertRaisesRegex(ValueError, "must have shape"):
+            self._make(dos=np.array([self.dos_data, self.dos_data]))
+
+    def test_spin_polarised_two_channel_dos_is_accepted(self):
+        dos = self._make(
+            dos=np.array([self.dos_data, self.dos_data]), spin_polarised=True
+        )
+        self.assertEqual(dos.dos.shape, self.edos.shape)
+
+    def test_dos_edos_length_mismatch_raises(self):
+        with self.assertRaisesRegex(ValueError, "must have shape"):
+            self._make(dos=self.dos_data[:-1])
+
+    def test_non_monotonic_edos_raises(self):
+        edos = self.edos.copy()
+        edos[[40, 41]] = edos[[41, 40]]
+        with self.assertRaisesRegex(ValueError, "increasing"):
+            self._make(edos=edos)
+
+    def test_from_dict_with_non_monotonic_edos_raises(self):
+        d = self._make().as_dict()
+        d["edos"][40], d["edos"][41] = d["edos"][41], d["edos"][40]
+        with self.assertRaisesRegex(ValueError, "increasing"):
+            DOS.from_dict(d)
+
+    def test_nan_bandgap_raises(self):
+        # NaN passes both ordering comparisons, collapses the integration
+        # windows, and previously solved to silently wrong carriers.
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self._make(bandgap=float("nan"))
+
+    def test_zero_valence_integral_raises(self):
+        # the classic mis-referenced grid: no valence-band density below
+        # mid-gap, so normalisation would divide by zero.
+        with self.assertRaisesRegex(ValueError, "valence"):
+            self._make(dos=np.where(self.edos >= 3.0, 1.0, 0.0))
+
+    def test_nan_density_raises(self):
+        dos_data = self.dos_data.copy()
+        dos_data[10] = np.nan
+        with self.assertRaisesRegex(ValueError, "valence"):
+            self._make(dos=dos_data)
+
+    def test_list_inputs_are_coerced_to_arrays(self):
+        dos = self._make(dos=list(self.dos_data), edos=list(self.edos))
+        p0, n0 = dos.carrier_concentrations(1.5, 298.0)
+        self.assertTrue(np.isfinite(p0) and np.isfinite(n0))
+
+
 class TestDos(unittest.TestCase):
     def setUp(self):
         edos = np.linspace(-10.0, 10.0, 100)
