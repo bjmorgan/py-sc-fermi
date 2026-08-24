@@ -411,11 +411,17 @@ class DefectSystem:
                     "DefectChargeState objects or "
                     f"(species_name, charge_state_name) pairs; got {key!r}."
                 )
-            if cs.energy is None or cs.fixed_concentration is not None:
+            if cs.fixed_concentration is not None:
                 owner = next(
                     (ds.name for ds in defect_species if cs in ds.charge_states),
-                    "<unknown>",
+                    None,
                 )
+                if owner is None:
+                    raise ValueError(
+                        "formation_energy_corrections references a "
+                        f"DefectChargeState ('{cs.name}') that is not part "
+                        "of `defect_species`."
+                    )
                 raise ValueError(
                     f"formation_energy_corrections references charge state "
                     f"'{cs.name}' of species '{owner}', which has a fixed "

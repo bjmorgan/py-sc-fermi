@@ -2470,6 +2470,33 @@ class TestDefectSystemBandEdgeCorrections(unittest.TestCase):
                     formation_energy_corrections={key: 0.2},
                 )
 
+    def test_correction_composes_with_pair_key_fixed_concentration(self):
+        # The quench idiom: a factory carrying per-state correction functions
+        # builds the low-temperature snapshot with a pair-key
+        # fixed_concentrations override for the same state, so a correction
+        # and a pair-key fix must compose without error in one constructor
+        # call. The fixed state's energy (correction included) is unused by
+        # the solve, as documented on fixed_concentrations.
+        system = DefectSystem(
+            defect_species=[self.species],
+            dos=self.dos,
+            volume=100,
+            temperature=300,
+            formation_energy_corrections={("V_O", "q+1"): 0.3},
+            fixed_concentrations={("V_O", "q+1"): 1e-4},
+        )
+        concs = system.result.charge_state_concentrations_per_cell["V_O"]
+        self.assertEqual(concs["q+1"], 1e-4)
+
+    def test_foreign_fixed_concentration_key_reports_membership(self):
+        # A fixed-concentration DefectChargeState from outside the system
+        # must be diagnosed as not belonging, not as uncorrectable.
+        foreign = DefectChargeState(
+            charge=1, fixed_concentration=0.1, name="F_out"
+        )
+        with self.assertRaisesRegex(ValueError, "not part of"):
+            self._make_system(formation_energy_corrections={foreign: 0.2})
+
     def test_invalid_correction_key_shape_raises(self):
         # A bare string is neither key form and must not be misreported as
         # an unrecognised DefectChargeState object.
