@@ -36,7 +36,7 @@ v3 to report a lower concentration for it.
 The difference grows smoothly with occupancy, with no threshold below which the
 two models agree. py-sc-fermi emits a ``DiluteLimitWarning`` once a solved
 occupancy exceeds ``DefectSystem.occupancy_warning_threshold`` (1% by default,
-and adjustable): a prompt to review the result and check whether the
+and settable at construction): a prompt to review the result and check whether the
 dilute / lattice-gas defect model holds for your system.
 
 

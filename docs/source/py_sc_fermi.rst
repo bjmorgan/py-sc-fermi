@@ -26,7 +26,7 @@ py\_sc\_fermi.defect\_system module
    :show-inheritance:
 
 py\_sc\_fermi.defect\_system\_result module
---------------------------------------------
+-------------------------------------------
 
 .. automodule:: py_sc_fermi.defect_system_result
    :members:
