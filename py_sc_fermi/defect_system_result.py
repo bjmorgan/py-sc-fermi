@@ -108,8 +108,7 @@ class DefectSystemResult:
             ``concentrations`` and ``charge_state_concentrations`` (per-species
             totals and per-charge-state, in cm^-3), and
             ``high_occupancy_species`` (species name to occupancy fraction, as
-            recorded on this result), so an exported record of a solve that
-            strained the dilute assumption carries that verdict with it.
+            recorded on this result).
         """
         return {
             "fermi_energy": self.fermi_energy,

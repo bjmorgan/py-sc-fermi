@@ -516,11 +516,11 @@ class DefectSpecies:
         - For variable states: c_cell = c_site * nsites, where
             c_site = exp(-E_f / (kB * T)) * degeneracy per site.
 
-        The variable-state values are the dilute-limit (Boltzmann) expression,
-        with no site exclusion, so for a species without a fixed concentration
-        they are unbounded and can exceed `nsites`. A solved `DefectSystem`
-        applies site-exclusion statistics instead, which agree with these
-        values only at low occupancy.
+        For a species without a fixed concentration, the variable-state values
+        are the dilute-limit (Boltzmann) expression with no site exclusion:
+        they are unbounded and can exceed ``nsites``. A solved
+        ``DefectSystem`` applies site-exclusion statistics instead, which
+        agree with these values only at low occupancy.
 
         If the species itself has `fixed_concentration` set, all variable-state
         concentrations are rescaled as a group so that
@@ -604,8 +604,8 @@ class DefectSpecies:
         Calculate the defect charge contributions to the total charge of this
         ``DefectSpecies`` at a given Fermi energy and temperature.
 
-        The concentrations are those of ``charge_state_concentrations``:
-        dilute-limit (Boltzmann) for variable states, with no site exclusion.
+        The concentrations are those of ``charge_state_concentrations``, with
+        its dilute-limit caveat for species without a fixed concentration.
 
         Args:
             e_fermi (float): Fermi energy.

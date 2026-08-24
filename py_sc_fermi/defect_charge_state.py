@@ -219,14 +219,16 @@ class DefectChargeState:
     @suppresses_numpy_overflow
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this ``DefectChargeState`` at a
-        specified Fermi energy and temperature, per site in the unit
-        cell.
+        specified Fermi energy and temperature. A variable-concentration
+        state returns a per-site concentration; a fixed-concentration state
+        returns its fixed per-cell concentration unchanged.
 
-        For a variable-concentration state this is the dilute-limit
-        (Boltzmann) expression ``degeneracy * exp(-E_f / kT)``, with no site
-        exclusion: it is unbounded and can exceed one per site. A solved
-        ``DefectSystem`` applies site-exclusion statistics instead, which
-        agree with this expression only at low occupancy.
+        The variable-state value is the dilute-limit (Boltzmann) expression
+        ``degeneracy * exp(-E_formation / kT)``, with ``E_formation`` the
+        formation energy at ``e_fermi``. It applies no site exclusion, so it
+        is unbounded and can exceed one per site; a solved ``DefectSystem``
+        applies site-exclusion statistics instead, which agree with this
+        expression only at low occupancy.
 
         Args:
             e_fermi (float): Fermi energy.
