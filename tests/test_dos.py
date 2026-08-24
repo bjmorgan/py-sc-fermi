@@ -72,6 +72,29 @@ class TestDOSInputValidation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "increasing"):
             DOS.from_dict(d)
 
+    def test_nan_bandgap_raises(self):
+        # NaN passes both ordering comparisons, collapses the integration
+        # windows, and previously solved to silently wrong carriers.
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self._make(bandgap=float("nan"))
+
+    def test_zero_valence_integral_raises(self):
+        # the classic mis-referenced grid: no valence-band density below
+        # mid-gap, so normalisation would divide by zero.
+        with self.assertRaisesRegex(ValueError, "valence"):
+            self._make(dos=np.where(self.edos >= 3.0, 1.0, 0.0))
+
+    def test_nan_density_raises(self):
+        dos_data = self.dos_data.copy()
+        dos_data[10] = np.nan
+        with self.assertRaisesRegex(ValueError, "valence"):
+            self._make(dos=dos_data)
+
+    def test_list_inputs_are_coerced_to_arrays(self):
+        dos = self._make(dos=list(self.dos_data), edos=list(self.edos))
+        p0, n0 = dos.carrier_concentrations(1.5, 298.0)
+        self.assertTrue(np.isfinite(p0) and np.isfinite(n0))
+
 
 class TestDos(unittest.TestCase):
     def setUp(self):

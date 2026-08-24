@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
 from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
@@ -28,8 +30,10 @@ class DOS:
     Raises:
         ValueError: if ``dos`` does not have the shape implied by
             ``spin_polarised`` and ``len(edos)``, ``edos`` is not strictly
-            increasing or does not bracket zero, or ``bandgap`` is negative
-            or above ``max(edos)``.
+            increasing or does not bracket zero, ``bandgap`` is not finite
+            and non-negative or is above ``max(edos)``, or the density
+            integrated below mid-gap is not finite and positive (see
+            ``normalise_dos``).
     """
 
     def __init__(
@@ -40,16 +44,23 @@ class DOS:
         nelect: int,
         spin_polarised: bool = False,
     ):
+        dos = np.asarray(dos, dtype=float)
+        edos = np.asarray(edos, dtype=float)
         expected_shape = (2, len(edos)) if spin_polarised else (len(edos),)
-        if np.shape(dos) != expected_shape:
+        if dos.shape != expected_shape:
             raise ValueError(
-                f"dos has shape {np.shape(dos)}; with "
+                f"dos has shape {dos.shape}; with "
                 f"spin_polarised={spin_polarised} and {len(edos)} energy "
                 f"points it must have shape {expected_shape} (a "
                 "spin-polarised DOS is given as one row per spin channel)."
             )
         if not np.all(np.diff(edos) > 0):
-            raise ValueError("edos must be strictly increasing.")
+            raise ValueError(
+                "edos must be strictly increasing (sorted by energy, with no "
+                "duplicate points)."
+            )
+        if not math.isfinite(bandgap):
+            raise ValueError(f"bandgap must be finite, got {bandgap}.")
         self._edos = edos
         self._bandgap = bandgap
         self._nelect = nelect
@@ -254,8 +265,21 @@ class DOS:
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
         density-of-states unit cell (``self.nelect``)
+
+        Raises:
+            ValueError: if the density integrated below mid-gap is not finite
+                and positive, so no normalisation exists -- typically an
+                energy grid that is not referenced with the valence-band
+                maximum at E = 0, or a density containing NaN.
         """
-        integrated_dos = self.sum_dos()
+        integrated_dos = float(self.sum_dos())
+        if not (math.isfinite(integrated_dos) and integrated_dos > 0):
+            raise ValueError(
+                f"the DOS integrates to {integrated_dos} below mid-gap, so it "
+                "cannot be normalised to nelect; check that edos is "
+                "referenced with the valence-band maximum at E = 0 and that "
+                "the density is non-negative and free of NaN."
+            )
         self._dos = self._dos / integrated_dos * self._nelect
 
     def emin(self) -> float:
