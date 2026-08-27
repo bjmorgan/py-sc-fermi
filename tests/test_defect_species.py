@@ -407,7 +407,6 @@ class TestDefectSpecies(unittest.TestCase):
                 self.defect_species.charge_states[2]
             ],
         )
-        print(self.defect_species.dilute_charge_state_concentrations(e_fermi=1.5, temperature=298.0))
 
     def test_variable_concentration_charge_states(self):
         self.defect_species.charge_states[0].fixed_concentration = 0.1234
