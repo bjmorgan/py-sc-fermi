@@ -48,7 +48,8 @@ Charge states are an ordered collection
 
 ``DefectSpecies.charge_states`` is now a ``tuple[DefectChargeState, ...]``
 rather than a ``dict`` keyed by charge, and ``charge_state_concentrations``
-returns a list of ``(DefectChargeState, concentration)`` pairs rather than a
+(renamed ``dilute_charge_state_concentrations`` -- see below) returns a list
+of ``(DefectChargeState, concentration)`` pairs rather than a
 ``{charge: concentration}`` dict. Construct a species with a list, and iterate
 the returned collection directly:
 
@@ -69,6 +70,27 @@ the returned collection directly:
 Because the charge states form an ordered collection, a single species may now
 hold several states with the same formal charge, which is how v3 represents
 metastable defects.
+
+``DefectSpecies.charge_state_concentrations`` is now ``dilute_charge_state_concentrations``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This method (on ``DefectSpecies``, not the solved-system read-out below) has
+always computed the unbounded dilute-limit expression, with no site
+exclusion -- its docstring already carried that caveat. Renaming it to
+``dilute_charge_state_concentrations`` makes that explicit at the call site,
+so it cannot be mistaken for the site-exclusion-corrected values on
+``DefectSystem.result``:
+
+.. code-block:: python
+
+    # v2/early v3
+    for charge_state, conc in species.charge_state_concentrations(e_fermi, temperature)
+
+    # v3
+    for charge_state, conc in species.dilute_charge_state_concentrations(e_fermi, temperature)
+
+``DefectSystemResult.charge_state_concentrations`` (below) is unaffected --
+only the per-species method on ``DefectSpecies`` is renamed.
 
 The flat-dict read-outs have been replaced by ``DefectSystem.result``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

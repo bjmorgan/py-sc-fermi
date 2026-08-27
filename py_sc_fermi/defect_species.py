@@ -18,8 +18,11 @@ class DefectSpecies:
     Args:
         name (str): A unique identifying string for this defect species,
            e.g. ``"V_O"`` might be used for an oxygen vacancy.
-        nsites (int): Number of sites energetically degenerate sites where this
-         defect can form in the unit cell (the site degeneracy).
+        nsites (float): Number of energetically degenerate sites where this
+         defect can form in the unit cell (the site degeneracy). Usually an
+         integer count, but may be non-integer for defect complexes whose
+         per-cell multiplicity is fractional (e.g. some split-vacancy or
+         split-interstitial configurations). Must be finite and > 0.
         charge_states (Sequence[DefectChargeState]): the ``DefectChargeState``
            objects belonging to this defect species, given as any sequence.
            Multiple charge states may share the same formal charge, to
@@ -34,7 +37,7 @@ class DefectSpecies:
     def __init__(
         self,
         name: str,
-        nsites: int,
+        nsites: float,
         charge_states: Sequence[DefectChargeState],
         fixed_concentration: float | None = None,
     ):
@@ -45,9 +48,9 @@ class DefectSpecies:
             raise ValueError(
                 f"DefectSpecies '{name}' must have at least one charge state."
             )
-        if nsites <= 0:
+        if not math.isfinite(nsites) or nsites <= 0:
             raise ValueError(
-                f"DefectSpecies '{name}' must have nsites > 0; got {nsites}."
+                f"DefectSpecies '{name}' must have nsites finite and > 0; got {nsites}."
             )
         name_counts = Counter(cs.name for cs in charge_states)
         duplicates = sorted(n for n, count in name_counts.items() if count > 1)
@@ -103,11 +106,11 @@ class DefectSpecies:
         return self._name
 
     @property
-    def nsites(self) -> int:
+    def nsites(self) -> float:
         """site degeneracy of this ``DefectSpecies`` in the unit cell.
 
         Returns:
-            int: site degeneracy for ``DefectSpecies``
+            float: site degeneracy for ``DefectSpecies``
         """
         return self._nsites
 
@@ -229,7 +232,7 @@ class DefectSpecies:
 
         defect_dict = {
             "name": str(self.name),
-            "nsites": int(self.nsites),
+            "nsites": float(self.nsites),
             "charge_states": [cs.as_dict() for cs in self._charge_states]
         }
         if self.fixed_concentration is not None:
@@ -477,7 +480,7 @@ class DefectSpecies:
 
         # Sum over every (state, concentration) pair
         total = 0.0
-        for _cs, conc in self.charge_state_concentrations(e_fermi, temperature):
+        for _cs, conc in self.dilute_charge_state_concentrations(e_fermi, temperature):
             total += conc
         return total
 
@@ -502,7 +505,7 @@ class DefectSpecies:
         """
         return [cs for cs in self._charge_states if cs.fixed_concentration is None]
 
-    def charge_state_concentrations(
+    def dilute_charge_state_concentrations(
         self, e_fermi: float, temperature: float
     ) -> list[tuple[DefectChargeState, float]]:
         """
@@ -518,9 +521,9 @@ class DefectSpecies:
 
         For a species without a fixed concentration, the variable-state values
         are the dilute-limit (Boltzmann) expression with no site exclusion:
-        they are unbounded and can exceed ``nsites``. A solved
-        ``DefectSystem`` applies site-exclusion statistics instead, which
-        agree with these values only at low occupancy.
+        they are unbounded and can exceed ``nsites`` (hence the ``dilute_``
+        prefix). A solved ``DefectSystem`` applies site-exclusion statistics
+        instead, which agree with these values only at low occupancy.
 
         If the species itself has `fixed_concentration` set, all variable-state
         concentrations are rescaled as a group so that
@@ -549,7 +552,7 @@ class DefectSpecies:
 
         Example:
             >>> ds = DefectSpecies("V_O", nsites=12, charge_states=[...])
-            >>> conc_list = ds.charge_state_concentrations(e_fermi=1.2, temperature=800)
+            >>> conc_list = ds.dilute_charge_state_concentrations(e_fermi=1.2, temperature=800)
             >>> for state, c in conc_list:
             ...     print(state.charge, c)
         """
@@ -604,8 +607,8 @@ class DefectSpecies:
         Calculate the defect charge contributions to the total charge of this
         ``DefectSpecies`` at a given Fermi energy and temperature.
 
-        The concentrations are those of ``charge_state_concentrations``, with
-        its dilute-limit caveat for species without a fixed concentration.
+        The concentrations are those of ``dilute_charge_state_concentrations``,
+        with its dilute-limit caveat for species without a fixed concentration.
 
         Args:
             e_fermi (float): Fermi energy.
@@ -618,8 +621,8 @@ class DefectSpecies:
         """
 
         lhs = rhs = 0.0
-        # charge_state_concentrations now returns list[tuple[DefectChargeState, float]]
-        for cs, conc in self.charge_state_concentrations(e_fermi, temperature):
+        # dilute_charge_state_concentrations returns list[tuple[DefectChargeState, float]]
+        for cs, conc in self.dilute_charge_state_concentrations(e_fermi, temperature):
             q = cs.charge
             if q > 0:
                 lhs += conc * q

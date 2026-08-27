@@ -10,6 +10,12 @@
   `dict[int, float]`. This allows a `DefectSpecies` to contain multiple
   `DefectChargeState` objects with the same formal charge, to support
   metastable defects.
+- `DefectSpecies.charge_state_concentrations` is renamed
+  `dilute_charge_state_concentrations`. It has always computed the unbounded
+  dilute-limit (Boltzmann) expression with no site exclusion; the name now
+  says so, so it cannot read as the site-exclusion-corrected values on
+  `DefectSystem.result` (a different object of almost the same name).
+  `DefectSystemResult.charge_state_concentrations` is unrenamed.
 - Removed `py_sc_fermi.inputs` (`InputSet`) and the `sc_fermi_solve` CLI tool,
   dropping support for reading the legacy SC-Fermi text input-file format.
   `DefectSystem`/`DefectSpecies`/`DefectChargeState` should now be constructed
@@ -280,6 +286,14 @@
   `KeyError`. Calling `DefectSpecies.get_transition_level_and_energy` directly
   with a non-variable charge now raises a descriptive `ValueError` rather than a
   bare `KeyError`.
+- `DefectSpecies.nsites` (and the `SitePool` sites lookup used within
+  site-exclusion groups) is now typed `float` rather than `int`, matching
+  `SitePool.n_sites`. An integer site count still works unchanged; this only
+  lifts the restriction, for defect complexes (e.g. some split-vacancy or
+  split-interstitial configurations) whose per-primitive-cell multiplicity is
+  fractional. `nsites` is validated finite and > 0 at construction (previously
+  only > 0), so a non-finite value now fails at construction rather than
+  propagating as `NaN`/`inf` into the solve.
 
 ## V2.2.2
 

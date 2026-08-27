@@ -624,7 +624,7 @@ class DefectSystem:
             f"\n  {len(self.defect_species)} defect species:",
         ]
         for ds in self.defect_species:
-            header = f"\n  {ds.name}  [nsites: {ds.nsites}]"
+            header = f"\n  {ds.name}  [nsites: {ds.nsites:.4g}]"
             if ds.fixed_concentration is not None:
                 header += f"  [fixed conc: {ds.fixed_concentration:.3e}]"
             lines.append(header)
@@ -693,7 +693,7 @@ class DefectSystem:
         variable_states: list[_VariableState] = []
         for sp in species:
             if sp.fixed_concentration is not None:
-                for cs, conc in sp.charge_state_concentrations(e_fermi, self.temperature):
+                for cs, conc in sp.dilute_charge_state_concentrations(e_fermi, self.temperature):
                     fixed_concs[cs] = conc
                 continue
             for cs in sp.charge_states:

@@ -472,7 +472,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
         dilute_total = sum(
             conc
             for sp in (self.species_a, self.species_b)
-            for _, conc in sp.charge_state_concentrations(e_fermi, 300)
+            for _, conc in sp.dilute_charge_state_concentrations(e_fermi, 300)
         )
         self.assertAlmostEqual(exclusion_total, dilute_total, places=8)
 

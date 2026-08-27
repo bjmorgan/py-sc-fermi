@@ -374,7 +374,7 @@ class TestDefectSpecies(unittest.TestCase):
             mock_fixed_concentration.return_value = 0.1234
             self.assertEqual(self.defect_species.get_concentration(1.5, 298), 0.1234)
 
-        self.defect_species.charge_state_concentrations = Mock(
+        self.defect_species.dilute_charge_state_concentrations = Mock(
             return_value=[(Mock(spec=DefectChargeState), 0.1234) for _ in range(3)]
         )
         self.assertEqual(self.defect_species.get_concentration(1.5, 298), 0.1234 * 3)
@@ -407,7 +407,7 @@ class TestDefectSpecies(unittest.TestCase):
                 self.defect_species.charge_states[2]
             ],
         )
-        print(self.defect_species.charge_state_concentrations(e_fermi=1.5, temperature=298.0))
+        print(self.defect_species.dilute_charge_state_concentrations(e_fermi=1.5, temperature=298.0))
 
     def test_variable_concentration_charge_states(self):
         self.defect_species.charge_states[0].fixed_concentration = 0.1234
@@ -418,7 +418,7 @@ class TestDefectSpecies(unittest.TestCase):
             [self.defect_species.charge_states[2]],
         )
 
-    def test_charge_state_concentrations(self):
+    def test_dilute_charge_state_concentrations(self):
         self.defect_species.charge_states[0].fixed_concentration = None
         self.defect_species.charge_states[1].fixed_concentration = None
         self.defect_species.charge_states[2].fixed_concentration = None
@@ -432,7 +432,7 @@ class TestDefectSpecies(unittest.TestCase):
             return_value=0.1234
         )
         self.assertEqual(
-            self.defect_species.charge_state_concentrations(1.5, 298),
+            self.defect_species.dilute_charge_state_concentrations(1.5, 298),
             [
                 (self.defect_species.charge_states[0], 0.1234 * self.defect_species.nsites),
                 (self.defect_species.charge_states[1], 0.1234 * self.defect_species.nsites),
@@ -440,7 +440,7 @@ class TestDefectSpecies(unittest.TestCase):
             ],
         )
 
-    def test_charge_state_concentrations_with_fixed_concentration(self):
+    def test_dilute_charge_state_concentrations_with_fixed_concentration(self):
         self.defect_species.charge_states[0].fixed_concentration = None
         self.defect_species.charge_states[1].fixed_concentration = None
         self.defect_species.charge_states[2].fixed_concentration = None
@@ -455,7 +455,7 @@ class TestDefectSpecies(unittest.TestCase):
         self.defect_species.charge_states[2].degeneracy = 1
         self.defect_species._fixed_concentration = 0.1234
 
-        result = self.defect_species.charge_state_concentrations(1.5, 298)
+        result = self.defect_species.dilute_charge_state_concentrations(1.5, 298)
 
         # With equal formation energies and degeneracies, should be equal distribution
         expected = 0.1234 / 3
@@ -465,7 +465,7 @@ class TestDefectSpecies(unittest.TestCase):
     def test_defect_charge_contributions(self):
         cs_positive = Mock(spec=DefectChargeState)
         cs_positive.charge = 1
-        self.defect_species.charge_state_concentrations = Mock(
+        self.defect_species.dilute_charge_state_concentrations = Mock(
             return_value=[(cs_positive, 0.1234)]
         )
         self.assertEqual(
@@ -473,7 +473,7 @@ class TestDefectSpecies(unittest.TestCase):
         )
         cs_negative = Mock(spec=DefectChargeState)
         cs_negative.charge = -1
-        self.defect_species.charge_state_concentrations = Mock(
+        self.defect_species.dilute_charge_state_concentrations = Mock(
             return_value=[(cs_negative, 0.1234)]
         )
         self.assertEqual(
@@ -687,7 +687,7 @@ class TestDefectSpecies(unittest.TestCase):
         # Verify the result
         self.assertEqual(result, expected_result)
 
-    def test_charge_state_concentrations_all_fixed(self):
+    def test_dilute_charge_state_concentrations_all_fixed(self):
         """When all charge states have fixed concentrations, return those values."""
         cs_0 = DefectChargeState(charge=0, fixed_concentration=0.5, degeneracy=1)
         cs_1 = DefectChargeState(charge=1, fixed_concentration=0.3, degeneracy=1)
@@ -700,13 +700,13 @@ class TestDefectSpecies(unittest.TestCase):
 
         result = dict(
             (cs.charge, conc)
-            for cs, conc in defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+            for cs, conc in defect.dilute_charge_state_concentrations(e_fermi=0.0, temperature=298)
         )
 
         self.assertEqual(result[0], 0.5)
         self.assertEqual(result[1], 0.3)
 
-    def test_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
+    def test_dilute_charge_state_concentrations_with_fixed_concentration_zero_variable_concs(self):
         """Fixed concentration scaling should not produce NaN when variable
         concentrations underflow."""
         cs_0 = DefectChargeState(charge=0, energy=1.0, degeneracy=1)
@@ -723,7 +723,7 @@ class TestDefectSpecies(unittest.TestCase):
             fixed_concentration=1e-5,
         )
 
-        result = defect.charge_state_concentrations(e_fermi=0.0, temperature=300)
+        result = defect.dilute_charge_state_concentrations(e_fermi=0.0, temperature=300)
 
         for cs, conc in result:
             self.assertFalse(np.isnan(conc), f"Concentration for charge {cs.charge} is NaN")
@@ -732,7 +732,7 @@ class TestDefectSpecies(unittest.TestCase):
         total = sum(conc for _, conc in result)
         self.assertAlmostEqual(total, 1e-5, places=15)
             
-    def test_charge_state_concentrations_raises_if_fixed_exceeds_total(self):
+    def test_dilute_charge_state_concentrations_raises_if_fixed_exceeds_total(self):
         """Should raise ValueError if fixed charge state concentrations exceed species total."""
         cs_0 = DefectChargeState(charge=0, energy=0.5, degeneracy=1)
         cs_1 = DefectChargeState(charge=1, energy=0.6, degeneracy=1, fixed_concentration=0.5)
@@ -745,9 +745,9 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+            defect.dilute_charge_state_concentrations(e_fermi=0.0, temperature=298)
 
-    def test_charge_state_concentrations_raises_if_below_total_with_no_variable(self):
+    def test_dilute_charge_state_concentrations_raises_if_below_total_with_no_variable(self):
         """Should raise ValueError if all charge states are fixed and sum to
         less than the species total, with no variable state to make up the
         difference."""
@@ -757,7 +757,7 @@ class TestDefectSpecies(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            defect.charge_state_concentrations(e_fermi=0.0, temperature=298)
+            defect.dilute_charge_state_concentrations(e_fermi=0.0, temperature=298)
 
 
 class TestDefectSpeciesHashability(unittest.TestCase):
