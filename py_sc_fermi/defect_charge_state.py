@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import math
 import warnings
+from typing import Any
 
 import numpy as np
 from scipy.constants import physical_constants
 
-from py_sc_fermi.warnings import suppresses_numpy_overflow
+from py_sc_fermi.warnings import UnrecognisedKeyWarning, suppresses_numpy_overflow
 
 kboltz = physical_constants["Boltzmann constant in eV/K"][0]
 
@@ -15,29 +17,60 @@ class DefectChargeState:
 
     Args:
          charge (int): charge of this ``DefectChargeState``
-         degeneracy (int): degeneracy of this charge state
-         energy (float): formation energy at E[Fermi] = 0
-         fixed_concentration (float): fixed concentration per unit cell
+         degeneracy (float, optional): degeneracy of this charge state.
+           Defaults to 1.
+         energy (float | None, optional): formation energy at E[Fermi] = 0.
+           Defaults to None; either ``energy`` or ``fixed_concentration`` must
+           be given.
+         fixed_concentration (float | None, optional): fixed concentration per
+           unit cell. Must be finite and non-negative. Defaults to None.
+         name (str | None): identifying label for this charge state, used as
+           the key in ``DefectSystem.result.charge_state_concentrations``
+           (keyed by species name then charge-state name). Defaults to the
+           charge string (e.g. ``"q+2"``). Metastable configurations sharing a
+           formal charge must be given explicit names (e.g. ``"V_O_2+_tet"``
+           vs ``"V_O_2+_oct"``), since names must be unique within a
+           ``DefectSpecies``.
     """
 
     def __init__(
         self,
         charge: int,
-        degeneracy: int = 1,
+        degeneracy: float = 1,
         energy: float | None = None,
         fixed_concentration: float | None = None,
+        name: str | None = None,
     ):
         if energy is None and fixed_concentration is None:
             raise ValueError(
                 "You must specify either a fixed concentration or an energy for "
                 "this defect. If you specify both, the concentration is treated as fixed."
             )
-        if degeneracy < 1:
-            raise ValueError("degeneracy must be a positive integer")
+        if degeneracy <= 0:
+            raise ValueError("degeneracy must be a positive number")
         self._charge = charge
         self._degeneracy = degeneracy
         self._energy = energy
-        self._fixed_concentration = fixed_concentration
+        self._name = name
+        self._fixed_concentration = (
+            self._validated_fixed_concentration(fixed_concentration)
+            if fixed_concentration is not None
+            else None
+        )
+
+    def _validated_fixed_concentration(self, concentration: float) -> float:
+        """Return ``concentration`` if it is a valid fixed concentration.
+
+        Raises:
+            ValueError: if ``concentration`` is not finite and non-negative.
+        """
+        if not math.isfinite(concentration) or concentration < 0:
+            raise ValueError(
+                f"DefectChargeState '{self.name}' has an invalid fixed "
+                f"concentration {concentration}; it must be finite and "
+                "non-negative"
+            )
+        return concentration
 
     @property
     def energy(self) -> float | None:
@@ -58,13 +91,25 @@ class DefectChargeState:
         return self._charge
 
     @property
-    def degeneracy(self) -> int:
+    def degeneracy(self) -> float:
         """The degeneracy of the ``DefectChargeState`` (e.g. spin degeneracy)
 
         Returns:
-            int: degeneracy of this charge state
+            float: degeneracy of this charge state
         """
         return self._degeneracy
+
+    @property
+    def name(self) -> str:
+        """Identifying label for this charge state.
+
+        Returns:
+            str: the explicit name if one was set, otherwise the
+            charge-derived default (e.g. ``"q+2"``).
+        """
+        if self._name is not None:
+            return self._name
+        return f"q{self._charge:+d}"
 
     @property
     def fixed_concentration(self) -> float | None:
@@ -75,68 +120,6 @@ class DefectChargeState:
             float | None: fixed concentration per unit cell
         """
         return self._fixed_concentration
-
-    @classmethod
-    def from_string(
-        cls, string: str, volume: float | None = None, frozen: bool = False
-    ) -> DefectChargeState:
-        """
-        Create a ``DefectChargeState`` from a given string. This method was
-        envisaged for use as a way to read in defect charge states from an input
-        file for `SC-Fermi <https://github.com/jbuckeridge/sc-fermi>`_.
-
-        If a user does wish to specify a defect charge state using this
-        functionality, the string should be in the form:
-
-        `charge  formation_energy  degeneracy`
-
-        i.e. a defect with charge 2, formation energy of 0.1 eV and degeneracy
-        of 2 would be specified as:
-
-        ``"2 0.1 2"``
-
-        if the charge state has a fixed concentration, the string should be in
-        the form:
-
-        `charge  concentration`
-
-        i.e. a defect with charge 2, concentration of 1e21 per cm-3
-        would be specified as:
-
-        ``"2 1e21"``
-
-        Args:
-            string (str): string representation of the ``DefectChargeState``
-            volume (float | None, optional): volume of the unit cell, only
-                if ``frozen == True``. Defaults to ``None``.
-            frozen (bool, optional): if ``True`` the concentration of this
-                ``DefectChargeState`` cannot change when solving for a self
-                consistent Fermi energy. Defaults to ``False``.
-
-        Raises:
-            ValueError: if defect concentration is fixed, but ``volume == None``
-
-        Returns:
-            ``DefectChargeState``: relevant ``DefectChargeState`` object
-        """
-        stripped_string = string.split()
-        if frozen is False:
-            return cls(
-                charge=int(stripped_string[0]),
-                energy=float(stripped_string[1]),
-                degeneracy=int(stripped_string[2]),
-            )
-        else:
-            if volume is None:
-                raise ValueError(
-                    "You must specify a real, positive cell volume if passing a "
-                    "frozen concentration!"
-                )
-            else:
-                return cls(
-                    charge=int(stripped_string[1]),
-                    fixed_concentration=float(stripped_string[2]) / 1e24 * volume,
-                )
 
     @classmethod
     def from_dict(cls, dictionary: dict) -> DefectChargeState:
@@ -150,51 +133,67 @@ class DefectChargeState:
             DefectChargeState: object described by `dictionary`
         """
 
-        valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration"]
+        valid_keys = ["degeneracy", "energy", "charge", "fixed_concentration", "name"]
         unrecognised_keys = set(dictionary.keys()) - set(valid_keys)
         if unrecognised_keys:
             warnings.warn(
                 f"Ignoring unrecognised keys: {', '.join(unrecognised_keys)}",
+                UnrecognisedKeyWarning,
                 stacklevel=2,
             )
 
+        name = dictionary.get("name", None)
         if "fixed_concentration" in dictionary.keys():
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
                 charge=dictionary["charge"],
+                energy=dictionary.get("energy"),
                 fixed_concentration=dictionary["fixed_concentration"],
+                name=name,
             )
         else:
             return DefectChargeState(
                 degeneracy=dictionary["degeneracy"],
                 energy=dictionary["energy"],
                 charge=dictionary["charge"],
+                name=name,
             )
 
     def as_dict(self) -> dict:
         """generate a dictionary representation of the ``DefectChargeState``
 
+        The ``name`` key is included only when an explicit name was set;
+        charge-derived default names are omitted and regenerated on load.
+
         Returns:
             dict: dictionary representation of the ``DefectChargeState``
         """
 
-        defect_dict = {
-            "degeneracy": int(self.degeneracy),
-            "energy": self.energy,
+        defect_dict: dict[str, Any] = {
+            "degeneracy": float(self.degeneracy),
+            "energy": float(self.energy) if self.energy is not None else None,
             "charge": int(self.charge),
         }
         if self.fixed_concentration is not None:
-            defect_dict.update({"fixed_concentration": self.fixed_concentration})
+            defect_dict.update(
+                {"fixed_concentration": float(self.fixed_concentration)}
+            )
+        if self._name is not None:
+            defect_dict["name"] = self._name
 
         return defect_dict
 
-    def fix_concentration(self, concentration: float) -> None:
-        """Fixes the concentration (per unit cell) of this ``DefectChargeState``
+    def _fix_concentration(self, concentration: float) -> None:
+        """Set the fixed concentration (per unit cell); internal setter used
+        by construction-time fixing.
 
         Args:
             concentration (float): ``DefectChargeState`` concentration per unit cell
+
+        Raises:
+            ValueError: if ``concentration`` is not finite and non-negative.
         """
-        self._fixed_concentration = concentration
+        self._fixed_concentration = self._validated_fixed_concentration(concentration)
 
     def get_formation_energy(self, e_fermi: float) -> float:
         """get the formation energy of this ``DefectChargeState`` at a given Fermi
@@ -213,15 +212,23 @@ class DefectChargeState:
             return self.energy + self.charge * e_fermi
         else:
             raise ValueError(
-                "Cannot calculate formation energy as a function of `e_fermi` "
-                "without a defined formation energy!"
+                "Cannot calculate formation energy as a function of `e_fermi` without "
+                "a defined formation energy!"
             )
 
     @suppresses_numpy_overflow
     def get_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this ``DefectChargeState`` at a
-        specified Fermi energy and temperature, per site in the unit
-        cell.
+        specified Fermi energy and temperature. A variable-concentration
+        state returns a per-site concentration; a fixed-concentration state
+        returns its fixed per-cell concentration unchanged.
+
+        The variable-state value is the dilute-limit (Boltzmann) expression
+        ``degeneracy * exp(-E_formation / kT)``, with ``E_formation`` the
+        formation energy at ``e_fermi``. It applies no site exclusion, so it
+        is unbounded and can exceed one per site; a solved ``DefectSystem``
+        applies site-exclusion statistics instead, which agree with this
+        expression only at low occupancy.
 
         Args:
             e_fermi (float): Fermi energy.
@@ -238,7 +245,10 @@ class DefectChargeState:
         return concentration
 
     def __repr__(self) -> str:
+        name_part = f", name={self._name}" if self._name is not None else ""
         if self.fixed_concentration is None:
-            return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}"
-        else:
-            return f"q={self.charge:+2}, [c]={self.fixed_concentration}, deg={self.degeneracy}"
+            return f"q={self.charge:+2}, e={self.energy}, deg={self.degeneracy}{name_part}"
+        return (
+            f"q={self.charge:+2}, [c]={self.fixed_concentration},"
+            f" deg={self.degeneracy}{name_part}"
+        )
