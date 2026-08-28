@@ -47,11 +47,8 @@ Charge states are an ordered collection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``DefectSpecies.charge_states`` is now a ``tuple[DefectChargeState, ...]``
-rather than a ``dict`` keyed by charge, and ``charge_state_concentrations``
-(renamed ``dilute_charge_state_concentrations`` -- see below) returns a list
-of ``(DefectChargeState, concentration)`` pairs rather than a
-``{charge: concentration}`` dict. Construct a species with a list, and iterate
-the returned collection directly:
+rather than a ``dict`` keyed by charge. Construct a species with a list, and
+iterate the returned collection directly:
 
 .. code-block:: python
 
@@ -71,26 +68,32 @@ Because the charge states form an ordered collection, a single species may now
 hold several states with the same formal charge, which is how v3 represents
 metastable defects.
 
-``DefectSpecies.charge_state_concentrations`` is now ``dilute_charge_state_concentrations``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Per-species dilute concentration methods removed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This method (on ``DefectSpecies``, not the solved-system read-out below) has
-always computed the unbounded dilute-limit expression, with no site
-exclusion -- its docstring already carried that caveat. Renaming it to
-``dilute_charge_state_concentrations`` makes that explicit at the call site,
-so it cannot be mistaken for the site-exclusion-corrected values on
-``DefectSystem.result``:
+``DefectSpecies.charge_state_concentrations``, ``DefectSpecies.get_concentration``
+and ``DefectSpecies.defect_charge_contributions`` have been removed from the
+public API. Each returned a dilute, non-interacting value at a hand-supplied
+Fermi level, which is not the equilibrium answer: the equilibrium requires the
+self-consistent whole-system solve. Read the solved per-defect concentrations
+from ``DefectSystem.result``. For concentrations at a *specified* Fermi level
+(for example a dopability / concentration-vs-Fermi-energy sweep), use
+``DefectSystem.defect_concentrations_at_fermi_level(e_fermi)``, which applies the
+same site-exclusion (Langmuir) statistics as the solve.
 
 .. code-block:: python
 
-    # v2/early v3
-    for charge_state, conc in species.charge_state_concentrations(e_fermi, temperature)
+    # v2 / early v3 (removed)
+    for charge_state, conc in species.charge_state_concentrations(e_fermi, temperature):
+        ...
 
-    # v3
-    for charge_state, conc in species.dilute_charge_state_concentrations(e_fermi, temperature)
+    # v3: equilibrium concentrations, at the self-consistent Fermi level
+    concentrations = system.result.concentrations
 
-``DefectSystemResult.charge_state_concentrations`` (below) is unaffected --
-only the per-species method on ``DefectSpecies`` is renamed.
+    # v3: concentrations at a specified Fermi level (site-excluded; dopability sweeps)
+    concentrations = system.defect_concentrations_at_fermi_level(e_fermi)
+
+``DefectSystemResult.charge_state_concentrations`` (below) is unaffected.
 
 The flat-dict read-outs have been replaced by ``DefectSystem.result``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

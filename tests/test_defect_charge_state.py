@@ -140,21 +140,21 @@ class TestDefectChargeStateGetConcentration(unittest.TestCase):
             charge=charge, energy=energy, degeneracy=degeneracy
         )
 
-    def test_get_concentration(self):
+    def test_dilute_site_concentration(self):
         e_fermi = 1.2
         temperature = 298.0
-        conc = self.defect_charge_state.get_concentration(
+        conc = self.defect_charge_state._dilute_site_concentration(
             e_fermi=e_fermi, temperature=temperature
         )
         self.assertAlmostEqual(conc, 8.311501552630706e-23, places=25)
 
-    def test_get_concentration_with_fixed_concentration(self):
+    def test_dilute_site_concentration_with_fixed_concentration(self):
         e_fermi = 1.2
         temperature = 298.0
         cs = DefectChargeState(
             charge=1, energy=0.1234, degeneracy=2, fixed_concentration=1.0
         )
-        conc = cs.get_concentration(e_fermi=e_fermi, temperature=temperature)
+        conc = cs._dilute_site_concentration(e_fermi=e_fermi, temperature=temperature)
         self.assertEqual(conc, 1.0)
 
 

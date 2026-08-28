@@ -452,35 +452,6 @@ class DefectSpecies:
         energy = q1 * trans_level + form_eners[q1]
         return (trans_level, energy)
 
-    def get_concentration(self, e_fermi: float, temperature: float) -> float:
-        """Determine the net concentration for this ``DefectSpecies`` at a
-        specific Fermi energy and temperature.
-
-        Args:
-            e_fermi (float): fermi energy
-            temperature (float): temperature
-
-        Returns:
-            float: concentration per calculation cell of this ``DefectSpecies``
-
-        Note:
-            If this ``DefectSpecies`` has a set fixed concentration, then this
-            will be returned. Otherwise, variable charge states contribute the
-            dilute-limit (Boltzmann) concentration, with no site exclusion, so
-            the total is unbounded and can exceed ``nsites``. A solved
-            ``DefectSystem`` applies site-exclusion statistics instead, which
-            agree with this value only at low occupancy.
-        """
-        # Honour a forced total immediately
-        if self.fixed_concentration is not None:
-            return self.fixed_concentration
-
-        # Sum over every (state, concentration) pair
-        total = 0.0
-        for _cs, conc in self.dilute_charge_state_concentrations(e_fermi, temperature):
-            total += conc
-        return total
-
     def fixed_conc_charge_states(self) -> list[DefectChargeState]:
         """get ``DefectChargeState`` objects of this ``DefectSpecies`` with fixed
         concentration
@@ -502,7 +473,7 @@ class DefectSpecies:
         """
         return [cs for cs in self._charge_states if cs.fixed_concentration is None]
 
-    def dilute_charge_state_concentrations(
+    def _dilute_charge_state_concentrations(
         self, e_fermi: float, temperature: float
     ) -> list[tuple[DefectChargeState, float]]:
         """
@@ -549,7 +520,7 @@ class DefectSpecies:
 
         Example:
             >>> ds = DefectSpecies("V_O", nsites=12, charge_states=[...])
-            >>> conc_list = ds.dilute_charge_state_concentrations(e_fermi=1.2, temperature=800)
+            >>> conc_list = ds._dilute_charge_state_concentrations(e_fermi=1.2, temperature=800)
             >>> for state, c in conc_list:
             ...     print(state.charge, c)
         """
@@ -558,7 +529,7 @@ class DefectSpecies:
             if cs.fixed_concentration is not None:
                 c_cell = cs.fixed_concentration
             else:
-                c_cell = cs.get_concentration(e_fermi, temperature) * self.nsites
+                c_cell = cs._dilute_site_concentration(e_fermi, temperature) * self.nsites
             results.append((cs, c_cell))
 
         if self.fixed_concentration is not None:
@@ -596,33 +567,3 @@ class DefectSpecies:
                 )
 
         return results
-
-    def defect_charge_contributions(
-        self, e_fermi: float, temperature: float
-    ) -> tuple[float, float]:
-        """
-        Calculate the defect charge contributions to the total charge of this
-        ``DefectSpecies`` at a given Fermi energy and temperature.
-
-        The concentrations are those of ``dilute_charge_state_concentrations``,
-        with its dilute-limit caveat for species without a fixed concentration.
-
-        Args:
-            e_fermi (float): Fermi energy.
-            temperature (float): temperature
-
-        Returns:
-            tuple[float, float]: charge contributions of the
-            ``DefectChargeState`` objects that comprise this ``DefectSpecies``
-            at the given Fermi energy and temperature.
-        """
-
-        lhs = rhs = 0.0
-        # dilute_charge_state_concentrations returns list[tuple[DefectChargeState, float]]
-        for cs, conc in self.dilute_charge_state_concentrations(e_fermi, temperature):
-            q = cs.charge
-            if q > 0:
-                lhs += conc * q
-            elif q < 0:
-                rhs += conc * abs(q)
-        return lhs, rhs
