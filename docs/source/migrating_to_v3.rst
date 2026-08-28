@@ -69,7 +69,7 @@ hold several states with the same formal charge, which is how v3 represents
 metastable defects.
 
 Dilute concentration methods removed from the public API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The per-defect *dilute* concentration methods are no longer public:
 
