@@ -1369,13 +1369,21 @@ class DefectSystem:
     def defect_concentrations_at_fermi_level(self, e_fermi: float) -> dict[str, float]:
         """Per-species defect concentrations at a specified Fermi level.
 
-        Returns the site-excluded (Langmuir) concentration of each defect
-        species at ``e_fermi``, in cm^-3, using this system's temperature.
-        Unlike ``result``, the Fermi level is supplied rather than solved for:
-        use this to trace concentrations across a Fermi-energy sweep -- for
-        example dopability / compensation analysis, where an external dopant is
-        imagined to pin the Fermi level. The equilibrium concentrations, at the
+        Returns the concentration of each defect species at ``e_fermi``, in
+        cm^-3, evaluated with the same pool- and site-exclusion-aware
+        statistics as ``result`` and at this system's temperature (a species
+        with a fixed concentration returns that fixed value). Unlike
+        ``result``, the Fermi level is supplied rather than solved for: use
+        this to trace concentrations across a Fermi-energy sweep -- for example
+        dopability / compensation analysis, where an external dopant is imagined
+        to pin the Fermi level. The equilibrium concentrations, at the
         self-consistent Fermi level, are on ``result``.
+
+        This method does not emit ``DiluteLimitWarning``: a sweep deliberately
+        visits high-occupancy Fermi levels, where the returned values saturate
+        at a species' site density and the dilute, non-interacting model no
+        longer holds. The dilute-limit verdict for the solved equilibrium is
+        reported by that warning and by ``result.high_occupancy_species``.
 
         Args:
             e_fermi (float): Fermi energy in eV, referenced to the valence-band

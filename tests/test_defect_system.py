@@ -1030,6 +1030,32 @@ class TestDefectSystemConcentrationsAtFermiLevel(unittest.TestCase):
             at_ef["D"] / system.result.concentrations["D"], 1.0, places=6
         )
 
+    def test_concentrations_at_fermi_level_saturate_at_site_cap(self):
+        # a +1 state deep in the p-type regime is driven to fill every site;
+        # the site-exclusion (Langmuir) statistics cap the species at its site
+        # density, where the dilute expression would diverge far past it.
+        species = DefectSpecies(
+            "D", nsites=2,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species], dos=self.dos, volume=100, temperature=1000,
+        )
+        site_cap = species.nsites * 1e24 / system.volume  # 2e22 cm^-3
+        saturated = system.defect_concentrations_at_fermi_level(-2.0)["D"]
+        unsaturated = system.defect_concentrations_at_fermi_level(0.0)["D"]
+        # bounded by, and reaching, the site density -- never the unbounded
+        # dilute value (~3.6e7x the cap here)
+        self.assertLessEqual(saturated, site_cap)
+        self.assertAlmostEqual(saturated / site_cap, 1.0, places=6)
+        # responds to the supplied Fermi level: far below the cap away from
+        # saturation, and strictly higher deep in the p-type regime
+        self.assertLess(unsaturated, 0.01 * site_cap)
+        self.assertGreater(saturated, unsaturated)
+
     def test_concentrations_at_fermi_level_does_not_require_solving(self):
         species = DefectSpecies(
             "D", nsites=2,
@@ -1041,6 +1067,9 @@ class TestDefectSystemConcentrationsAtFermiLevel(unittest.TestCase):
         out = system.defect_concentrations_at_fermi_level(0.5)
         self.assertIn("D", out)
         self.assertGreater(out["D"], 0.0)
+        # the call reads concentrations at a supplied Fermi level, so it must
+        # not trigger (or cache) a self-consistent solve
+        self.assertIsNone(system._result)
 
 
 class TestDefectSystemPoolValidation(unittest.TestCase):

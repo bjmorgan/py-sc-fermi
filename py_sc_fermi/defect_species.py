@@ -517,12 +517,6 @@ class DefectSpecies:
                 If `self.fixed_concentration` is set but the sum of all fixed-charge
                 concentrations alone already exceeds it, or if there are no variable
                 states left to satisfy the remaining occupancy.
-
-        Example:
-            >>> ds = DefectSpecies("V_O", nsites=12, charge_states=[...])
-            >>> conc_list = ds._dilute_charge_state_concentrations(e_fermi=1.2, temperature=800)
-            >>> for state, c in conc_list:
-            ...     print(state.charge, c)
         """
         results: list[tuple[DefectChargeState, float]] = []
         for cs in self._charge_states:

@@ -131,7 +131,7 @@ class TestDefectChargeStateGetFormationEnergy(unittest.TestCase):
             self.defect_charge_state.get_formation_energy(0.1234)
 
 
-class TestDefectChargeStateGetConcentration(unittest.TestCase):
+class TestDefectChargeStateDiluteSiteConcentration(unittest.TestCase):
     def setUp(self):
         charge = 1
         energy = 0.1234
