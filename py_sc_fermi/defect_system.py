@@ -693,7 +693,7 @@ class DefectSystem:
         variable_states: list[_VariableState] = []
         for sp in species:
             if sp.fixed_concentration is not None:
-                for cs, conc in sp.dilute_charge_state_concentrations(e_fermi, self.temperature):
+                for cs, conc in sp._dilute_charge_state_concentrations(e_fermi, self.temperature):
                     fixed_concs[cs] = conc
                 continue
             for cs in sp.charge_states:
@@ -1237,7 +1237,7 @@ class DefectSystem:
             f"level. {caveat}"
         )
 
-    def total_defect_charge_contributions(self, e_fermi: float) -> tuple[float, float]:
+    def _total_defect_charge_contributions(self, e_fermi: float) -> tuple[float, float]:
         """Sum the defects' charge contributions at a given Fermi energy.
 
         Args:
@@ -1270,7 +1270,7 @@ class DefectSystem:
             float: net charge density of the ``DefectSystem`` at ``e_fermi``
         """
         p0, n0 = self.dos.carrier_concentrations(e_fermi, self.temperature)
-        lhs_def, rhs_def = self.total_defect_charge_contributions(e_fermi)
+        lhs_def, rhs_def = self._total_defect_charge_contributions(e_fermi)
         lhs = p0 + lhs_def
         rhs = n0 + rhs_def
         diff = rhs - lhs
@@ -1364,6 +1364,39 @@ class DefectSystem:
         return {
             name: fraction * 100
             for name, fraction in self._site_occupancy_fractions(e_fermi).items()
+        }
+
+    def defect_concentrations_at_fermi_level(self, e_fermi: float) -> dict[str, float]:
+        """Per-species defect concentrations at a specified Fermi level.
+
+        Returns the concentration of each defect species at ``e_fermi``, in
+        cm^-3, evaluated with the same pool- and site-exclusion-aware
+        statistics as ``result`` and at this system's temperature (a species
+        with a fixed concentration returns that fixed value). Unlike
+        ``result``, the Fermi level is supplied rather than solved for: use
+        this to trace concentrations across a Fermi-energy sweep -- for example
+        dopability / compensation analysis, where an external dopant is imagined
+        to pin the Fermi level. The equilibrium concentrations, at the
+        self-consistent Fermi level, are on ``result``.
+
+        This method does not emit ``DiluteLimitWarning``: a sweep deliberately
+        visits high-occupancy Fermi levels, where the returned values saturate
+        at a species' site density and the dilute, non-interacting model no
+        longer holds. The dilute-limit verdict for the solved equilibrium is
+        reported by that warning and by ``result.high_occupancy_species``.
+
+        Args:
+            e_fermi (float): Fermi energy in eV, referenced to the valence-band
+                maximum.
+
+        Returns:
+            dict[str, float]: mapping of defect species name to concentration in
+            cm^-3 at ``e_fermi``.
+        """
+        scale = 1e24 / self.volume
+        return {
+            name: sum(states.values()) * scale
+            for name, states in self._per_charge_state_concs(e_fermi).items()
         }
 
     def element_chemical_potential_shifts(self) -> dict[str, float]:

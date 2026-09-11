@@ -217,7 +217,7 @@ class DefectChargeState:
             )
 
     @suppresses_numpy_overflow
-    def get_concentration(self, e_fermi: float, temperature: float) -> float:
+    def _dilute_site_concentration(self, e_fermi: float, temperature: float) -> float:
         """Calculate the concentration of this ``DefectChargeState`` at a
         specified Fermi energy and temperature. A variable-concentration
         state returns a per-site concentration; a fixed-concentration state

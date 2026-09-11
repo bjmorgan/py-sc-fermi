@@ -203,13 +203,13 @@ class TestDefectSystem(unittest.TestCase):
         self.defect_system._global_defect_concs = Mock(
             return_value={cs_pos: 2.0, cs_neg: 3.0, cs_neutral: 5.0}
         )
-        lhs, rhs = self.defect_system.total_defect_charge_contributions(1)
+        lhs, rhs = self.defect_system._total_defect_charge_contributions(1)
         self.assertEqual(lhs, 2.0)
         self.assertEqual(rhs, 3.0)
 
     def test_q_tot(self):
         self.defect_system.dos.carrier_concentrations = Mock(return_value=(1, 1))
-        self.defect_system.total_defect_charge_contributions = Mock(return_value=(1, 1))
+        self.defect_system._total_defect_charge_contributions = Mock(return_value=(1, 1))
         self.assertEqual(self.defect_system.q_tot(2), 0)
 
     def test_as_dict(self):
@@ -472,7 +472,7 @@ class TestDefectSystemSitePools(unittest.TestCase):
         dilute_total = sum(
             conc
             for sp in (self.species_a, self.species_b)
-            for _, conc in sp.dilute_charge_state_concentrations(e_fermi, 300)
+            for _, conc in sp._dilute_charge_state_concentrations(e_fermi, 300)
         )
         self.assertAlmostEqual(exclusion_total, dilute_total, places=8)
 
@@ -944,10 +944,10 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
             volume=100,
             temperature=300,
         )
-        e_fermi = system.get_sc_fermi()[0]
-        old_expression = species.get_concentration(e_fermi, 300) / species.nsites * 100
+        # dilute occupancy for the single q=0 defect: exp(-E / kT), E = 1.5 eV
+        dilute_pct = math.exp(-1.5 / (kboltz * 300)) * 100
         new_pct = system.site_percentages()["D"]
-        self.assertAlmostEqual(new_pct / old_expression, 1.0, places=6)
+        self.assertAlmostEqual(new_pct / dilute_pct, 1.0, places=6)
 
     def test_fixed_concentration_within_sites_reports_faithful_ratio(self):
         # A fixed concentration takes a distinct path (_build_group writes it
@@ -997,6 +997,79 @@ class TestDefectSystemSitePercentages(unittest.TestCase):
         self.assertAlmostEqual(pct["U"], per_cell["U"] / 3.0 * 100, places=8)
         self.assertLessEqual(pct["P"], 100.0)
         self.assertLessEqual(pct["U"], 100.0)
+
+
+class TestDefectSystemConcentrationsAtFermiLevel(unittest.TestCase):
+    def setUp(self):
+        self.dos = DOS(
+            dos=np.ones(101),
+            edos=np.linspace(-5.0, 5.0, 101),
+            bandgap=2.0,
+            nelect=10,
+        )
+
+    def test_concentrations_at_fermi_level_match_result_at_solved_fermi(self):
+        species = DefectSpecies(
+            "D", nsites=2,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species], dos=self.dos, volume=100, temperature=1000,
+        )
+        e_fermi = system.result.fermi_energy
+        at_ef = system.defect_concentrations_at_fermi_level(e_fermi)
+        self.assertEqual(set(at_ef), {"D"})
+        # Compared as a ratio: both sides are ~1e17 cm^-3, and the two call
+        # paths sum per-charge-state contributions in a different order
+        # before scaling to cm^-3, so they agree to float precision but not
+        # bit-for-bit.
+        self.assertAlmostEqual(
+            at_ef["D"] / system.result.concentrations["D"], 1.0, places=6
+        )
+
+    def test_concentrations_at_fermi_level_saturate_at_site_cap(self):
+        # a +1 state deep in the p-type regime is driven to fill every site;
+        # the site-exclusion (Langmuir) statistics cap the species at its site
+        # density, where the dilute expression would diverge far past it.
+        species = DefectSpecies(
+            "D", nsites=2,
+            charge_states=[
+                DefectChargeState(charge=0, energy=1.0, degeneracy=1),
+                DefectChargeState(charge=1, energy=0.5, degeneracy=1),
+            ],
+        )
+        system = DefectSystem(
+            defect_species=[species], dos=self.dos, volume=100, temperature=1000,
+        )
+        site_cap = species.nsites * 1e24 / system.volume  # 2e22 cm^-3
+        saturated = system.defect_concentrations_at_fermi_level(-2.0)["D"]
+        unsaturated = system.defect_concentrations_at_fermi_level(0.0)["D"]
+        # bounded by, and reaching, the site density -- never the unbounded
+        # dilute value (~3.6e7x the cap here)
+        self.assertLessEqual(saturated, site_cap)
+        self.assertAlmostEqual(saturated / site_cap, 1.0, places=6)
+        # responds to the supplied Fermi level: far below the cap away from
+        # saturation, and strictly higher deep in the p-type regime
+        self.assertLess(unsaturated, 0.01 * site_cap)
+        self.assertGreater(saturated, unsaturated)
+
+    def test_concentrations_at_fermi_level_does_not_require_solving(self):
+        species = DefectSpecies(
+            "D", nsites=2,
+            charge_states=[DefectChargeState(charge=0, energy=1.0, degeneracy=1)],
+        )
+        system = DefectSystem(
+            defect_species=[species], dos=self.dos, volume=100, temperature=1000,
+        )
+        out = system.defect_concentrations_at_fermi_level(0.5)
+        self.assertIn("D", out)
+        self.assertGreater(out["D"], 0.0)
+        # the call reads concentrations at a supplied Fermi level, so it must
+        # not trigger (or cache) a self-consistent solve
+        self.assertIsNone(system._result)
 
 
 class TestDefectSystemPoolValidation(unittest.TestCase):
