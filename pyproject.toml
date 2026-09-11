@@ -38,9 +38,6 @@ dev = [
 Homepage = "https://github.com/bjmorgan/py-sc-fermi"
 Download = "https://github.com/bjmorgan/py-sc-fermi/archive/v{version}.tar.gz"
 
-[project.scripts]
-sc_fermi_solve = "py_sc_fermi.cli.sc_fermi_solve:main"
-
 [tool.ruff]
 line-length = 100
 
@@ -56,6 +53,10 @@ select = [
 [tool.mypy]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+# Treat any warning as an error, so an unexpected warning fails the suite.
+filterwarnings = ["error"]
 
 [tool.setuptools]
 packages = ["py_sc_fermi"]

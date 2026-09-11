@@ -57,6 +57,26 @@ warnings.warn("test runtime warning", RuntimeWarning)
 
 class TestWarnings(unittest.TestCase):
         
+    def test_warnings_filter_as_a_group(self):
+        """A single filter on PyScFermiWarning catches every concrete
+        py-sc-fermi warning, and a UserWarning filter still catches them too --
+        so callers can surface or silence py-sc-fermi warnings as a group
+        without breaking existing UserWarning filters."""
+        from py_sc_fermi.warnings import (
+            DiluteLimitWarning,
+            PyScFermiWarning,
+            UnrecognisedKeyWarning,
+        )
+
+        concrete_warnings = (DiluteLimitWarning, UnrecognisedKeyWarning)
+        for group in (PyScFermiWarning, UserWarning):
+            for warning_cls in concrete_warnings:
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("ignore")
+                    warnings.simplefilter("always", group)
+                    warnings.warn("test", warning_cls, stacklevel=1)
+                self.assertEqual([w.category for w in caught], [warning_cls])
+
     def test_suppresses_numpy_overflow_decorator(self):
         """Decorator should suppress numpy overflow warnings."""
         from py_sc_fermi.warnings import suppresses_numpy_overflow

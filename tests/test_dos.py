@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
+import yaml
 
 from py_sc_fermi.dos import DOS
 
@@ -29,6 +30,70 @@ class TestDOSInit(unittest.TestCase):
         np.testing.assert_equal(dos._edos, self.edos)
         self.assertEqual(dos._bandgap, self.bandgap)
         self.assertEqual(dos._nelect, self.nelect)
+
+
+class TestDOSInputValidation(unittest.TestCase):
+    def setUp(self):
+        self.edos = np.linspace(-10.0, 10.0, 100)
+        self.dos_data = np.where((self.edos <= 0) | (self.edos >= 3.0), 1.0, 0.0)
+
+    def _make(self, **overrides):
+        kwargs = dict(dos=self.dos_data, edos=self.edos, bandgap=3.0, nelect=10)
+        kwargs.update(overrides)
+        return DOS(**kwargs)
+
+    def test_spin_polarised_with_1d_dos_raises(self):
+        with self.assertRaisesRegex(ValueError, "spin_polarised"):
+            self._make(spin_polarised=True)
+
+    def test_non_spin_polarised_with_2d_dos_raises(self):
+        with self.assertRaisesRegex(ValueError, "must have shape"):
+            self._make(dos=np.array([self.dos_data, self.dos_data]))
+
+    def test_spin_polarised_two_channel_dos_is_accepted(self):
+        dos = self._make(
+            dos=np.array([self.dos_data, self.dos_data]), spin_polarised=True
+        )
+        self.assertEqual(dos.dos.shape, self.edos.shape)
+
+    def test_dos_edos_length_mismatch_raises(self):
+        with self.assertRaisesRegex(ValueError, "must have shape"):
+            self._make(dos=self.dos_data[:-1])
+
+    def test_non_monotonic_edos_raises(self):
+        edos = self.edos.copy()
+        edos[[40, 41]] = edos[[41, 40]]
+        with self.assertRaisesRegex(ValueError, "increasing"):
+            self._make(edos=edos)
+
+    def test_from_dict_with_non_monotonic_edos_raises(self):
+        d = self._make().as_dict()
+        d["edos"][40], d["edos"][41] = d["edos"][41], d["edos"][40]
+        with self.assertRaisesRegex(ValueError, "increasing"):
+            DOS.from_dict(d)
+
+    def test_nan_bandgap_raises(self):
+        # NaN passes both ordering comparisons, collapses the integration
+        # windows, and previously solved to silently wrong carriers.
+        with self.assertRaisesRegex(ValueError, "finite"):
+            self._make(bandgap=float("nan"))
+
+    def test_zero_valence_integral_raises(self):
+        # the classic mis-referenced grid: no valence-band density below
+        # mid-gap, so normalisation would divide by zero.
+        with self.assertRaisesRegex(ValueError, "valence"):
+            self._make(dos=np.where(self.edos >= 3.0, 1.0, 0.0))
+
+    def test_nan_density_raises(self):
+        dos_data = self.dos_data.copy()
+        dos_data[10] = np.nan
+        with self.assertRaisesRegex(ValueError, "valence"):
+            self._make(dos=dos_data)
+
+    def test_list_inputs_are_coerced_to_arrays(self):
+        dos = self._make(dos=list(self.dos_data), edos=list(self.edos))
+        p0, n0 = dos.carrier_concentrations(1.5, 298.0)
+        self.assertTrue(np.isfinite(p0) and np.isfinite(n0))
 
 
 class TestDos(unittest.TestCase):
@@ -239,14 +304,134 @@ class TestDos(unittest.TestCase):
         self.assertEqual(dos.spin_polarised, True)
 
     def test_as_dict(self):
-        self.dos._dos = [1,2,3,4,5]
-        self.dos._edos = [1,2,3,4,5]
+        self.dos._dos = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        self.dos._edos = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         dictionary = self.dos.as_dict()
-        self.assertEqual(dictionary["spin_pol"],False)
+        self.assertEqual(dictionary["spin_pol"], False)
         self.assertEqual(dictionary["nelect"], 10)
         self.assertEqual(dictionary["bandgap"], 3)
-        self.assertEqual(dictionary["edos"], [1,2,3,4,5])
-        self.assertEqual(dictionary["dos"], [1,2,3,4,5])
+        self.assertEqual(dictionary["edos"], [1.0, 2.0, 3.0, 4.0, 5.0])
+        self.assertEqual(dictionary["dos"], [1.0, 2.0, 3.0, 4.0, 5.0])
+
+    def test_as_dict_is_yaml_safe(self):
+        dictionary = self.dos.as_dict()
+        self.assertTrue(all(type(x) is float for x in dictionary["edos"]))
+        self.assertTrue(all(type(x) is float for x in dictionary["dos"]))
+        yaml.safe_dump(dictionary)
+
+
+class TestDOSScissored(unittest.TestCase):
+    def setUp(self):
+        # Semiconducting DOS: density 1 in VB (E<=0) and CB (E>=gap), 0 in gap.
+        self.edos = np.linspace(-10.0, 10.0, 201)  # 0.1 eV spacing; grid hits 0.0 and 2.0
+        self.bandgap = 2.0
+        self.dos_data = np.where((self.edos <= 0) | (self.edos >= self.bandgap), 1.0, 0.0)
+        self.dos = DOS(dos=self.dos_data, edos=self.edos, bandgap=self.bandgap, nelect=10)
+        self.ef, self.T = 1.0, 600.0
+        self._cbm = int(np.flatnonzero((self.dos.dos > 1e-8) & (self.dos.edos > 1.0))[0])
+
+    def test_widening_increases_bandgap(self):
+        self.assertAlmostEqual(self.dos.scissored(1.0).bandgap, 3.0)
+
+    def test_narrowing_decreases_bandgap(self):
+        self.assertAlmostEqual(self.dos.scissored(-1.0).bandgap, 1.0)
+
+    def test_zero_delta_returns_equivalent_dos(self):
+        same = self.dos.scissored(0.0)
+        self.assertIsNot(same, self.dos)
+        self.assertEqual(same.bandgap, self.dos.bandgap)
+        np.testing.assert_allclose(
+            same.carrier_concentrations(self.ef, self.T),
+            self.dos.carrier_concentrations(self.ef, self.T),
+        )
+
+    def test_conduction_shape_relocated_unchanged(self):
+        wide = self.dos.scissored(1.0)
+        orig_cond = self.dos.dos[self._cbm :]
+        new_cond = wide.dos[-orig_cond.size :]
+        np.testing.assert_allclose(new_cond, orig_cond)
+        np.testing.assert_allclose(
+            wide.edos[-orig_cond.size :], self.dos.edos[self._cbm :] + 1.0
+        )
+
+    def test_widening_leaves_holes_and_drops_electrons(self):
+        p0, n0 = self.dos.carrier_concentrations(self.ef, self.T)
+        pw, nw = self.dos.scissored(1.0).carrier_concentrations(self.ef, self.T)
+        self.assertAlmostEqual(pw, p0)
+        self.assertLess(nw, n0)
+
+    def test_narrowing_raises_electrons(self):
+        p0, n0 = self.dos.carrier_concentrations(self.ef, self.T)
+        pn, nn = self.dos.scissored(-1.0).carrier_concentrations(self.ef, self.T)
+        self.assertAlmostEqual(pn, p0)
+        self.assertGreater(nn, n0)
+
+    def test_over_narrowing_below_grid_resolution_raises(self):
+        # gap 2.0 -> 0.05 eV (< 0.1 eV spacing): clips occupied states.
+        with self.assertRaises(ValueError) as ctx:
+            self.dos.scissored(-1.95)
+        self.assertIn("narrows", str(ctx.exception))
+
+    def test_no_conduction_states_raises(self):
+        edos = np.linspace(-10.0, 10.0, 201)
+        dos_data = np.where(edos <= 0, 1.0, 0.0)  # all density in the valence band
+        dos = DOS(dos=dos_data, edos=edos, bandgap=2.0, nelect=10)
+        with self.assertRaises(ValueError) as ctx:
+            dos.scissored(0.5)
+        self.assertIn("no conduction states", str(ctx.exception))
+
+    def test_scissor_gapless_dos_raises(self):
+        # A metal (zero gap) has no gap to scissor; scissoring would otherwise
+        # fabricate one silently, which is meaningless for a semiconductor tool.
+        dos = DOS(dos=np.ones(101), edos=np.linspace(-5.0, 5.0, 101), bandgap=0.0, nelect=10)
+        with self.assertRaises(ValueError) as ctx:
+            dos.scissored(0.5)
+        self.assertIn("gapless", str(ctx.exception))
+
+    def test_valence_and_nelect_unchanged(self):
+        wide = self.dos.scissored(1.0)
+        self.assertEqual(wide.nelect, self.dos.nelect)
+        # valence prefix (densities up to the VBM) is unchanged
+        np.testing.assert_allclose(wide.dos[: self._cbm - 1], self.dos.dos[: self._cbm - 1])
+        # re-normalisation is (near-)identity: holes unchanged
+        p0, _ = self.dos.carrier_concentrations(self.ef, self.T)
+        pw, _ = wide.carrier_concentrations(self.ef, self.T)
+        np.testing.assert_allclose(pw, p0)
+
+    def test_shift_is_exact_not_snapped_to_grid(self):
+        # 0.37 eV is not a multiple of the 0.1 eV grid spacing: the conduction
+        # block must move by exactly 0.37, not snap to a grid point.
+        delta = 0.37
+        wide = self.dos.scissored(delta)
+        self.assertAlmostEqual(wide.bandgap, self.bandgap + delta)
+        orig_cond_edos = self.dos.edos[self._cbm :]
+        np.testing.assert_allclose(wide.edos[-orig_cond_edos.size :], orig_cond_edos + delta)
+
+    def test_spin_polarised_input_scissors_via_summed_total(self):
+        # A spin-polarised DOS is summed to a total in __init__; scissoring must
+        # operate on that total and return a non-spin-polarised DOS. The
+        # spin_polarised=False on the return is load-bearing: propagating True
+        # would re-sum the already-1D total in __init__.
+        channel = np.where((self.edos <= 0) | (self.edos >= self.bandgap), 0.5, 0.0)
+        spin_dos = DOS(
+            dos=np.array([channel, channel]), edos=self.edos,
+            bandgap=self.bandgap, nelect=10, spin_polarised=True,
+        )
+        wide = spin_dos.scissored(1.0)
+        self.assertFalse(wide.spin_polarised)
+        self.assertAlmostEqual(wide.bandgap, 3.0)
+        # the summed total matches scissoring the equivalent non-spin DOS
+        np.testing.assert_allclose(wide.dos, self.dos.scissored(1.0).dos)
+
+    def test_scissor_matches_a_fermi_level_shift_for_electrons(self):
+        # The electron magnitude after a delta scissor equals the base DOS at a
+        # Fermi level lowered by delta. This pins the band-edge onset point -- the
+        # one part of the reshaping the array and direction tests do not cover.
+        # (Equals doped's scissor_dos, cross-checked once against doped 2.4.7.)
+        for delta in (1.0, -1.0):
+            _, n = self.dos.scissored(delta).carrier_concentrations(self.ef, self.T)
+            _, n_ref = self.dos.carrier_concentrations(self.ef - delta, self.T)
+            np.testing.assert_allclose(n, n_ref, rtol=1e-9)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from pymatgen.electronic_structure.core import Spin  # type: ignore[import-untyped]
 from pymatgen.io.vasp import Vasprun  # type: ignore[import-untyped]
@@ -16,11 +18,22 @@ class DOS:
     Class for handling density-of-states data and its integration.
 
     Args:
-        dos (np.ndarray): density-of-states data.
-        edos (np.ndarray): energies associated with density-of-states data.
+        dos (np.ndarray): density-of-states data, of shape ``(len(edos),)``,
+            or ``(2, len(edos))`` (one row per spin channel) when
+            ``spin_polarised`` is True.
+        edos (np.ndarray): energies associated with density-of-states data,
+            strictly increasing, with the valence-band maximum at E = 0.
         bandgap (float): band gap
         nelect (int): number of electrons in density-of-states calculation
         spin_polarised (bool): is the calculated density-of-states spin polarised?
+
+    Raises:
+        ValueError: if ``dos`` does not have the shape implied by
+            ``spin_polarised`` and ``len(edos)``, ``edos`` is not strictly
+            increasing or does not bracket zero, ``bandgap`` is not finite
+            and non-negative or is above ``max(edos)``, or the density
+            integrated below mid-gap is not finite and positive (see
+            ``normalise_dos``).
     """
 
     def __init__(
@@ -31,6 +44,23 @@ class DOS:
         nelect: int,
         spin_polarised: bool = False,
     ):
+        dos = np.asarray(dos, dtype=float)
+        edos = np.asarray(edos, dtype=float)
+        expected_shape = (2, len(edos)) if spin_polarised else (len(edos),)
+        if dos.shape != expected_shape:
+            raise ValueError(
+                f"dos has shape {dos.shape}; with "
+                f"spin_polarised={spin_polarised} and {len(edos)} energy "
+                f"points it must have shape {expected_shape} (a "
+                "spin-polarised DOS is given as one row per spin channel)."
+            )
+        if not np.all(np.diff(edos) > 0):
+            raise ValueError(
+                "edos must be strictly increasing (sorted by energy, with no "
+                "duplicate points)."
+            )
+        if not math.isfinite(bandgap):
+            raise ValueError(f"bandgap must be finite, got {bandgap}.")
         self._edos = edos
         self._bandgap = bandgap
         self._nelect = nelect
@@ -125,16 +155,25 @@ class DOS:
         nelect: int | None = None,
         bandgap: float | None = None,
     ) -> DOS:
-        """Generate DOS object from a VASP vasprun.xml
-        file. As this is parsed using pymatgen, the number of electrons is not
-        contained in the vasprun data and must be passed in. On the other hand,
-        If the bandgap is not passed in, it can be read from the vasprun file.
+        """Generate a ``DOS`` object from a VASP ``vasprun.xml`` file, parsed
+        with pymatgen. If ``nelect`` is not given it is read from the vasprun's
+        ``NELECT`` parameter; if ``bandgap`` is not given it is read from the
+        vasprun's eigenvalue band properties.
 
         Args:
-            path_to_vasprun (str): path to vasprun file
-            nelect (int): number of electrons in vasp calculation associated with
-              the vasprun
-            bandgap (float | None, optional): bandgap. Defaults to None.
+            path_to_vasprun (str): path to the vasprun file.
+            nelect (int | None, optional): number of electrons in the VASP
+              calculation. Defaults to None (read from the vasprun's ``NELECT``
+              parameter).
+            bandgap (float | None, optional): band gap. Defaults to None (read
+              from the vasprun).
+
+        Returns:
+            DOS: a ``DOS`` object built from the vasprun data.
+
+        Raises:
+            TypeError: if pymatgen's ``eigenvalue_band_properties`` does not have
+              the expected ``tuple[float, float, float, bool]`` format.
         """
         vr = Vasprun(
             path_to_vasprun,
@@ -199,18 +238,16 @@ class DOS:
             dict: DOS as dictionary
 
         Note:
-            The defect dictionary will always report the DOS data is not spin
-            polarised, even if the input data was. This is an artefact related
-            to maintaining the ability of `py-sc-fermi` to read files formatted
-            for the FORTRAN SC-Fermi code. Future versions will consider how
-            the code parses these files such that this is no longer an issue.
+            ``spin_pol`` is always ``False``: a spin-polarised DOS is summed
+            into a single total at construction, so the stored density is
+            single-channel and reloads identically from this dictionary.
         """
 
         return dict(
             nelect=int(self.nelect),
             bandgap=float(self.bandgap),
-            edos=list(self.edos),
-            dos=list(self.dos),
+            edos=self.edos.tolist(),
+            dos=self.dos.tolist(),
             spin_pol=False,
         )
 
@@ -221,14 +258,28 @@ class DOS:
                 the grid point closest to the VBM if that sits above mid-gap
                 (narrow-gap case).
         """
-        idx = self._p0_integration_idx
-        return trapezoid(self._dos[:idx], self._edos[:idx])
+        return trapezoid(
+            self._dos[: self._p0_integration_idx], self._edos[: self._p0_integration_idx]
+        )
 
     def normalise_dos(self) -> None:
         """normalises the density of states w.r.t. number of electrons in the
         density-of-states unit cell (``self.nelect``)
+
+        Raises:
+            ValueError: if the density integrated below mid-gap is not finite
+                and positive, so no normalisation exists -- typically an
+                energy grid that is not referenced with the valence-band
+                maximum at E = 0, or a density containing NaN.
         """
-        integrated_dos = self.sum_dos()
+        integrated_dos = float(self.sum_dos())
+        if not (math.isfinite(integrated_dos) and integrated_dos > 0):
+            raise ValueError(
+                f"the DOS integrates to {integrated_dos} below mid-gap, so it "
+                "cannot be normalised to nelect; check that edos is "
+                "referenced with the valence-band maximum at E = 0 and that "
+                "the density is non-negative and free of NaN."
+            )
         self._dos = self._dos / integrated_dos * self._nelect
 
     def emin(self) -> float:
@@ -279,3 +330,52 @@ class DOS:
             1.0
             + np.exp((self.edos[self._n0_integration_idx :] - e_fermi) / (kboltz * temperature))
         )
+
+    def scissored(self, delta_gap: float, tol: float = 1e-8) -> DOS:
+        """Return a copy of this ``DOS`` with the band gap rigidly changed by
+        ``delta_gap`` eV.
+
+        The valence band is held at the E = 0 reference and the conduction block
+        is shifted by exactly ``delta_gap``; a single zero-density point is placed
+        one band-edge grid spacing below the new conduction-band minimum so the
+        band-edge onset is discretised exactly as before. The gap interior is not
+        re-gridded, as it carries no density.
+
+        Args:
+            delta_gap: change in band gap (eV); positive widens, negative narrows.
+            tol: density threshold, used both to locate the conduction-band
+                minimum and to detect occupied states that a narrowing scissor
+                would clip.
+
+        Returns:
+            DOS: a new ``DOS`` with gap ``bandgap + delta_gap``; the valence band
+            and ``nelect`` are unchanged.
+
+        Raises:
+            ValueError: if the DOS is gapless (zero band gap), if no conduction
+                states are found, or if narrowing would shrink the gap below the
+                grid resolution and clip occupied states.
+        """
+        if delta_gap == 0.0:
+            return DOS(self._dos.copy(), self._edos.copy(), self._bandgap,
+                       self._nelect, spin_polarised=False)
+        if self._bandgap == 0.0:
+            raise ValueError(
+                "cannot scissor a gapless DOS (band gap is 0); py-sc-fermi "
+                "models semiconductors with a finite band gap."
+            )
+        conduction = np.flatnonzero((self._dos > tol) & (self._edos > self._bandgap / 2.0))
+        if conduction.size == 0:
+            raise ValueError("no conduction states found above mid-gap; cannot scissor.")
+        cbm = int(conduction[0])
+        h = self._edos[cbm] - self._edos[cbm - 1]      # band-edge spacing to preserve
+        onset = self._edos[cbm] + delta_gap - h        # single zero point below the new CBM
+        m = int(np.searchsorted(self._edos[:cbm], onset))
+        if np.any(self._dos[m:cbm] > tol):             # narrowing past the grid resolution
+            raise ValueError(
+                f"scissor of {delta_gap:+g} eV narrows the gap below the grid "
+                f"resolution and would clip occupied states."
+            )
+        edos = np.concatenate([self._edos[:m], [onset], self._edos[cbm:] + delta_gap])
+        dos = np.concatenate([self._dos[:m], [0.0], self._dos[cbm:]])
+        return DOS(dos, edos, self._bandgap + delta_gap, self._nelect, spin_polarised=False)
